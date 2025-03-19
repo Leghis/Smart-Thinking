@@ -101,6 +101,7 @@ export interface SmartThinkingParams {
   sessionId?: string;
   userId?: string;
   visualizationType?: 'graph' | 'chronological' | 'thematic';
+  help?: boolean;
 }
 
 // Réponse de l'outil Smart-Thinking

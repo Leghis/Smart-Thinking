@@ -23,7 +23,7 @@ Un serveur MCP (Model Context Protocol) qui fournit un cadre de raisonnement mul
 npm install -g smart-thinking-mcp
 
 # Ou depuis GitHub
-git clone https://github.com/votre-nom/smart-thinking-mcp.git
+git clone https://github.com/Leghis/Smart-Thinking.git
 cd smart-thinking-mcp
 npm install
 npm run build
