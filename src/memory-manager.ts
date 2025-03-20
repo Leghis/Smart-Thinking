@@ -1,4 +1,6 @@
 import { MemoryItem } from './types';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 /**
  * Classe qui gère la mémoire persistante des sessions précédentes
@@ -6,6 +8,11 @@ import { MemoryItem } from './types';
 export class MemoryManager {
   private memories: Map<string, MemoryItem> = new Map();
   private knowledgeBase: Map<string, any> = new Map();
+  
+  // Chemins pour les fichiers de persistance
+  private dataDir = path.join(process.cwd(), 'data');
+  private memoriesDir = path.join(this.dataDir, 'memories');
+  private knowledgeFilePath = path.join(this.dataDir, 'knowledge.json');
   
   constructor() {
     // Charger les mémoires et la base de connaissances depuis le stockage persistant
@@ -20,13 +27,64 @@ export class MemoryManager {
   }
   
   /**
-   * Charge les mémoires et la base de connaissances depuis le stockage persistant
-   * Dans une implémentation réelle, cela pourrait être un fichier, une base de données, etc.
+   * Assure que les répertoires de stockage nécessaires existent
    */
-  private loadFromStorage(): void {
+  private async ensureDirectoriesExist(): Promise<void> {
     try {
-      // Simuler le chargement depuis un stockage
-      // Dans une implémentation réelle, remplacer par une lecture de fichier/DB
+      // Créer les répertoires data et memories s'ils n'existent pas
+      await fs.mkdir(this.memoriesDir, { recursive: true });
+      
+      console.error('Smart-Thinking: Répertoires de données créés ou confirmés');
+    } catch (error) {
+      console.error('Smart-Thinking: Erreur lors de la création des répertoires:', error);
+      // Ne pas interrompre l'application si la création échoue
+    }
+  }
+  
+  /**
+   * Charge les mémoires et la base de connaissances depuis le stockage persistant
+   */
+  private async loadFromStorage(): Promise<void> {
+    try {
+      // S'assurer que les répertoires existent
+      await this.ensureDirectoriesExist();
+      
+      // Essayer de charger les mémoires depuis le répertoire memories
+      const memoriesLoaded = await this.loadMemoriesFromFiles();
+      
+      // Si aucune mémoire n'a été chargée, utiliser les exemples prédéfinis
+      if (!memoriesLoaded) {
+        const savedMemories = this.getSavedMemories();
+        
+        if (savedMemories.length > 0) {
+          for (const memory of savedMemories) {
+            this.memories.set(memory.id, {
+              ...memory,
+              timestamp: new Date(memory.timestamp)
+            });
+          }
+        }
+      }
+      
+      // Essayer de charger la base de connaissances depuis le fichier knowledge.json
+      const knowledgeLoaded = await this.loadKnowledgeFromFile();
+      
+      // Si la base de connaissances n'a pas été chargée, utiliser les exemples prédéfinis
+      if (!knowledgeLoaded) {
+        const savedKnowledge = this.getSavedKnowledge();
+        
+        if (Object.keys(savedKnowledge).length > 0) {
+          for (const [key, value] of Object.entries(savedKnowledge)) {
+            this.knowledgeBase.set(key, value);
+          }
+        }
+      }
+      
+      console.error('Smart-Thinking: Chargement des données terminé');
+    } catch (error) {
+      console.error('Erreur lors du chargement de la mémoire:', error);
+      
+      // En cas d'erreur, utiliser les données prédéfinies
       const savedMemories = this.getSavedMemories();
       
       if (savedMemories.length > 0) {
@@ -38,7 +96,6 @@ export class MemoryManager {
         }
       }
       
-      // Charger la base de connaissances
       const savedKnowledge = this.getSavedKnowledge();
       
       if (Object.keys(savedKnowledge).length > 0) {
@@ -46,14 +103,88 @@ export class MemoryManager {
           this.knowledgeBase.set(key, value);
         }
       }
+    }
+  }
+  
+  /**
+   * Charge les mémoires depuis les fichiers dans le répertoire memories
+   * @returns true si au moins une mémoire a été chargée, false sinon
+   */
+  private async loadMemoriesFromFiles(): Promise<boolean> {
+    try {
+      // Lire la liste des fichiers dans le répertoire memories
+      const files = await fs.readdir(this.memoriesDir);
+      const jsonFiles = files.filter(file => file.endsWith('.json'));
+      
+      if (jsonFiles.length === 0) {
+        return false;
+      }
+      
+      let memoryLoaded = false;
+      
+      // Charger chaque fichier JSON
+      for (const file of jsonFiles) {
+        try {
+          const filePath = path.join(this.memoriesDir, file);
+          const content = await fs.readFile(filePath, 'utf8');
+          const memoryItems = JSON.parse(content) as MemoryItem[];
+          
+          // Traiter chaque élément de mémoire dans le fichier
+          for (const item of memoryItems) {
+            // Convertir la chaîne de date en objet Date
+            this.memories.set(item.id, {
+              ...item,
+              timestamp: new Date(item.timestamp)
+            });
+            memoryLoaded = true;
+          }
+        } catch (fileError) {
+          console.error(`Erreur lors du chargement du fichier ${file}:`, fileError);
+          // Continuer avec le fichier suivant
+        }
+      }
+      
+      return memoryLoaded;
     } catch (error) {
-      console.error('Erreur lors du chargement de la mémoire:', error);
+      console.error('Erreur lors du chargement des mémoires depuis les fichiers:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Charge la base de connaissances depuis le fichier knowledge.json
+   * @returns true si la base de connaissances a été chargée, false sinon
+   */
+  private async loadKnowledgeFromFile(): Promise<boolean> {
+    try {
+      // Vérifier si le fichier knowledge.json existe
+      const exists = await fs.stat(this.knowledgeFilePath)
+        .then(() => true)
+        .catch(() => false);
+      
+      if (!exists) {
+        return false;
+      }
+      
+      // Lire le fichier knowledge.json
+      const content = await fs.readFile(this.knowledgeFilePath, 'utf8');
+      const knowledge = JSON.parse(content) as Record<string, any>;
+      
+      // Traiter chaque entrée de la base de connaissances
+      for (const [key, value] of Object.entries(knowledge)) {
+        this.knowledgeBase.set(key, value);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erreur lors du chargement de la base de connaissances:', error);
+      return false;
     }
   }
   
   /**
    * Simule la récupération de mémoires sauvegardées
-   * Dans une implémentation réelle, remplacer par une lecture de fichier/DB
+   * Utilisé comme fallback si aucun fichier n'est disponible
    */
   private getSavedMemories(): MemoryItem[] {
     // Exemple de mémoires préconfigurées pour la démonstration
@@ -81,7 +212,7 @@ export class MemoryManager {
   
   /**
    * Simule la récupération de connaissances sauvegardées
-   * Dans une implémentation réelle, remplacer par une lecture de fichier/DB
+   * Utilisé comme fallback si aucun fichier n'est disponible
    */
   private getSavedKnowledge(): Record<string, any> {
     // Exemple de connaissances préconfigurées pour la démonstration
@@ -99,16 +230,52 @@ export class MemoryManager {
   
   /**
    * Sauvegarde l'état actuel dans le stockage persistant
-   * Dans une implémentation réelle, cela pourrait être un fichier, une base de données, etc.
    */
-  private saveToStorage(): void {
+  private async saveToStorage(): Promise<void> {
     try {
-      // Simuler la sauvegarde dans un stockage
-      // Dans une implémentation réelle, remplacer par une écriture de fichier/DB
-      console.log('Mémoires sauvegardées:', Array.from(this.memories.values()));
-      console.log('Base de connaissances sauvegardée:', Object.fromEntries(this.knowledgeBase));
+      // S'assurer que les répertoires existent
+      await this.ensureDirectoriesExist();
+      
+      // Préparer les mémoires par session pour la sauvegarde
+      const memoriesBySession = new Map<string, MemoryItem[]>();
+      
+      // Regrouper les mémoires par session
+      for (const memory of this.memories.values()) {
+        // Déterminer l'ID de session (utiliser 'default' si non spécifié)
+        const sessionId = memory.metadata?.sessionId || 'default';
+        
+        if (!memoriesBySession.has(sessionId)) {
+          memoriesBySession.set(sessionId, []);
+        }
+        
+        memoriesBySession.get(sessionId)!.push(memory);
+      }
+      
+      // Sauvegarder chaque groupe de mémoires dans un fichier par session
+      for (const [sessionId, memories] of memoriesBySession.entries()) {
+        const filePath = path.join(this.memoriesDir, `${sessionId}.json`);
+        
+        await fs.writeFile(
+          filePath,
+          JSON.stringify(memories, null, 2),
+          'utf8'
+        );
+      }
+      
+      // Sauvegarder la base de connaissances
+      await fs.writeFile(
+        this.knowledgeFilePath,
+        JSON.stringify(Object.fromEntries(this.knowledgeBase), null, 2),
+        'utf8'
+      );
+      
+      console.error('Smart-Thinking: Données sauvegardées avec succès');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de la mémoire:', error);
+      
+      // En cas d'erreur, afficher les données qui auraient dû être sauvegardées (pour débogage)
+      console.error('Mémoires qui auraient dû être sauvegardées:', Array.from(this.memories.values()));
+      console.error('Base de connaissances qui aurait dû être sauvegardée:', Object.fromEntries(this.knowledgeBase));
     }
   }
   

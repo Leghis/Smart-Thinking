@@ -39,3 +39,4 @@ coverage/
 .cache/
 
 package-lock.json
+data

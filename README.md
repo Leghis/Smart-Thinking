@@ -15,6 +15,7 @@ Un serveur MCP (Model Context Protocol) qui fournit un cadre de raisonnement mul
 - 👥 **Capacités de collaboration avancées** pour le travail d'équipe
 - 🔌 **Écosystème d'outils MCP** profondément intégré
 - 🤔 **Fonctionnalités de méta-cognition avancées** pour l'auto-analyse
+- 💿 **Persistance réelle des données** entre les sessions via le système de fichiers
 
 ## Installation
 
@@ -72,6 +73,17 @@ Une fois configuré, Smart-Thinking peut être utilisé par Claude pour structur
    Utilise Smart-Thinking avec recherche pour analyser les dernières avancées en IA.
    ```
 
+## Persistance des Données
+
+Smart-Thinking intègre désormais un véritable système de persistance des données, stockant les mémoires et la base de connaissances dans des fichiers JSON sur le système de fichiers. Cela permet:
+
+- Conservation des pensées et de leurs connexions entre les sessions
+- Accumulation de valeur et d'intelligence au fil du temps
+- Organisation des mémoires par session pour une meilleure gestion
+- Stockage fiable avec gestion des erreurs robuste
+
+Pour plus de détails sur la structure des données et leur gestion, consultez le fichier [README_DATA.md](README_DATA.md).
+
 ## Comparaison avec Sequential-Thinking
 
 Smart-Thinking représente une évolution majeure par rapport à Sequential-Thinking, apportant:
@@ -80,6 +92,7 @@ Smart-Thinking représente une évolution majeure par rapport à Sequential-Thin
 2. Une capacité d'adaptation dynamique au contexte et aux besoins
 3. Des fonctionnalités avancées de mémoire, d'auto-apprentissage et de collaboration
 4. Une intégration plus profonde avec l'écosystème d'outils MCP
+5. Une persistance réelle des données entre les sessions
 
 ## Architecture technique
 
@@ -93,9 +106,13 @@ smart-thinking-mcp/
 │   ├── quality-evaluator.ts  # Évaluation de la qualité des pensées
 │   ├── visualizer.ts         # Générateur de visualisations
 │   └── types.ts              # Définitions des types TypeScript
+├── data/                     # Répertoire de stockage des données (créé automatiquement)
+│   ├── memories/             # Mémoires persistantes
+│   └── knowledge.json        # Base de connaissances
 ├── package.json
 ├── tsconfig.json
 ├── README.md
+├── README_DATA.md            # Documentation sur la structure des données
 └── LICENSE
 ```
 

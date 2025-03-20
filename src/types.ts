@@ -80,6 +80,7 @@ export interface MemoryItem {
   tags: string[];
   timestamp: Date;
   relevanceScore?: number; // Calculé dynamiquement
+  metadata?: Record<string, any>; // Métadonnées optionnelles (sessionId, etc.)
 }
 
 // Suggestion pour la prochaine étape

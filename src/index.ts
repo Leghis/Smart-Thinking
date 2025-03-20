@@ -9,10 +9,17 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { SmartThinkingParams, SmartThinkingResponse } from './types';
+import path from 'path';
+import { promises as fs } from 'fs';
 
 /**
  * Point d'entrée du serveur MCP Smart-Thinking
  */
+
+// Récupérer les informations du package.json pour la version
+// La version sera mise à jour en 2.0.0 lors de la mise à jour majeure via npm version major
+const packageInfo = require(path.join(__dirname, '..', 'package.json'));
+const version = packageInfo.version || '1.0.3';
 
 // Afficher un message de bienvenue sur stderr (n'affecte pas la communication JSON)
 console.error(`
@@ -21,7 +28,7 @@ console.error(`
 ║      Smart-Thinking MCP Server                               ║
 ║      Un outil de raisonnement multi-dimensionnel avancé      ║
 ║                                                              ║
-║      Version: 1.0.0                                          ║
+║      Version: ${version}                                     ║
 ║                                                              ║
 ║      Démarrage du serveur...                                 ║
 ║                                                              ║
@@ -38,7 +45,7 @@ const visualizer = new Visualizer();
 // Créer une instance du serveur MCP
 const server = new McpServer({
   name: "smart-thinking-mcp",
-  version: "1.0.0",
+  version: version,
   capabilities: {}
 });
 
@@ -329,9 +336,24 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
 // Créer et connecter le transport
 const transport = new StdioServerTransport();
 
+// Assurer que le répertoire data existe lors du démarrage
+async function ensureDataDirExists() {
+  const dataDir = path.join(process.cwd(), 'data');
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    console.error('Smart-Thinking: Répertoire data créé ou confirmé');
+  } catch (error) {
+    console.error('Smart-Thinking: Erreur lors de la création du répertoire data:', error);
+    // Ne pas interrompre l'application si la création échoue
+  }
+}
+
 // Démarrer le serveur
 async function start() {
   try {
+    // S'assurer que le répertoire data existe
+    await ensureDataDirExists();
+    
     await server.connect(transport);
     // Utiliser console.error pour éviter que ces messages soient interprétés comme du JSON
     console.error('Smart-Thinking MCP Server démarré avec succès.');

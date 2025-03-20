@@ -88,11 +88,11 @@ Pour confirmer que Smart-Thinking fonctionne correctement, vérifiez :
 
 1. **Dans le terminal** : vous devriez voir des logs indiquant que Smart-Thinking traite les pensées
 2. **Dans la réponse de Claude** : les résultats devraient inclure :
-   - Un identifiant de pensée (thoughtId)
-   - Des métriques de qualité (confidence, relevance, quality)
-   - Des suggestions d'outils (si demandées)
-   - Une visualisation (si demandée)
-   - Des suggestions pour les prochaines étapes de raisonnement
+    - Un identifiant de pensée (thoughtId)
+    - Des métriques de qualité (confidence, relevance, quality)
+    - Des suggestions d'outils (si demandées)
+    - Une visualisation (si demandée)
+    - Des suggestions pour les prochaines étapes de raisonnement
 
 ## Déploiement sur npm
 
