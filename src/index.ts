@@ -9,7 +9,7 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
-import { SmartThinkingParams, SmartThinkingResponse } from './types';
+import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions } from './types';
 import path from 'path';
 import { promises as fs } from 'fs';
 
@@ -53,6 +53,31 @@ const server = new McpServer({
   version: version,
   capabilities: {}
 });
+
+// Schémas Zod pour les options avancées
+const FilterOptionsSchema = z.object({
+  nodeTypes: z.array(z.enum(['regular', 'revision', 'meta', 'hypothesis', 'conclusion'])).optional(),
+  connectionTypes: z.array(z.enum(['supports', 'contradicts', 'refines', 'branches', 'derives', 'associates'])).optional(),
+  metricThresholds: z.object({
+    confidence: z.tuple([z.number(), z.number()]).optional(),
+    relevance: z.tuple([z.number(), z.number()]).optional(),
+    quality: z.tuple([z.number(), z.number()]).optional()
+  }).optional(),
+  textSearch: z.string().optional(),
+  dateRange: z.tuple([z.date(), z.date()]).optional(),
+  customFilters: z.record(z.any()).optional()
+}).optional();
+
+const InteractivityOptionsSchema = z.object({
+  zoomable: z.boolean().optional(),
+  draggable: z.boolean().optional(),
+  selectable: z.boolean().optional(),
+  tooltips: z.boolean().optional(),
+  expandableNodes: z.boolean().optional(),
+  initialZoom: z.number().optional(),
+  zoomRange: z.tuple([z.number(), z.number()]).optional(),
+  highlightOnHover: z.boolean().optional()
+}).optional();
 
 // Définir le schéma des paramètres pour l'outil smartthinking
 const SmartThinkingParamsSchema = z.object({
@@ -98,12 +123,15 @@ const SmartThinkingParamsSchema = z.object({
       'Crée une représentation visuelle du réseau de pensées et leurs connexions selon le type de visualisation choisi'
     ),
   
-  visualizationType: z.enum(['graph', 'chronological', 'thematic']).default('graph')
+  visualizationType: z.enum(['graph', 'chronological', 'thematic', 'hierarchical', 'force', 'radial']).default('graph')
     .describe(
       'Type de visualisation à générer:\n' +
       '- "graph": Réseau de connexions entre pensées montrant les relations directes\n' +
       '- "chronological": Timeline séquentielle montrant l\'évolution temporelle du raisonnement\n' +
-      '- "thematic": Clusters par thème regroupant les pensées selon leurs similitudes conceptuelles'
+      '- "thematic": Clusters par thème regroupant les pensées selon leurs similitudes conceptuelles\n' +
+      '- "hierarchical": Structure arborescente montrant les niveaux hiérarchiques entre les pensées\n' +
+      '- "force": Disposition dynamique basée sur les forces d\'attraction/répulsion\n' +
+      '- "radial": Disposition en cercles concentriques autour d\'une pensée centrale'
     ),
   
   suggestTools: z.boolean().default(true)
@@ -129,7 +157,24 @@ const SmartThinkingParamsSchema = z.object({
     .describe(
       'Afficher le guide d\'utilisation complet - Exemple: true - ' +
       'Renvoie une documentation détaillée sur l\'utilisation de Smart-Thinking, ses fonctionnalités et des exemples d\'utilisation'
-    )
+    ),
+
+  // Nouvelles options avancées de visualisation
+  visualizationOptions: z.object({
+    clusterBy: z.enum(['type', 'theme', 'metric', 'connectivity']).optional()
+      .describe('Critère de regroupement des nœuds en clusters'),
+    direction: z.enum(['LR', 'RL', 'TB', 'BT']).optional().default('TB')
+      .describe('Direction de la disposition hiérarchique (Left-Right, Right-Left, Top-Bottom, Bottom-Top)'),
+    centerNode: z.string().optional()
+      .describe('ID du nœud central pour les visualisations radiales ou hiérarchiques'),
+    maxDepth: z.number().optional()
+      .describe('Profondeur maximale pour les visualisations hiérarchiques ou radiales'),
+    filters: FilterOptionsSchema
+      .describe('Options de filtrage des nœuds et des liens'),
+    interactivity: InteractivityOptionsSchema
+      .describe('Options d\'interactivité pour la visualisation')
+  }).optional()
+    .describe('Options avancées pour la visualisation')
 });
 
 // Le guide d'utilisation est maintenant intégré directement dans les descriptions des paramètres
@@ -178,9 +223,12 @@ Smart-Thinking est un outil de raisonnement avancé qui permet d'organiser les p
 - Enrichissement progressif de la base de connaissances
 
 ### 4. Visualisations avancées
-- **graph**: Réseau de connexions entre pensées
+- **graph**: Réseau standard de connexions entre pensées
 - **chronological**: Timeline du développement du raisonnement
 - **thematic**: Regroupement par clusters thématiques
+- **hierarchical**: Structure arborescente avec niveaux hiérarchiques
+- **force**: Disposition dynamique basée sur forces d'attraction/répulsion
+- **radial**: Disposition en cercles concentriques autour d'un nœud central
 
 ### 5. Intégration d'outils externes
 - Suggestions contextuelles d'outils MCP pertinents
@@ -193,11 +241,13 @@ Smart-Thinking est un outil de raisonnement avancé qui permet d'organiser les p
 Utilise l'outil smartthinking avec thought="L'intelligence artificielle va transformer profondément le marché du travail dans les prochaines décennies."
 \`\`\`
 
-### Exemple 2: Avec visualisation
+### Exemple 2: Avec visualisation avancée
 \`\`\`
 Utilise l'outil smartthinking avec:
 thought="Les énergies renouvelables représentent une solution viable au changement climatique, mais posent des défis d'implémentation."
 generateVisualization=true
+visualizationType="force"
+visualizationOptions={clusterBy:"theme"}
 \`\`\`
 
 ### Exemple 3: Pensée de type hypothèse avec suggestions
@@ -222,6 +272,7 @@ connections=[{targetId:"PENSEE-ID-PRECEDENTE", type:"refines", strength:0.8}]
 3. **Créez des connexions riches**: Variez les types de connexions pour un réseau de pensée plus nuancé
 4. **Alternez analyse et synthèse**: Combinez l'exploration détaillée avec des moments de synthèse
 5. **Exploitez les visualisations**: Utilisez différents types de visualisation selon vos besoins d'analyse
+6. **Filtrez et interagissez**: Utilisez les options avancées de filtrage et d'interactivité pour explorer les graphes complexes
 
 Pour plus d'informations, consultez le paramètre help=true de l'outil.
 `;
@@ -288,9 +339,10 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
       response.suggestedTools = toolIntegrator.suggestTools(params.thought);
     }
     
-    // Si demandé, générer une visualisation
+    // Si demandé, générer une visualisation avec les nouvelles options
     if (params.generateVisualization) {
       const visualizationType = params.visualizationType || 'graph';
+      const visualizationOptions = params.visualizationOptions || {};
       
       switch (visualizationType) {
         case 'chronological':
@@ -299,10 +351,54 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         case 'thematic':
           response.visualization = visualizer.generateThematicVisualization(thoughtGraph);
           break;
+        case 'hierarchical':
+          response.visualization = visualizer.generateHierarchicalVisualization(
+            thoughtGraph, 
+            visualizationOptions.centerNode,
+            {
+              direction: visualizationOptions.direction as any, // Cast pour TS
+              levelSeparation: 100,
+              clusterBy: visualizationOptions.clusterBy as any // Cast pour TS
+            }
+          );
+          break;
+        case 'force':
+          response.visualization = visualizer.generateForceDirectedVisualization(
+            thoughtGraph,
+            {
+              clusterBy: visualizationOptions.clusterBy as any, // Cast pour TS
+              forceStrength: 0.5,
+              centerNode: visualizationOptions.centerNode
+            }
+          );
+          break;
+        case 'radial':
+          response.visualization = visualizer.generateRadialVisualization(
+            thoughtGraph,
+            visualizationOptions.centerNode,
+            {
+              maxDepth: visualizationOptions.maxDepth,
+              radialDistance: 120
+            }
+          );
+          break;
         case 'graph':
         default:
           response.visualization = visualizer.generateVisualization(thoughtGraph, thoughtId);
           break;
+      }
+      
+      // Appliquer les filtres si spécifiés
+      if (visualizationOptions.filters && response.visualization) {
+        response.visualization = visualizer.applyFilters(
+          response.visualization,
+          visualizationOptions.filters as FilterOptions // Cast pour TS
+        );
+      }
+      
+      // Simplifier la visualisation si elle est trop grande
+      if (response.visualization && response.visualization.nodes.length > 100) {
+        response.visualization = visualizer.simplifyVisualization(response.visualization);
       }
     }
     
@@ -373,7 +469,13 @@ async function start() {
     console.error('"Utilise l\'outil smartthinking avec les paramètres suivants:\n');
     console.error('thought: Voici ma pensée à analyser\n');
     console.error('thoughtType: regular\n');
-    console.error('generateVisualization: true"');
+    console.error('generateVisualization: true\n');
+    console.error('visualizationType: hierarchical"');
+    console.error('\nPour des options avancées:');
+    console.error('"Utilise l\'outil smartthinking avec:\n');
+    console.error('thought: Voici ma pensée à analyser\n');
+    console.error('visualizationType: force\n');
+    console.error('visualizationOptions: {clusterBy: "theme", centerNode: "id-du-noeud"}"');
     console.error('\nPar défaut, l\'outil fournit sa documentation à Claude. Si vous voulez désactiver cela:');
     console.error('"Utilise l\'outil smartthinking avec help=false et thought=..."');
     console.error('----------------------------------------------------------------\n');
