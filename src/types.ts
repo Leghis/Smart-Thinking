@@ -5,8 +5,25 @@
 // Types de pensée
 export type ThoughtType = 'regular' | 'revision' | 'meta' | 'hypothesis' | 'conclusion';
 
-// Types de connexion entre les pensées
-export type ConnectionType = 'supports' | 'contradicts' | 'refines' | 'branches' | 'derives' | 'associates';
+// Types de connexion enrichis entre les pensées
+export type ConnectionType = 
+  // Types existants
+  'supports' | 'contradicts' | 'refines' | 'branches' | 'derives' | 'associates' | 
+  // Nouveaux types plus nuancés
+  'exemplifies' | 'generalizes' | 'compares' | 'contrasts' | 'questions' | 
+  'extends' | 'analyzes' | 'synthesizes' | 'applies' | 'evaluates' | 'cites' |
+  // Types réciproques
+  'extended-by' | 'analyzed-by' | 'component-of' | 'applied-by' | 'evaluated-by' | 'cited-by';
+
+// Attributs sémantiques pour les connexions
+export interface ConnectionAttributes {
+  temporality?: 'before' | 'after' | 'during' | 'concurrent';
+  certainty?: 'definite' | 'high' | 'moderate' | 'low' | 'speculative';
+  directionality?: 'unidirectional' | 'bidirectional' | 'multidirectional';
+  scope?: 'broad' | 'specific' | 'partial' | 'complete';
+  nature?: 'causal' | 'correlational' | 'sequential' | 'hierarchical' | 'associative';
+  customAttributes?: Record<string, any>;
+}
 
 // Interface pour un nœud dans le graphe de pensées
 export interface ThoughtNode {
@@ -25,6 +42,24 @@ export interface Connection {
   type: ConnectionType;
   strength: number; // De 0 à 1, indiquant la force de la connexion
   description?: string;
+  // Nouveaux champs
+  attributes?: ConnectionAttributes;
+  inferred?: boolean; // Si la connexion a été inférée automatiquement
+  inferenceConfidence?: number; // Confiance dans l'inférence (0 à 1)
+  bidirectional?: boolean; // Si la relation est intrinsèquement bidirectionnelle
+}
+
+// Interface pour un hyperlien (connexion entre multiples pensées)
+export interface Hyperlink {
+  id: string;
+  nodeIds: string[];  // IDs des pensées connectées
+  type: ConnectionType;
+  label?: string;
+  attributes?: ConnectionAttributes;
+  strength: number;  // De 0 à 1
+  inferred: boolean; // Si la relation a été inférée automatiquement
+  confidence: number; // Confiance dans la relation inférée (0 à 1)
+  metadata: Record<string, any>;
 }
 
 // Métriques de qualité pour une pensée

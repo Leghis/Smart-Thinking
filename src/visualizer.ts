@@ -26,12 +26,34 @@ export class Visualizer {
   
   // Couleurs associées aux types de connexions
   private connectionTypeColors: Record<ConnectionType, string> = {
+    // Types existants
     'supports': '#34A853',   // Vert
     'contradicts': '#EA4335', // Rouge
     'refines': '#4285F4',    // Bleu
     'branches': '#FBBC05',   // Jaune
     'derives': '#9C27B0',    // Violet
-    'associates': '#757575'  // Gris
+    'associates': '#757575',  // Gris
+    
+    // Nouveaux types
+    'exemplifies': '#00897B', // Teal
+    'generalizes': '#43A047', // Vert clair
+    'compares': '#1E88E5',    // Bleu clair
+    'contrasts': '#D81B60',   // Rose
+    'questions': '#8E24AA',   // Violet clair
+    'extends': '#3949AB',     // Indigo
+    'analyzes': '#00ACC1',    // Cyan
+    'synthesizes': '#7CB342', // Vert-jaune
+    'applies': '#039BE5',     // Bleu ciel
+    'evaluates': '#F4511E',   // Orange
+    'cites': '#6D4C41',       // Marron
+    
+    // Types réciproques
+    'extended-by': '#3949AB', // Indigo (même que extends)
+    'analyzed-by': '#00ACC1', // Cyan (même que analyzes)
+    'component-of': '#7CB342', // Vert-jaune (même que synthesizes)
+    'applied-by': '#039BE5',   // Bleu ciel (même que applies)
+    'evaluated-by': '#F4511E', // Orange (même que evaluates)
+    'cited-by': '#6D4C41'      // Marron (même que cites)
   };
   
   /**
