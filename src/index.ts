@@ -8,6 +8,7 @@ import { MemoryManager } from './memory-manager';
 import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
+import { EmbeddingService } from './embedding-service';
 import { SmartThinkingParams, SmartThinkingResponse } from './types';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -35,9 +36,13 @@ console.error(`
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
+// Clé API Cohere pour les embeddings
+const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
+
 // Créer une instance de chaque composant
-const thoughtGraph = new ThoughtGraph();
-const memoryManager = new MemoryManager();
+const embeddingService = new EmbeddingService(COHERE_API_KEY);
+const thoughtGraph = new ThoughtGraph(undefined, embeddingService);
+const memoryManager = new MemoryManager(embeddingService);
 const toolIntegrator = new ToolIntegrator();
 const qualityEvaluator = new QualityEvaluator();
 const visualizer = new Visualizer();
@@ -302,9 +307,9 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
     }
     
     // Récupérer les mémoires pertinentes
-    response.relevantMemories = memoryManager.getRelevantMemories(params.thought);
+    response.relevantMemories = await memoryManager.getRelevantMemories(params.thought);
     
-    // Suggérer les prochaines étapes
+    // Suggérer les prochaines étapes - pas besoin d'être asynchrone
     response.suggestedNextSteps = thoughtGraph.suggestNextSteps();
     
     // Stocker la pensée actuelle dans la mémoire pour les sessions futures

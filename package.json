@@ -30,6 +30,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "cohere-ai": "^7.7.5",
     "zod": "^3.22.4"
   },
   "devDependencies": {

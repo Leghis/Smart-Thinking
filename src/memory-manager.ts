@@ -1,6 +1,7 @@
 import { MemoryItem } from './types';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { EmbeddingService } from './embedding-service';
 
 /**
  * Classe qui gère la mémoire persistante des sessions précédentes
@@ -8,13 +9,15 @@ import path from 'path';
 export class MemoryManager {
   private memories: Map<string, MemoryItem> = new Map();
   private knowledgeBase: Map<string, any> = new Map();
+  private embeddingService?: EmbeddingService;
   
   // Chemins pour les fichiers de persistance
   private dataDir = path.join(process.cwd(), 'data');
   private memoriesDir = path.join(this.dataDir, 'memories');
   private knowledgeFilePath = path.join(this.dataDir, 'knowledge.json');
   
-  constructor() {
+  constructor(embeddingService?: EmbeddingService) {
+    this.embeddingService = embeddingService;
     // Charger les mémoires et la base de connaissances depuis le stockage persistant
     this.loadFromStorage();
   }
@@ -331,9 +334,50 @@ export class MemoryManager {
    * @param limit Le nombre maximum d'éléments à récupérer
    * @returns Un tableau des éléments les plus pertinents
    */
-  getRelevantMemories(context: string, limit: number = 3): MemoryItem[] {
+  async getRelevantMemories(context: string, limit: number = 3): Promise<MemoryItem[]> {
+    const allMemories = Array.from(this.memories.values());
+    
+    // Si pas de mémoires ou pas de service d'embeddings, utiliser l'algorithme de base
+    if (allMemories.length === 0 || !this.embeddingService) {
+      return this.getRelevantMemoriesWithKeywords(context, limit);
+    }
+    
+    try {
+      // Utiliser le service d'embeddings pour trouver les mémoires similaires
+      const memoryTexts = allMemories.map(memory => memory.content);
+      const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit);
+      
+      // Convertir les résultats en mémoires
+      const memoryResults: MemoryItem[] = [];
+      
+      for (const result of similarResults) {
+        const matchingMemory = allMemories.find(memory => memory.content === result.text);
+        if (matchingMemory) {
+          // Créer une copie avec le score de pertinence
+          memoryResults.push({
+            ...matchingMemory,
+            relevanceScore: result.score
+          });
+        }
+      }
+      
+      return memoryResults;
+    } catch (error) {
+      console.error('Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
+      // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés
+      return this.getRelevantMemoriesWithKeywords(context, limit);
+    }
+  }
+  
+  /**
+   * Implémentation de secours basée sur les mots-clés
+   * 
+   * @param context Le contexte pour lequel chercher des éléments pertinents
+   * @param limit Le nombre maximum d'éléments à récupérer
+   * @returns Un tableau des éléments les plus pertinents
+   */
+  private getRelevantMemoriesWithKeywords(context: string, limit: number = 3): MemoryItem[] {
     // Une implémentation simple basée sur la correspondance de mots-clés
-    // Dans une version plus avancée, utiliser NLP ou des embeddings
     const contextWords = context.toLowerCase().split(/\W+/).filter(word => word.length > 3);
     
     return Array.from(this.memories.values())

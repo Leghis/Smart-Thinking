@@ -6,6 +6,7 @@ import {
   ThoughtMetrics,
   NextStepSuggestion
 } from './types';
+import { EmbeddingService } from './embedding-service';
 
 /**
  * Classe qui gère le graphe de pensées et ses opérations
@@ -13,9 +14,11 @@ import {
 export class ThoughtGraph {
   private nodes: Map<string, ThoughtNode> = new Map();
   private sessionId: string;
+  private embeddingService?: EmbeddingService;
   
-  constructor(sessionId?: string) {
+  constructor(sessionId?: string, embeddingService?: EmbeddingService) {
     this.sessionId = sessionId || this.generateUniqueId();
+    this.embeddingService = embeddingService;
   }
   
   /**
@@ -174,9 +177,44 @@ export class ThoughtGraph {
    * @param limit Le nombre maximum de pensées à récupérer
    * @returns Un tableau des pensées les plus pertinentes
    */
-  getRelevantThoughts(context: string, limit: number = 5): ThoughtNode[] {
+  async getRelevantThoughts(context: string, limit: number = 5): Promise<ThoughtNode[]> {
+    const allThoughts = Array.from(this.nodes.values());
+    
+    // Si pas de pensées ou pas de service d'embeddings, utiliser l'algorithme de base
+    if (allThoughts.length === 0 || !this.embeddingService) {
+      return this.getRelevantThoughtsWithKeywords(context, limit);
+    }
+    
+    try {
+      // Utiliser le service d'embeddings pour trouver les pensées similaires
+      const thoughtTexts = allThoughts.map(thought => thought.content);
+      const similarResults = await this.embeddingService.findSimilarTexts(context, thoughtTexts, limit);
+      
+      // Convertir les résultats en pensées
+      return similarResults.map(result => {
+        const matchingThought = allThoughts.find(thought => thought.content === result.text);
+        if (matchingThought) {
+          // Stocker le score de similarité dans les métadonnées pour référence future
+          matchingThought.metadata.similarityScore = result.score;
+        }
+        return matchingThought!;
+      }).filter(thought => thought !== undefined);
+    } catch (error) {
+      console.error('Erreur lors de la recherche de pensées pertinentes avec embeddings:', error);
+      // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés
+      return this.getRelevantThoughtsWithKeywords(context, limit);
+    }
+  }
+  
+  /**
+   * Implémentation de secours basée sur les mots-clés
+   * 
+   * @param context Le contexte pour lequel chercher des pensées pertinentes
+   * @param limit Le nombre maximum de pensées à récupérer
+   * @returns Un tableau des pensées les plus pertinentes
+   */
+  private getRelevantThoughtsWithKeywords(context: string, limit: number = 5): ThoughtNode[] {
     // Une implémentation simple basée sur la correspondance de mots-clés
-    // Dans une version plus avancée, utiliser NLP ou des embeddings
     const contextWords = context.toLowerCase().split(/\W+/).filter(word => word.length > 3);
     
     return Array.from(this.nodes.values())
