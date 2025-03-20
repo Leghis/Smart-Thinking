@@ -10,12 +10,13 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x ./build/index.js",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "start": "node build/index.js",
     "test": "jest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "postinstall": "chmod +x ./build/index.js"
   },
   "keywords": [
     "mcp",
