@@ -10,13 +10,14 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc && chmod +x ./build/index.js",
+    "build": "tsc && node -e \"if(process.platform !== 'win32') { try { require('child_process').execSync('chmod +x ./build/index.js'); } catch(e) { console.log('Could not chmod +x, but continuing'); } }\"",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "start": "node build/index.js",
     "test": "jest",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build",
-    "postinstall": "chmod +x ./build/index.js"
+    "postinstall": "node -e \"if(process.platform !== 'win32') { try { require('fs').accessSync('./build/index.js') && require('child_process').execSync('chmod +x ./build/index.js'); } catch(e) { console.log('Skip chmod, file not found or error occurred'); } }\""
   },
   "keywords": [
     "mcp",
