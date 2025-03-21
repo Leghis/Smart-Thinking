@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "5.1.2",
+  "version": "5.1.3",
   "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
   "main": "build/index.js",
   "bin": {
