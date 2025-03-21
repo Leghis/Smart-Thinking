@@ -6,9 +6,12 @@ import {
   ThoughtMetrics,
   NextStepSuggestion,
   Hyperlink,
-  ConnectionAttributes
+  ConnectionAttributes,
+  CalculationVerificationResult
 } from './types';
 import { EmbeddingService } from './embedding-service';
+import { QualityEvaluator } from './quality-evaluator';
+import { EventEmitter } from 'events';
 
 /**
  * Classe qui gère le graphe de pensées et ses opérations
@@ -18,10 +21,86 @@ export class ThoughtGraph {
   private hyperlinks: Map<string, Hyperlink> = new Map();
   private sessionId: string;
   private embeddingService?: EmbeddingService;
+  private qualityEvaluator?: QualityEvaluator;
+  private eventEmitter: EventEmitter;
   
-  constructor(sessionId?: string, embeddingService?: EmbeddingService) {
+  constructor(sessionId?: string, embeddingService?: EmbeddingService, qualityEvaluator?: QualityEvaluator) {
     this.sessionId = sessionId || this.generateUniqueId();
     this.embeddingService = embeddingService;
+    this.qualityEvaluator = qualityEvaluator;
+    this.eventEmitter = new EventEmitter();
+    
+    // Configurer les écouteurs d'événements
+    this.setupEventListeners();
+  }
+  
+  /**
+   * Configure les écouteurs d'événements pour la vérification continue
+   */
+  private setupEventListeners(): void {
+    // Configurer ici des écouteurs si nécessaire
+  }
+  
+  /**
+   * Vérifie les calculs dans une pensée et les annote si nécessaire
+   * 
+   * @param thoughtId L'identifiant de la pensée à vérifier
+   * @param content Le contenu de la pensée
+   */
+  private async checkForCalculationsAndVerify(thoughtId: string, content: string): Promise<void> {
+    if (!this.qualityEvaluator) return;
+    
+    // Détecter si la pensée contient des calculs avec des expressions régulières simples
+    const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(content);
+    const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(content);
+    
+    if (hasSimpleCalculations || hasComplexCalculations) {
+      console.error(`Smart-Thinking: Détection en temps réel de calculs dans la pensée ${thoughtId}, vérification...`);
+      
+      try {
+        // Vérifier les calculs de manière asynchrone
+        const verifiedCalculations = await this.qualityEvaluator.detectAndVerifyCalculations(content);
+        
+        if (verifiedCalculations.length > 0) {
+          // Mettre à jour le contenu de la pensée avec les annotations
+          const updatedContent = this.qualityEvaluator.annotateThoughtWithVerifications(
+            content, 
+            verifiedCalculations
+          );
+          
+          // Mettre à jour la pensée sans déclencher à nouveau les vérifications
+          const thought = this.nodes.get(thoughtId);
+          if (thought) {
+            thought.content = updatedContent;
+            thought.metadata.calculationsVerified = true;
+            thought.metadata.lastUpdated = new Date();
+            thought.metadata.verificationTimestamp = new Date();
+          }
+          
+          // Émettre un événement pour notifier que des calculs ont été vérifiés
+          this.eventEmitter.emit('calculations-verified', {
+            thoughtId,
+            verifiedCalculations,
+            updatedContent
+          });
+          
+          // Journaliser le résultat de la vérification
+          console.error(`Smart-Thinking: ${verifiedCalculations.length} calcul(s) vérifié(s) dans la pensée ${thoughtId}`);
+        }
+      } catch (error) {
+        console.error(`Smart-Thinking: Erreur lors de la vérification des calculs:`, error);
+      }
+    }
+  }
+  
+  /**
+   * Permet d'enregistrer un écouteur d'événement externe
+   * 
+   * @param event Le nom de l'événement
+   * @param listener La fonction de rappel à exécuter
+   */
+  public on(event: string, listener: (...args: any[]) => void): void {
+    this.eventEmitter.on(event, listener);
   }
   
   /**
@@ -66,6 +145,12 @@ export class ThoughtGraph {
     
     // Établir les connexions bidirectionnelles
     this.establishConnections(id, connections);
+    
+    // Émettre un événement pour notifier de l'ajout d'une pensée
+    this.eventEmitter.emit('thought-added', id, node);
+    
+    // Vérifier automatiquement les calculs si nécessaire
+    this.checkForCalculationsAndVerify(id, content);
     
     return id;
   }
@@ -993,8 +1078,15 @@ export class ThoughtGraph {
     const thought = this.nodes.get(id);
     if (!thought) return false;
     
+    const oldContent = thought.content;
     thought.content = newContent;
     thought.metadata.lastUpdated = new Date();
+    
+    // Émettre un événement pour notifier de la mise à jour d'une pensée
+    this.eventEmitter.emit('thought-updated', id, thought, { oldContent });
+    
+    // Vérifier automatiquement les calculs si nécessaire
+    this.checkForCalculationsAndVerify(id, newContent);
     
     return true;
   }

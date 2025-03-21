@@ -6,6 +6,17 @@ import { ToolIntegrator } from './tool-integrator';
  * Classe qui évalue la qualité des pensées
  */
 export class QualityEvaluator {
+  private toolIntegrator: ToolIntegrator | null = null;
+  
+  /**
+   * Définit l'instance de ToolIntegrator à utiliser pour les vérifications
+   * 
+   * @param toolIntegrator L'instance de ToolIntegrator à utiliser
+   */
+  public setToolIntegrator(toolIntegrator: ToolIntegrator): void {
+    this.toolIntegrator = toolIntegrator;
+  }
+  
   // Dictionnaire de mots positifs/négatifs pour une évaluation simple
   private positiveWords: string[] = [
     'précis', 'clair', 'cohérent', 'logique', 'détaillé', 'rigoureux', 'méthodique',
@@ -199,7 +210,7 @@ export class QualityEvaluator {
     qualityScore += (positiveIndicatorsCount - negativeIndicatorsCount) * 0.1;
     
     // Évaluer la longueur - pénaliser les pensées trop courtes ou trop longues
-    const wordCount = content.split(/\s+/).length;
+    const wordCount = content.split(/\\s+/).length;
     let lengthScore = 1.0;
     
     if (wordCount < 5) {
@@ -249,7 +260,7 @@ export class QualityEvaluator {
     
     // Extraction simple des mots
     return text.toLowerCase()
-      .split(/\W+/)
+      .split(/\\W+/)
       .filter(word => 
         word.length > 3 && 
         !stopWords.includes(word)
@@ -266,6 +277,12 @@ export class QualityEvaluator {
    */
   public async deepVerify(thought: ThoughtNode, toolIntegrator: ToolIntegrator, containsCalculations: boolean = false): Promise<VerificationResult> {
     const content = thought.content;
+    
+    // Définir temporairement le toolIntegrator pour cette opération si non déjà défini
+    const previousToolIntegrator = this.toolIntegrator;
+    if (!this.toolIntegrator) {
+      this.toolIntegrator = toolIntegrator;
+    }
     
     // Déterminer quels outils de recherche sont pertinents pour la vérification
     const verificationTools = toolIntegrator.suggestVerificationTools(content);
@@ -291,82 +308,8 @@ export class QualityEvaluator {
     let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
     
     if (containsCalculations) {
-      verifiedCalculations = this.detectAndVerifyCalculations(content);
-      
-      // Vérifier les calculs complexes via Smart-E2B si nécessaire
-      for (let i = 0; i < verifiedCalculations.length; i++) {
-        const calc = verifiedCalculations[i];
-        
-        if (calc.verified === "\u00c0 v\u00e9rifier via Smart-E2B") {
-          try {
-            // Utiliser Smart-E2B pour vérifier le calcul complexe
-            const pyCode = `
-              import math
-              import numpy as np
-              
-              # Expression à évaluer
-              expression = "${calc.original.replace(/"/g, '\\"')}"
-              
-              # Extraire l'expression mathématique
-              import re
-              match = re.search(r"calcul\\s*(?:complexe|avancé)?\\s*:?\\s*([^=]+)=\\s*(\\d+(?:\\.\\d+)?)", expression, re.IGNORECASE)
-              
-              if match:
-                  expr = match.group(1).strip()
-                  claimed_result = float(match.group(2))
-                  
-                  # Évaluer l'expression (avec précaution)
-                  try:
-                      # Remplacer certains mots par leurs fonctions correspondantes
-                      expr = expr.replace("racine carrée", "math.sqrt")
-                      expr = expr.replace("puissance", "**")
-                      expr = expr.replace("sin", "math.sin")
-                      expr = expr.replace("cos", "math.cos")
-                      
-                      # Évaluer
-                      actual_result = eval(expr)
-                      
-                      # Vérifier
-                      is_correct = abs(actual_result - claimed_result) < 0.0001
-                      
-                      print(f"Résultat: {actual_result}")
-                      print(f"Correct: {is_correct}")
-                      
-                      result = {
-                          "verified": f"{expr} = {actual_result}",
-                          "isCorrect": is_correct,
-                          "confidence": 0.95
-                      }
-                  except Exception as e:
-                      result = {
-                          "verified": f"Erreur: {str(e)}",
-                          "isCorrect": False,
-                          "confidence": 0.5
-                      }
-              else:
-                  result = {
-                      "verified": "Format d'expression non reconnu",
-                      "isCorrect": False,
-                      "confidence": 0.3
-                  }
-                  
-              # Retourner le résultat au format JSON
-              import json
-              print(json.dumps(result))
-            `;
-            
-            const pythonResult = await toolIntegrator.executeVerificationTool('executePython', pyCode);
-            
-            // Mettre à jour le résultat de vérification
-            verifiedCalculations[i] = {
-              ...calc,
-              ...pythonResult.result
-            };
-          } catch (error) {
-            console.error(`Erreur lors de la vérification du calcul complexe:`, error);
-          }
-        }
-      }
+      // Utiliser la nouvelle méthode asynchrone
+      verifiedCalculations = await this.detectAndVerifyCalculations(content);
     }
     
     // Agréger et analyser les résultats
@@ -377,6 +320,11 @@ export class QualityEvaluator {
     
     // Détecter les contradictions entre les sources
     const contradictions = this.detectContradictions(verificationResults);
+    
+    // Restaurer l'état précédent du toolIntegrator si nécessaire
+    if (!previousToolIntegrator) {
+      this.toolIntegrator = null;
+    }
     
     return {
       status,
@@ -390,30 +338,112 @@ export class QualityEvaluator {
   }
 
   /**
-   * Détecte et vérifie les calculs dans un texte
+   * Vérifie un calcul complexe à l'aide de Smart-E2B
+   * 
+   * @param fullExpression L'expression complète à vérifier
+   * @param expressionStr La partie expression mathématique
+   * @param resultStr Le résultat prétendu
+   * @returns Une promesse résolvant vers un résultat de vérification
+   */
+  private async verifyComplexCalculation(
+    fullExpression: string,
+    expressionStr: string,
+    resultStr: string
+  ): Promise<CalculationVerificationResult> {
+    try {
+      // Construction du code Python pour l'évaluation
+      const pyCode = `
+        import math
+        import numpy as np
+        
+        # Expression à évaluer
+        expression = "${expressionStr.replace(/"/g, '\\"')}"
+        claimed_result = ${resultStr}
+        
+        # Évaluer l'expression (avec précaution)
+        try:
+            # Remplacer certains mots par leurs fonctions correspondantes
+            expr = expression.replace("racine carrée", "math.sqrt")
+            expr = expr.replace("puissance", "**")
+            expr = expr.replace("sin", "math.sin")
+            expr = expr.replace("cos", "math.cos")
+            
+            # Évaluer
+            actual_result = eval(expr)
+            
+            # Vérifier
+            is_correct = abs(actual_result - claimed_result) < 0.0001
+            
+            print(f"Résultat: {actual_result}")
+            print(f"Correct: {is_correct}")
+            
+            result = {
+                "verified": f"{expr} = {actual_result}",
+                "isCorrect": is_correct,
+                "confidence": 0.95
+            }
+        except Exception as e:
+            result = {
+                "verified": f"Erreur: {str(e)}",
+                "isCorrect": False,
+                "confidence": 0.5
+            }
+            
+        # Retourner le résultat au format JSON
+        import json
+        print(json.dumps(result))
+      `;
+      
+      if (!this.toolIntegrator) {
+        throw new Error("ToolIntegrator non disponible");
+      }
+      
+      // Utiliser l'outil Python pour évaluer l'expression
+      const pythonResult = await this.toolIntegrator.executeVerificationTool('executePython', pyCode);
+      
+      // Extraire et retourner le résultat
+      return {
+        original: fullExpression,
+        verified: pythonResult.result.verified || "Erreur de vérification",
+        isCorrect: pythonResult.result.isCorrect || false,
+        confidence: pythonResult.result.confidence || 0.5
+      };
+    } catch (error) {
+      console.error(`Erreur lors de la vérification du calcul complexe:`, error);
+      return {
+        original: fullExpression,
+        verified: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        isCorrect: false,
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Détecte et vérifie les calculs dans un texte de manière asynchrone
    * 
    * @param content Le texte contenant potentiellement des calculs
-   * @returns Un tableau de résultats de vérification de calculs
+   * @returns Une promesse résolvant vers un tableau de résultats de vérification de calculs
    */
-  public detectAndVerifyCalculations(content: string): CalculationVerificationResult[] {
+  public async detectAndVerifyCalculations(content: string): Promise<CalculationVerificationResult[]> {
     const results: CalculationVerificationResult[] = [];
     
     // Expressions régulières enrichies pour détecter plus de formats d'expressions mathématiques
     const calculationRegexes = [
       // Format standard: 5 + 3 = 8
-      /(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g,
+      /(\\d+(?:\\.\\d+)?)\\s*([\\+\\-\\*\\/])\\s*(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
       
       // Format avec parenthèses: (5 + 3) = 8
-      /\((\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\)\s*=\s*(\d+(?:\.\d+)?)/g,
+      /\\((\\d+(?:\\.\\d+)?)\\s*([\\+\\-\\*\\/])\\s*(\\d+(?:\\.\\d+)?)\\)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
       
       // Format avec mots: 5 plus 3 égale 8
-      /(\d+(?:\.\d+)?)\s*(plus|moins|fois|divisé par)\s*(\d+(?:\.\d+)?)\s*(?:égale|égal|est égal à|vaut|font|donne)\s*(\d+(?:\.\d+)?)/gi,
+      /(\\d+(?:\\.\\d+)?)\\s*(plus|moins|fois|divisé par)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:égale|égal|est égal à|vaut|font|donne)\\s*(\\d+(?:\\.\\d+)?)/gi,
       
       // Format puissance: 2^3 = 8
-      /(\d+(?:\.\d+)?)\s*(?:\^|\*\*)\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g,
+      /(\\d+(?:\\.\\d+)?)\\s*(?:\\^|\\*\\*)\\s*(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
       
       // Format racine carrée: racine carrée de 9 = 3
-      /racine\s+carrée\s+(?:de)?\s+(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/gi
+      /racine\\s+carrée\\s+(?:de)?\\s+(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/gi
     ];
     
     // Traiter le format standard (opérations arithmétiques de base)
@@ -605,19 +635,34 @@ export class QualityEvaluator {
       }
     }
     
-    // Pour les calculs plus complexes, utiliser Smart-E2B avec executePython
-    const complexCalculationRegex = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*(\d+(?:\.\d+)?)/gi;
+    // Pour les calculs plus complexes, vérifier immédiatement via Smart-E2B
+    const complexCalculationRegex = /calcul\\s*(?:complexe|avancé)?\\s*:?\\s*([^=]+)=\\s*(\\d+(?:\\.\\d+)?)/gi;
     
-    while ((match = complexCalculationRegex.exec(content)) !== null) {
-      const [fullExpression, expressionStr, resultStr] = match;
+    const complexCalculationPromises: Promise<CalculationVerificationResult>[] = [];
+    let complexMatch;
+    
+    while ((complexMatch = complexCalculationRegex.exec(content)) !== null) {
+      const [fullExpression, expressionStr, resultStr] = complexMatch;
       
-      // Marquer pour vérification ultérieure via Smart-E2B
-      results.push({
-        original: fullExpression,
-        verified: "\u00c0 vérifier via Smart-E2B",
-        isCorrect: false, // \u00c0 déterminer plus tard
-        confidence: 0.5
-      });
+      // Vérifier immédiatement avec le toolIntegrator si disponible
+      if (this.toolIntegrator) {
+        const verificationPromise = this.verifyComplexCalculation(fullExpression, expressionStr, resultStr);
+        complexCalculationPromises.push(verificationPromise);
+      } else {
+        // Si pas de toolIntegrator, marquer comme à vérifier
+        results.push({
+          original: fullExpression,
+          verified: "Impossible de vérifier sans ToolIntegrator",
+          isCorrect: false,
+          confidence: 0.3
+        });
+      }
+    }
+    
+    // Attendre que toutes les vérifications complexes soient terminées
+    if (complexCalculationPromises.length > 0) {
+      const complexResults = await Promise.all(complexCalculationPromises);
+      results.push(...complexResults);
     }
     
     return results;

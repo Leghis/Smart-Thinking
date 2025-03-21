@@ -9,7 +9,7 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
-import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
+import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from './types';
 import { ThoughtNode } from './types';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -25,10 +25,10 @@ const originalStdoutWrite = process.stdout.write;
 const safeStdoutWrite = function() {
   // Arguments[0] est le premier argument (chunk)
   const chunk = arguments[0];
-  
+
   if (typeof chunk === 'string') {
     const trimmed = chunk.trim();
-    
+
     // Si ça ressemble à du JSON mais n'en est pas
     if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && !isValidJSON(trimmed)) {
       console.error('[ERREUR] JSON invalide détecté:', chunk);
@@ -55,7 +55,7 @@ const safeStdoutWrite = function() {
         return true;
       }
     }
-    
+
     // Si c'est du texte brut (non-JSON)
     if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
       console.error('[INFO] Texte non-JSON redirigé vers stderr:', chunk);
@@ -64,7 +64,7 @@ const safeStdoutWrite = function() {
       return true;
     }
   }
-  
+
   // Comportement normal pour le JSON valide ou les non-strings
   return originalStdoutWrite.apply(process.stdout, arguments as any);
 };
@@ -116,11 +116,19 @@ const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
 
 // Créer une instance de chaque composant
 const embeddingService = new EmbeddingService(COHERE_API_KEY);
-const thoughtGraph = new ThoughtGraph(undefined, embeddingService);
-const memoryManager = new MemoryManager(embeddingService);
-const toolIntegrator = new ToolIntegrator();
 const qualityEvaluator = new QualityEvaluator();
+const toolIntegrator = new ToolIntegrator();
+const thoughtGraph = new ThoughtGraph(undefined, embeddingService, qualityEvaluator);
+const memoryManager = new MemoryManager(embeddingService);
 const visualizer = new Visualizer();
+
+// Injecter le ToolIntegrator dans le QualityEvaluator
+qualityEvaluator.setToolIntegrator(toolIntegrator);
+
+// Configurer l'écouteur d'événements pour les calculs vérifiés
+thoughtGraph.on('calculations-verified', (data: {thoughtId: string, verifiedCalculations: CalculationVerificationResult[], updatedContent: string}) => {
+  console.error(`Smart-Thinking: Calculs vérifiés pour la pensée ${data.thoughtId}`);
+});
 
 // Créer une instance du serveur MCP
 const server = new McpServer({
@@ -157,124 +165,124 @@ const InteractivityOptionsSchema = z.object({
 // Définir le schéma des paramètres pour l'outil smartthinking
 const SmartThinkingParamsSchema = z.object({
   thought: z.string().describe(
-    'Le contenu de la pensée actuelle - OBLIGATOIRE - Exemple: "L\'intelligence artificielle va transformer profondément le marché du travail" - ' +
-    'Smart-Thinking est un outil de raisonnement multi-dimensionnel qui organise les pensées en graphe plutôt qu\'en séquence linéaire, ' +
-    'permettant une analyse plus riche, flexible et interconnectée des problèmes complexes.'
+      'Le contenu de la pensée actuelle - OBLIGATOIRE - Exemple: "L\'intelligence artificielle va transformer profondément le marché du travail" - ' +
+      'Smart-Thinking est un outil de raisonnement multi-dimensionnel qui organise les pensées en graphe plutôt qu\'en séquence linéaire, ' +
+      'permettant une analyse plus riche, flexible et interconnectée des problèmes complexes.'
   ),
-  
+
   thoughtType: z.enum(['regular', 'revision', 'meta', 'hypothesis', 'conclusion']).default('regular')
-    .describe(
-      'Le type de pensée - Définit la nature et la fonction de cette pensée dans le graphe:\n' +
-      '- "regular": Pensée standard/normale pour développer une idée\n' +
-      '- "meta": Réflexion sur le processus de pensée lui-même pour évaluer la démarche\n' +
-      '- "revision": Modification ou amélioration d\'une pensée précédente\n' +
-      '- "hypothesis": Formulation d\'une hypothèse à tester ou explorer\n' +
-      '- "conclusion": Synthèse finale ou déduction globale'
-    ),
-  
+      .describe(
+          'Le type de pensée - Définit la nature et la fonction de cette pensée dans le graphe:\n' +
+          '- "regular": Pensée standard/normale pour développer une idée\n' +
+          '- "meta": Réflexion sur le processus de pensée lui-même pour évaluer la démarche\n' +
+          '- "revision": Modification ou amélioration d\'une pensée précédente\n' +
+          '- "hypothesis": Formulation d\'une hypothèse à tester ou explorer\n' +
+          '- "conclusion": Synthèse finale ou déduction globale'
+      ),
+
   connections: z.array(z.any()).default([])
-    .describe(
-      'Connexions à d\'autres pensées - Permet de créer des liens entre les pensées pour former un graphe - ' +
-      'Format: [{targetId: "id-pensée-précédente", type: "type-connexion", strength: 0.8}] - ' +
-      'Types de connexions disponibles:\n' +
-      '- "supports": Pensée qui renforce une autre\n' +
-      '- "contradicts": Pensée qui s\'oppose à une autre\n' +
-      '- "refines": Pensée qui précise ou améliore une autre\n' +
-      '- "branches": Pensée qui explore une nouvelle direction\n' +
-      '- "derives": Pensée qui découle logiquement d\'une autre\n' +
-      '- "associates": Pensée simplement liée à une autre'
-    ),
-  
+      .describe(
+          'Connexions à d\'autres pensées - Permet de créer des liens entre les pensées pour former un graphe - ' +
+          'Format: [{targetId: "id-pensée-précédente", type: "type-connexion", strength: 0.8}] - ' +
+          'Types de connexions disponibles:\n' +
+          '- "supports": Pensée qui renforce une autre\n' +
+          '- "contradicts": Pensée qui s\'oppose à une autre\n' +
+          '- "refines": Pensée qui précise ou améliore une autre\n' +
+          '- "branches": Pensée qui explore une nouvelle direction\n' +
+          '- "derives": Pensée qui découle logiquement d\'une autre\n' +
+          '- "associates": Pensée simplement liée à une autre'
+      ),
+
   requestSuggestions: z.boolean().default(false)
-    .describe(
-      'Demander des suggestions d\'amélioration du raisonnement - Exemple: true - ' +
-      'Fournit des recommandations spécifiques pour améliorer la qualité, la pertinence et la rigueur de la pensée actuelle, ' +
-      'et détecte les biais cognitifs potentiels'
-    ),
-  
+      .describe(
+          'Demander des suggestions d\'amélioration du raisonnement - Exemple: true - ' +
+          'Fournit des recommandations spécifiques pour améliorer la qualité, la pertinence et la rigueur de la pensée actuelle, ' +
+          'et détecte les biais cognitifs potentiels'
+      ),
+
   generateVisualization: z.boolean().default(false)
-    .describe(
-      'Générer une visualisation du graphe de pensée - Exemple: true - ' +
-      'Crée une représentation visuelle du réseau de pensées et leurs connexions selon le type de visualisation choisi'
-    ),
-  
+      .describe(
+          'Générer une visualisation du graphe de pensée - Exemple: true - ' +
+          'Crée une représentation visuelle du réseau de pensées et leurs connexions selon le type de visualisation choisi'
+      ),
+
   visualizationType: z.enum(['graph', 'chronological', 'thematic', 'hierarchical', 'force', 'radial']).default('graph')
-    .describe(
-      'Type de visualisation à générer:\n' +
-      '- "graph": Réseau de connexions entre pensées montrant les relations directes\n' +
-      '- "chronological": Timeline séquentielle montrant l\'évolution temporelle du raisonnement\n' +
-      '- "thematic": Clusters par thème regroupant les pensées selon leurs similitudes conceptuelles\n' +
-      '- "hierarchical": Structure arborescente montrant les niveaux hiérarchiques entre les pensées\n' +
-      '- "force": Disposition dynamique basée sur les forces d\'attraction/répulsion\n' +
-      '- "radial": Disposition en cercles concentriques autour d\'une pensée centrale'
-    ),
-  
+      .describe(
+          'Type de visualisation à générer:\n' +
+          '- "graph": Réseau de connexions entre pensées montrant les relations directes\n' +
+          '- "chronological": Timeline séquentielle montrant l\'évolution temporelle du raisonnement\n' +
+          '- "thematic": Clusters par thème regroupant les pensées selon leurs similitudes conceptuelles\n' +
+          '- "hierarchical": Structure arborescente montrant les niveaux hiérarchiques entre les pensées\n' +
+          '- "force": Disposition dynamique basée sur les forces d\'attraction/répulsion\n' +
+          '- "radial": Disposition en cercles concentriques autour d\'une pensée centrale'
+      ),
+
   suggestTools: z.boolean().default(true)
-    .describe(
-      'Suggérer des outils MCP pertinents pour cette étape - Exemple: true - ' +
-      'Recommande des outils externes (recherche web, exécution de code, etc.) basés sur le contenu de la pensée ' +
-      'pour enrichir le raisonnement avec des données ou des analyses complémentaires'
-    ),
-  
+      .describe(
+          'Suggérer des outils MCP pertinents pour cette étape - Exemple: true - ' +
+          'Recommande des outils externes (recherche web, exécution de code, etc.) basés sur le contenu de la pensée ' +
+          'pour enrichir le raisonnement avec des données ou des analyses complémentaires'
+      ),
+
   sessionId: z.string().optional()
-    .describe(
-      'Identifiant de session pour maintenir l\'\u00e9tat entre les appels - Optionnel - ' +
-      'Permet de conserver le graphe de pensées entre plusieurs invocations et de bâtir un raisonnement progressif'
-    ),
-  
+      .describe(
+          'Identifiant de session pour maintenir l\'\u00e9tat entre les appels - Optionnel - ' +
+          'Permet de conserver le graphe de pensées entre plusieurs invocations et de bâtir un raisonnement progressif'
+      ),
+
   userId: z.string().optional()
-    .describe(
-      'Identifiant de l\'utilisateur pour la personnalisation - Optionnel - ' +
-      'Adapte les recommandations aux préférences et au style de raisonnement de l\'utilisateur'
-    ),
-    
+      .describe(
+          'Identifiant de l\'utilisateur pour la personnalisation - Optionnel - ' +
+          'Adapte les recommandations aux préférences et au style de raisonnement de l\'utilisateur'
+      ),
+
   help: z.boolean().default(true)
-    .describe(
-      'Afficher le guide d\'utilisation complet - Exemple: true - ' +
-      'Renvoie une documentation détaillée sur l\'utilisation de Smart-Thinking, ses fonctionnalités et des exemples d\'utilisation'
-    ),
-    
+      .describe(
+          'Afficher le guide d\'utilisation complet - Exemple: true - ' +
+          'Renvoie une documentation détaillée sur l\'utilisation de Smart-Thinking, ses fonctionnalités et des exemples d\'utilisation'
+      ),
+
   requestVerification: z.boolean().default(false)
-    .describe(
-      'Demander explicitement une vérification des informations - Exemple: true - ' +
-      'Force le système à vérifier les informations, même si le niveau de confiance est élevé'
-    ),
-  
+      .describe(
+          'Demander explicitement une vérification des informations - Exemple: true - ' +
+          'Force le système à vérifier les informations, même si le niveau de confiance est élevé'
+      ),
+
   containsCalculations: z.boolean().default(false)
-    .describe(
-      'Indique si la pensée contient des calculs à vérifier - Exemple: true - ' +
-      'Active la vérification spécifique pour les expressions mathématiques et les calculs'
-    ),
+      .describe(
+          'Indique si la pensée contient des calculs à vérifier - Exemple: true - ' +
+          'Active la vérification spécifique pour les expressions mathématiques et les calculs'
+      ),
 
   // Nouvelles options avancées de visualisation
   visualizationOptions: z.object({
     clusterBy: z.enum(['type', 'theme', 'metric', 'connectivity']).optional()
-      .describe('Critère de regroupement des nœuds en clusters'),
+        .describe('Critère de regroupement des nœuds en clusters'),
     direction: z.enum(['LR', 'RL', 'TB', 'BT']).optional().default('TB')
-      .describe('Direction de la disposition hiérarchique (Left-Right, Right-Left, Top-Bottom, Bottom-Top)'),
+        .describe('Direction de la disposition hiérarchique (Left-Right, Right-Left, Top-Bottom, Bottom-Top)'),
     centerNode: z.string().optional()
-      .describe('ID du nœud central pour les visualisations radiales ou hiérarchiques'),
+        .describe('ID du nœud central pour les visualisations radiales ou hiérarchiques'),
     maxDepth: z.number().optional()
-      .describe('Profondeur maximale pour les visualisations hiérarchiques ou radiales'),
+        .describe('Profondeur maximale pour les visualisations hiérarchiques ou radiales'),
     filters: FilterOptionsSchema
-      .describe('Options de filtrage des nœuds et des liens'),
+        .describe('Options de filtrage des nœuds et des liens'),
     interactivity: InteractivityOptionsSchema
-      .describe('Options d\'interactivité pour la visualisation')
+        .describe('Options d\'interactivité pour la visualisation')
   }).optional()
-    .describe('Options avancées pour la visualisation')
+      .describe('Options avancées pour la visualisation')
 });
 
 // Le guide d'utilisation est maintenant intégré directement dans les descriptions des paramètres
 
 // Définir l'outil smartthinking
 server.tool(
-  'smartthinking',
-  SmartThinkingParamsSchema.shape,
-  
-  async (params: SmartThinkingParams) => {
-  // Si le paramètre help est activé et qu'aucune pensée n'est fournie, afficher le guide d'utilisation
-  if (params.help && !params.thought) {
-  const guideContent = `# Guide d'utilisation de Smart-Thinking
+    'smartthinking',
+    SmartThinkingParamsSchema.shape,
+
+    async (params: SmartThinkingParams) => {
+      // Si le paramètre help est activé et qu'aucune pensée n'est fournie, afficher le guide d'utilisation
+      if (params.help && !params.thought) {
+        const guideContent = `# Guide d'utilisation de Smart-Thinking
 
 ## Qu'est-ce que Smart-Thinking?
 
@@ -363,296 +371,297 @@ connections=[{targetId:"PENSEE-ID-PRECEDENTE", type:"refines", strength:0.8}]
 
 Pour plus d'informations, consultez le paramètre help=true de l'outil.
 `;
-      
-      return {
-        content: [
-          {
-            type: 'text',
-            text: guideContent
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: guideContent
+            }
+          ]
+        };
+      }
+
+      // Vérifier explicitement si le paramètre 'thought' est présent
+      if (!params.thought) {
+        console.error('Smart-Thinking: ERROR - Paramètre "thought" manquant');
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                error: "Le paramètre 'thought' est obligatoire.",
+                example: "Pour utiliser cet outil correctement, veuillez fournir une pensée à analyser.",
+                usage: {
+                  thought: "Voici ma pensée à analyser",
+                  thoughtType: "regular",
+                  generateVisualization: true
+                },
+                tip: "Utilisez help=true pour afficher le guide d'utilisation complet."
+              }, null, 2)
+            }
+          ]
+        };
+      }
+
+      // Utiliser console.error pour les messages de débogage qui ne seront pas interprétés comme JSON
+      console.error('Smart-Thinking: traitement de la pensée:', params.thought);
+
+      // Vérifier si la pensée contient des calculs avant tout autre traitement
+      let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
+      let initialVerification = false; // Toujours initialiser à false
+      let verificationInProgress = false;
+      let preverifiedThought = params.thought;
+
+      // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
+      const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(params.thought);
+      const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(params.thought);
+
+      // Si des calculs sont présents ou explicité par le paramètre containsCalculations
+      if (params.containsCalculations || hasSimpleCalculations || hasComplexCalculations) {
+        console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
+        verificationInProgress = true; // Indiquer que la vérification est en cours
+
+        try {
+          // Utiliser la nouvelle méthode asynchrone
+          verifiedCalculations = await qualityEvaluator.detectAndVerifyCalculations(params.thought);
+
+          // Ne marquer comme vérifié que si les calculs ont été COMPLÈTEMENT vérifiés
+          initialVerification = verifiedCalculations.length > 0 &&
+              !verifiedCalculations.some(calc => {
+                return calc.verified.includes("vérifier") ||
+                    calc.verified.includes("Erreur") ||
+                    !calc.isCorrect;
+              });
+
+          // Si des calculs ont été détectés, annoter la pensée
+          if (verifiedCalculations.length > 0) {
+            preverifiedThought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
+            console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
           }
-        ]
-      };
-    }
-    
-    // Vérifier explicitement si le paramètre 'thought' est présent
-    if (!params.thought) {
-      console.error('Smart-Thinking: ERROR - Paramètre "thought" manquant');
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              error: "Le paramètre 'thought' est obligatoire.",
-              example: "Pour utiliser cet outil correctement, veuillez fournir une pensée à analyser.",
-              usage: {
-                thought: "Voici ma pensée à analyser",
-                thoughtType: "regular",
-                generateVisualization: true
-              },
-              tip: "Utilisez help=true pour afficher le guide d'utilisation complet."
-            }, null, 2)
-          }
-        ]
-      };
-    }
-    
-    // Utiliser console.error pour les messages de débogage qui ne seront pas interprétés comme JSON
-    console.error('Smart-Thinking: traitement de la pensée:', params.thought);
-    
-    // Vérifier si la pensée contient des calculs avant tout autre traitement
-    let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
-    let initialVerification = false;
-    let preverifiedThought = params.thought;
-    
-    // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
-    const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(params.thought);
-    const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(params.thought);
-    
-    // Si des calculs sont présents ou explicité par le paramètre containsCalculations
-    if (params.containsCalculations || hasSimpleCalculations || hasComplexCalculations) {
-      console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
-      verifiedCalculations = qualityEvaluator.detectAndVerifyCalculations(params.thought);
-      
-      // Si des calculs sont détectés, marquer comme partiellement vérifié
-      initialVerification = verifiedCalculations.length > 0;
-      
-      // Si des calculs ont été détectés, annoter la pensée
-      if (initialVerification) {
-        preverifiedThought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
-        console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
+        } catch (error) {
+          console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
+          verificationInProgress = true;
+          initialVerification = false;
+        }
       }
-    }
-    
-    // Ajouter la pensée au graphe (avec annotations si des calculs ont été vérifiés)
-    const thoughtId = thoughtGraph.addThought(
-      preverifiedThought, 
-      params.thoughtType,
-      params.connections
-    );
-    
-    // Évaluer la qualité de la pensée
-    const qualityMetrics = qualityEvaluator.evaluate(thoughtId, thoughtGraph);
-    
-    // Mettre à jour les métriques dans le graphe
-    thoughtGraph.updateThoughtMetrics(thoughtId, qualityMetrics);
-    
-    // Préparer la réponse avec l'état de vérification initial
-    const response: SmartThinkingResponse = {
-      thoughtId,
-      thought: preverifiedThought, // Utiliser la pensée annotée si des calculs ont été vérifiés
-      thoughtType: params.thoughtType || 'regular',
-      qualityMetrics,
-      isVerified: initialVerification, // Initialiser selon la vérification préliminaire
-      verificationStatus: initialVerification ? 'partially_verified' : 'unverified',
-      certaintySummary: initialVerification 
-        ? `Calculs vérifiés préalablement, niveau de confiance initial: ${Math.round(qualityMetrics.confidence * 100)}%.`
-        : "Information non vérifiée",
-      reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
-    };
-    
-    // Si une vérification préliminaire des calculs a été effectuée
-    if (initialVerification && verifiedCalculations) {
-      // Ajouter dès maintenant les informations de vérification préliminaire
-      response.verification = {
-        status: 'partially_verified',
-        confidence: qualityMetrics.confidence,
-        sources: ['Vérification préliminaire des calculs'],
-        verificationSteps: ['Détection et vérification préliminaire des expressions mathématiques'],
-        verifiedCalculations
-      };
-      
-      // Ajuster le score de fiabilité en fonction de l'exactitude des calculs préliminaires
-      const correctCalculations = verifiedCalculations.filter(calc => calc.isCorrect).length;
-      const totalCalculations = verifiedCalculations.length;
-      if (totalCalculations > 0) {
-        const calculationAccuracy = correctCalculations / totalCalculations;
-        response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
-      }
-    }
-    
-    // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
-    let verification: VerificationResult | undefined = undefined;
-    
-    if (qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) {
-      console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
-      
-      // Mettre à jour le statut pendant la vérification
-      response.verificationStatus = 'verification_in_progress';
-      
-      verification = await qualityEvaluator.deepVerify(
-        thoughtGraph.getThought(thoughtId) as ThoughtNode, 
-        toolIntegrator,
-        params.containsCalculations
+
+      // Ajouter la pensée au graphe (avec annotations si des calculs ont été vérifiés)
+      const thoughtId = thoughtGraph.addThought(
+          preverifiedThought,
+          params.thoughtType,
+          params.connections
       );
-      
-      response.verification = verification;
-      response.isVerified = verification.status === 'verified' || verification.status === 'partially_verified';
-      response.verificationStatus = verification.status;
-      
-      // Ajuster le score de fiabilité
-      response.reliabilityScore = (qualityMetrics.confidence + verification.confidence) / 2;
-      
-      // Si des calculs ont été vérifiés, ajuster le score en fonction de leur exactitude
-      if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
-        const calculationAccuracy = verification.verifiedCalculations.filter(calc => calc.isCorrect).length / 
-                                   verification.verifiedCalculations.length;
-        
-        // Pondérer le score de fiabilité avec l'exactitude des calculs
-        response.reliabilityScore = (response.reliabilityScore * 0.7) + (calculationAccuracy * 0.3);
+
+      // Évaluer la qualité de la pensée
+      const qualityMetrics = qualityEvaluator.evaluate(thoughtId, thoughtGraph);
+
+      // Mettre à jour les métriques dans le graphe
+      thoughtGraph.updateThoughtMetrics(thoughtId, qualityMetrics);
+
+      // Déterminer le statut de vérification approprié
+      let verificationStatus: VerificationDetailedStatus = 'unverified';
+      let certaintySummary = "Information non vérifiée";
+
+      if (verificationInProgress) {
+        if (initialVerification) {
+          verificationStatus = 'partially_verified';
+          certaintySummary = `Calculs vérifiés préalablement, niveau de confiance initial: ${Math.round(qualityMetrics.confidence * 100)}%.`;
+        } else {
+          verificationStatus = 'verification_in_progress';
+          certaintySummary = "Vérification des calculs en cours...";
+        }
+      } else if (params.containsCalculations) {
+        certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Aucun calcul n'a été détecté pour vérification.`;
+      } else {
+        certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
       }
-      
-      // Générer un résumé en langage naturel du niveau de certitude
-      response.certaintySummary = generateCertaintySummary(
-        verification.status,
-        response.reliabilityScore,
-        verification.verifiedCalculations
-      );
-    } else if (params.containsCalculations && !initialVerification) {
-      // Si la pensée est supposée contenir des calculs mais qu'aucun n'a été détecté préalablement
-      console.error('Smart-Thinking: Vérification spécifique des calculs...');
-      
-      const verifiedCalculations = qualityEvaluator.detectAndVerifyCalculations(params.thought);
-      
-      if (verifiedCalculations.length > 0) {
-        // Créer un objet de vérification partiel
-        verification = {
-          status: 'partially_verified',
+
+      // Préparer la réponse avec l'état de vérification initial
+      const response: SmartThinkingResponse = {
+        thoughtId,
+        thought: preverifiedThought, // Utiliser la pensée annotée si des calculs ont été vérifiés
+        thoughtType: params.thoughtType || 'regular',
+        qualityMetrics,
+        isVerified: initialVerification, // Initialiser selon la vérification préliminaire
+        verificationStatus: verificationStatus,
+        certaintySummary: certaintySummary,
+        reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
+      };
+
+      // Si des vérifications de calculs ont été effectuées
+      if (verifiedCalculations && verifiedCalculations.length > 0) {
+        // Ajouter dès maintenant les informations de vérification
+        response.verification = {
+          status: initialVerification ? 'partially_verified' : 'inconclusive',
           confidence: qualityMetrics.confidence,
-          sources: ['Vérification interne des calculs'],
-          verificationSteps: ['Détection et vérification des expressions mathématiques'],
+          sources: ['Vérification préliminaire des calculs'],
+          verificationSteps: ['Détection et vérification préliminaire des expressions mathématiques'],
           verifiedCalculations
         };
-        
-        response.verification = verification;
-        response.isVerified = true;
-        response.verificationStatus = 'partially_verified';
-        
+
         // Ajuster le score de fiabilité en fonction de l'exactitude des calculs
-        const calculationAccuracy = verifiedCalculations.filter(calc => calc.isCorrect).length / 
-                                  verifiedCalculations.length;
-        
-        response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
-        
-        // Générer un résumé avec l'accent sur les calculs
-        response.certaintySummary = generateCertaintySummary(
-          'partially_verified',
-          response.reliabilityScore,
-          verifiedCalculations
-        );
-        
-        // Mettre à jour la pensée avec les annotations
-        response.thought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
-        thoughtGraph.updateThoughtContent(thoughtId, response.thought);
-      } else {
-        console.error('Smart-Thinking: Aucun calcul détecté malgré le paramètre containsCalculations=true');
-        response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Aucun calcul n'a été détecté pour vérification.`;
-      }
-    } else {
-      console.error('Smart-Thinking: Confiance suffisante, vérification complète non nécessaire');
-      if (!initialVerification) {
-        response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
-      }
-    }
-    
-    // Si demandé, suggérer des outils
-    if (params.suggestTools) {
-      response.suggestedTools = toolIntegrator.suggestTools(params.thought);
-    }
-    
-    // Si demandé, générer une visualisation avec les nouvelles options
-    if (params.generateVisualization) {
-      const visualizationType = params.visualizationType || 'graph';
-      const visualizationOptions = params.visualizationOptions || {};
-      
-      switch (visualizationType) {
-        case 'chronological':
-          response.visualization = visualizer.generateChronologicalVisualization(thoughtGraph);
-          break;
-        case 'thematic':
-          response.visualization = visualizer.generateThematicVisualization(thoughtGraph);
-          break;
-        case 'hierarchical':
-          response.visualization = visualizer.generateHierarchicalVisualization(
-            thoughtGraph, 
-            visualizationOptions.centerNode,
-            {
-              direction: visualizationOptions.direction as any, // Cast pour TS
-              levelSeparation: 100,
-              clusterBy: visualizationOptions.clusterBy as any // Cast pour TS
-            }
-          );
-          break;
-        case 'force':
-          response.visualization = visualizer.generateForceDirectedVisualization(
-            thoughtGraph,
-            {
-              clusterBy: visualizationOptions.clusterBy as any, // Cast pour TS
-              forceStrength: 0.5,
-              centerNode: visualizationOptions.centerNode
-            }
-          );
-          break;
-        case 'radial':
-          response.visualization = visualizer.generateRadialVisualization(
-            thoughtGraph,
-            visualizationOptions.centerNode,
-            {
-              maxDepth: visualizationOptions.maxDepth,
-              radialDistance: 120
-            }
-          );
-          break;
-        case 'graph':
-        default:
-          response.visualization = visualizer.generateVisualization(thoughtGraph, thoughtId);
-          break;
-      }
-      
-      // Appliquer les filtres si spécifiés
-      if (visualizationOptions.filters && response.visualization) {
-        response.visualization = visualizer.applyFilters(
-          response.visualization,
-          visualizationOptions.filters as FilterOptions // Cast pour TS
-        );
-      }
-      
-      // Simplifier la visualisation si elle est trop grande
-      if (response.visualization && response.visualization.nodes.length > 100) {
-        response.visualization = visualizer.simplifyVisualization(response.visualization);
-      }
-    }
-    
-    // Récupérer les mémoires pertinentes
-    response.relevantMemories = await memoryManager.getRelevantMemories(params.thought);
-    
-    // Suggérer les prochaines étapes - pas besoin d'être asynchrone
-    response.suggestedNextSteps = thoughtGraph.suggestNextSteps();
-    
-    // Stocker la pensée actuelle dans la mémoire pour les sessions futures
-    if (response.qualityMetrics.quality > 0.7) {
-      // Ne stocker que les pensées de haute qualité
-      const tags = params.thought
-        .toLowerCase()
-        .split(/\W+/)
-        .filter((word: string) => word.length > 4)
-        .slice(0, 5);
-      
-      memoryManager.addMemory(params.thought, tags);
-    }
-    
-    console.error('Smart-Thinking: pensée traitée avec succès, id:', thoughtId);
-    
-    // Formater la réponse pour MCP (doit inclure le champ content obligatoire)
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(response, null, 2)
+        const correctCalculations = verifiedCalculations.filter(calc => calc.isCorrect).length;
+        const totalCalculations = verifiedCalculations.length;
+        if (totalCalculations > 0) {
+          const calculationAccuracy = correctCalculations / totalCalculations;
+          response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
         }
-      ]
-    };
-  }
+      }
+
+      // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
+      let verification: VerificationResult | undefined = undefined;
+
+      if (qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) {
+        console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
+
+        // Mettre à jour le statut pendant la vérification
+        response.verificationStatus = 'verification_in_progress';
+
+        try {
+          verification = await qualityEvaluator.deepVerify(
+              thoughtGraph.getThought(thoughtId) as ThoughtNode,
+              toolIntegrator,
+              params.containsCalculations
+          );
+
+          response.verification = verification;
+          response.isVerified = verification.status === 'verified' || verification.status === 'partially_verified';
+          response.verificationStatus = verification.status;
+
+          // Ajuster le score de fiabilité
+          response.reliabilityScore = (qualityMetrics.confidence + verification.confidence) / 2;
+
+          // Si des calculs ont été vérifiés, ajuster le score en fonction de leur exactitude
+          if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
+            const calculationAccuracy = verification.verifiedCalculations.filter(calc => calc.isCorrect).length /
+                verification.verifiedCalculations.length;
+
+            // Pondérer le score de fiabilité avec l'exactitude des calculs
+            response.reliabilityScore = (response.reliabilityScore * 0.7) + (calculationAccuracy * 0.3);
+          }
+
+          // Générer un résumé en langage naturel du niveau de certitude
+          response.certaintySummary = generateCertaintySummary(
+              verification.status,
+              response.reliabilityScore,
+              verification.verifiedCalculations
+          );
+
+          // Mettre à jour le contenu de la pensée avec les annotations si nécessaire
+          if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
+            response.thought = qualityEvaluator.annotateThoughtWithVerifications(
+                response.thought,
+                verification.verifiedCalculations
+            );
+            thoughtGraph.updateThoughtContent(thoughtId, response.thought);
+          }
+        } catch (error) {
+          console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
+          response.verificationStatus = 'inconclusive';
+          response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%.`;
+        }
+      }
+
+      // Si demandé, suggérer des outils
+      if (params.suggestTools) {
+        response.suggestedTools = toolIntegrator.suggestTools(params.thought);
+      }
+
+      // Si demandé, générer une visualisation avec les nouvelles options
+      if (params.generateVisualization) {
+        const visualizationType = params.visualizationType || 'graph';
+        const visualizationOptions = params.visualizationOptions || {};
+
+        switch (visualizationType) {
+          case 'chronological':
+            response.visualization = visualizer.generateChronologicalVisualization(thoughtGraph);
+            break;
+          case 'thematic':
+            response.visualization = visualizer.generateThematicVisualization(thoughtGraph);
+            break;
+          case 'hierarchical':
+            response.visualization = visualizer.generateHierarchicalVisualization(
+                thoughtGraph,
+                visualizationOptions.centerNode,
+                {
+                  direction: visualizationOptions.direction as any, // Cast pour TS
+                  levelSeparation: 100,
+                  clusterBy: visualizationOptions.clusterBy as any // Cast pour TS
+                }
+            );
+            break;
+          case 'force':
+            response.visualization = visualizer.generateForceDirectedVisualization(
+                thoughtGraph,
+                {
+                  clusterBy: visualizationOptions.clusterBy as any, // Cast pour TS
+                  forceStrength: 0.5,
+                  centerNode: visualizationOptions.centerNode
+                }
+            );
+            break;
+          case 'radial':
+            response.visualization = visualizer.generateRadialVisualization(
+                thoughtGraph,
+                visualizationOptions.centerNode,
+                {
+                  maxDepth: visualizationOptions.maxDepth,
+                  radialDistance: 120
+                }
+            );
+            break;
+          case 'graph':
+          default:
+            response.visualization = visualizer.generateVisualization(thoughtGraph, thoughtId);
+            break;
+        }
+
+        // Appliquer les filtres si spécifiés
+        if (visualizationOptions.filters && response.visualization) {
+          response.visualization = visualizer.applyFilters(
+              response.visualization,
+              visualizationOptions.filters as FilterOptions // Cast pour TS
+          );
+        }
+
+        // Simplifier la visualisation si elle est trop grande
+        if (response.visualization && response.visualization.nodes.length > 100) {
+          response.visualization = visualizer.simplifyVisualization(response.visualization);
+        }
+      }
+
+      // Récupérer les mémoires pertinentes
+      response.relevantMemories = await memoryManager.getRelevantMemories(params.thought);
+
+      // Suggérer les prochaines étapes - pas besoin d'être asynchrone
+      response.suggestedNextSteps = thoughtGraph.suggestNextSteps();
+
+      // Stocker la pensée actuelle dans la mémoire pour les sessions futures
+      if (response.qualityMetrics.quality > 0.7) {
+        // Ne stocker que les pensées de haute qualité
+        const tags = params.thought
+            .toLowerCase()
+            .split(/\W+/)
+            .filter((word: string) => word.length > 4)
+            .slice(0, 5);
+
+        memoryManager.addMemory(params.thought, tags);
+      }
+
+      console.error('Smart-Thinking: pensée traitée avec succès, id:', thoughtId);
+
+      // Formater la réponse pour MCP (doit inclure le champ content obligatoire)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2)
+          }
+        ]
+      };
+    }
 );
 
 // Créer et connecter le transport
@@ -675,13 +684,13 @@ async function start() {
   try {
     // S'assurer que le répertoire data existe
     await ensureDataDirExists();
-    
+
     await server.connect(transport);
     // Utiliser console.error pour éviter que ces messages soient interprétés comme du JSON
     console.error('Smart-Thinking MCP Server démarré avec succès.');
     console.error('L\'outil "smartthinking" est maintenant disponible pour Claude.');
     console.error('La documentation est automatiquement fournie à Claude lors de la première utilisation.');
-    
+
     // Afficher un exemple d'utilisation pour aider les utilisateurs
     console.error('\n-------------------- EXEMPLE D\'UTILISATION --------------------');
     console.error('Pour utiliser l\'outil correctement, demandez à Claude:');
@@ -709,9 +718,9 @@ async function start() {
 // Fonction pour générer un résumé du niveau de certitude
 function generateCertaintySummary(status: VerificationStatus, score: number, verifiedCalculations?: CalculationVerificationResult[]): string {
   const percentage = Math.round(score * 100);
-  
+
   let summary = "";
-  
+
   switch (status) {
     case 'verified':
       summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
@@ -728,18 +737,18 @@ function generateCertaintySummary(status: VerificationStatus, score: number, ver
     default:
       summary = `Information non vérifiée. Niveau de confiance: ${percentage}%. Considérez avec prudence.`;
   }
-  
+
   // Ajouter des détails sur les calculs si disponibles
   if (verifiedCalculations && verifiedCalculations.length > 0) {
     const incorrectCalculations = verifiedCalculations.filter(calc => !calc.isCorrect);
-    
+
     if (incorrectCalculations.length > 0) {
       summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s).`;
     } else {
       summary += ` Tous les calculs ont été vérifiés et sont corrects.`;
     }
   }
-  
+
   return summary;
 }
 
