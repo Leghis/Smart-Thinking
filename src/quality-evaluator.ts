@@ -1,5 +1,6 @@
-import { ThoughtMetrics, ThoughtNode } from './types';
+import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
 import { ThoughtGraph } from './thought-graph';
+import { ToolIntegrator } from './tool-integrator';
 
 /**
  * Classe qui évalue la qualité des pensées
@@ -255,6 +256,312 @@ export class QualityEvaluator {
       );
   }
   
+  /**
+   * Vérification approfondie d'une pensée
+   * 
+   * @param thought La pensée à vérifier
+   * @param toolIntegrator L'intégrateur d'outils pour la vérification
+   * @param containsCalculations Indique si la pensée contient des calculs à vérifier
+   * @returns Le résultat de la vérification
+   */
+  public async deepVerify(thought: ThoughtNode, toolIntegrator: ToolIntegrator, containsCalculations: boolean = false): Promise<VerificationResult> {
+    const content = thought.content;
+    
+    // Déterminer quels outils de recherche sont pertinents pour la vérification
+    const verificationTools = toolIntegrator.suggestVerificationTools(content);
+    
+    // Résultats de vérification pour chaque outil
+    const verificationResults: any[] = [];
+    
+    // Utiliser chaque outil pour vérifier l'information
+    for (const tool of verificationTools) {
+      try {
+        const result = await toolIntegrator.executeVerificationTool(tool.name, content);
+        verificationResults.push({
+          toolName: tool.name,
+          result,
+          confidence: tool.confidence
+        });
+      } catch (error) {
+        console.error(`Erreur lors de la vérification avec l'outil ${tool.name}:`, error);
+      }
+    }
+    
+    // Si la pensée contient des calculs, les vérifier
+    let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
+    
+    if (containsCalculations) {
+      verifiedCalculations = this.detectAndVerifyCalculations(content);
+      
+      // Vérifier les calculs complexes via Smart-E2B si nécessaire
+      for (let i = 0; i < verifiedCalculations.length; i++) {
+        const calc = verifiedCalculations[i];
+        
+        if (calc.verified === "\u00c0 v\u00e9rifier via Smart-E2B") {
+          try {
+            // Utiliser Smart-E2B pour vérifier le calcul complexe
+            const pyCode = `
+              import math
+              import numpy as np
+              
+              # Expression à évaluer
+              expression = "${calc.original.replace(/"/g, '\\"')}"
+              
+              # Extraire l'expression mathématique
+              import re
+              match = re.search(r"calcul\\s*(?:complexe|avancé)?\\s*:?\\s*([^=]+)=\\s*(\\d+(?:\\.\\d+)?)", expression, re.IGNORECASE)
+              
+              if match:
+                  expr = match.group(1).strip()
+                  claimed_result = float(match.group(2))
+                  
+                  # Évaluer l'expression (avec précaution)
+                  try:
+                      # Remplacer certains mots par leurs fonctions correspondantes
+                      expr = expr.replace("racine carrée", "math.sqrt")
+                      expr = expr.replace("puissance", "**")
+                      expr = expr.replace("sin", "math.sin")
+                      expr = expr.replace("cos", "math.cos")
+                      
+                      # Évaluer
+                      actual_result = eval(expr)
+                      
+                      # Vérifier
+                      is_correct = abs(actual_result - claimed_result) < 0.0001
+                      
+                      print(f"Résultat: {actual_result}")
+                      print(f"Correct: {is_correct}")
+                      
+                      result = {
+                          "verified": f"{expr} = {actual_result}",
+                          "isCorrect": is_correct,
+                          "confidence": 0.95
+                      }
+                  except Exception as e:
+                      result = {
+                          "verified": f"Erreur: {str(e)}",
+                          "isCorrect": False,
+                          "confidence": 0.5
+                      }
+              else:
+                  result = {
+                      "verified": "Format d'expression non reconnu",
+                      "isCorrect": False,
+                      "confidence": 0.3
+                  }
+                  
+              # Retourner le résultat au format JSON
+              import json
+              print(json.dumps(result))
+            `;
+            
+            const pythonResult = await toolIntegrator.executeVerificationTool('executePython', pyCode);
+            
+            // Mettre à jour le résultat de vérification
+            verifiedCalculations[i] = {
+              ...calc,
+              ...pythonResult.result
+            };
+          } catch (error) {
+            console.error(`Erreur lors de la vérification du calcul complexe:`, error);
+          }
+        }
+      }
+    }
+    
+    // Agréger et analyser les résultats
+    const status = this.aggregateVerificationStatus(verificationResults);
+    const confidence = this.calculateVerificationConfidence(verificationResults);
+    const sources = verificationResults.map(r => `${r.toolName}: ${r.result.source || 'Source non spécifiée'}`);
+    const steps = verificationResults.map(r => `Vérifié avec ${r.toolName}`);
+    
+    // Détecter les contradictions entre les sources
+    const contradictions = this.detectContradictions(verificationResults);
+    
+    return {
+      status,
+      confidence,
+      sources,
+      verificationSteps: steps,
+      contradictions: contradictions.length > 0 ? contradictions : undefined,
+      notes: this.generateVerificationNotes(verificationResults),
+      verifiedCalculations
+    };
+  }
+
+  /**
+   * Détecte et vérifie les calculs dans un texte
+   * 
+   * @param content Le texte contenant potentiellement des calculs
+   * @returns Un tableau de résultats de vérification de calculs
+   */
+  public detectAndVerifyCalculations(content: string): CalculationVerificationResult[] {
+    const results: CalculationVerificationResult[] = [];
+    
+    // Regex pour détecter les expressions mathématiques simples
+    // Note: cette regex est simplifiée, une implémentation réelle serait plus robuste
+    const calculationRegex = /(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g;
+    
+    let match;
+    while ((match = calculationRegex.exec(content)) !== null) {
+      const [fullExpression, num1Str, operator, num2Str, resultStr] = match;
+      
+      try {
+        // Convertir les opérandes en nombres
+        const num1 = parseFloat(num1Str);
+        const num2 = parseFloat(num2Str);
+        const claimedResult = parseFloat(resultStr);
+        
+        // Calculer le résultat correct
+        let correctResult: number;
+        switch (operator) {
+          case '+': correctResult = num1 + num2; break;
+          case '-': correctResult = num1 - num2; break;
+          case '*': correctResult = num1 * num2; break;
+          case '/': correctResult = num1 / num2; break;
+          default: correctResult = NaN;
+        }
+        
+        // Vérifier si le résultat est correct (avec une petite marge d'erreur pour les nombres flottants)
+        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
+        
+        // Ajouter le résultat de la vérification
+        results.push({
+          original: fullExpression,
+          verified: `${num1} ${operator} ${num2} = ${correctResult}`,
+          isCorrect,
+          confidence: 0.99 // Confiance élevée pour les calculs simples
+        });
+      } catch (error) {
+        // En cas d'erreur dans le calcul
+        results.push({
+          original: fullExpression,
+          verified: "Erreur dans l'évaluation du calcul",
+          isCorrect: false,
+          confidence: 0.5
+        });
+      }
+    }
+    
+    // Pour les calculs plus complexes, utiliser Smart-E2B avec executePython
+    const complexCalculationRegex = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*(\d+(?:\.\d+)?)/gi;
+    
+    while ((match = complexCalculationRegex.exec(content)) !== null) {
+      const [fullExpression, expressionStr, resultStr] = match;
+      
+      // Marquer pour vérification ultérieure via Smart-E2B
+      results.push({
+        original: fullExpression,
+        verified: "\u00c0 vérifier via Smart-E2B",
+        isCorrect: false, // \u00c0 déterminer plus tard
+        confidence: 0.5
+      });
+    }
+    
+    return results;
+  }
+
+  /**
+   * Agrège les statuts de vérification
+   * 
+   * @param results Les résultats de vérification
+   * @returns Le statut global de vérification
+   */
+  private aggregateVerificationStatus(results: any[]): VerificationStatus {
+    if (results.length === 0) {
+      return 'unverified';
+    }
+    
+    // Compter les différents statuts
+    const statusCounts = {
+      verified: 0,
+      contradicted: 0,
+      inconclusive: 0
+    };
+    
+    for (const result of results) {
+      if (result.result.isValid === true) {
+        statusCounts.verified++;
+      } else if (result.result.isValid === false) {
+        statusCounts.contradicted++;
+      } else {
+        statusCounts.inconclusive++;
+      }
+    }
+    
+    // Logique de décision pour le statut global
+    if (statusCounts.contradicted > 0) {
+      return 'contradicted';
+    } else if (statusCounts.verified > 0 && statusCounts.inconclusive === 0) {
+      return 'verified';
+    } else if (statusCounts.verified > 0) {
+      return 'partially_verified';
+    } else {
+      return 'inconclusive';
+    }
+  }
+
+  /**
+   * Calcule la confiance globale dans la vérification
+   * 
+   * @param results Les résultats de vérification
+   * @returns Le niveau de confiance global (0 à 1)
+   */
+  private calculateVerificationConfidence(results: any[]): number {
+    if (results.length === 0) {
+      return 0;
+    }
+    
+    // Moyenne pondérée des confiances de chaque outil
+    const totalWeight = results.reduce((sum, r) => sum + r.confidence, 0);
+    const weightedConfidence = results.reduce((sum, r) => {
+      const resultConfidence = r.result.confidence || 0.5;
+      return sum + (resultConfidence * r.confidence);
+    }, 0);
+    
+    return totalWeight > 0 ? weightedConfidence / totalWeight : 0.5;
+  }
+
+  /**
+   * Détecte les contradictions entre les résultats
+   * 
+   * @param results Les résultats de vérification
+   * @returns Un tableau de contradictions détectées
+   */
+  private detectContradictions(results: any[]): string[] {
+    const contradictions: string[] = [];
+    
+    // Comparer les résultats entre eux pour détecter les incohérences
+    for (let i = 0; i < results.length; i++) {
+      for (let j = i + 1; j < results.length; j++) {
+        const resultA = results[i].result;
+        const resultB = results[j].result;
+        
+        // Logique de détection des contradictions (\u00e0 personnaliser selon le format des résultats)
+        if (resultA.isValid === true && resultB.isValid === false) {
+          contradictions.push(`Contradiction entre ${results[i].toolName} et ${results[j].toolName}`);
+        }
+      }
+    }
+    
+    return contradictions;
+  }
+
+  /**
+   * Génère des notes sur la vérification
+   * 
+   * @param results Les résultats de vérification
+   * @returns Une note explicative sur la vérification
+   */
+  private generateVerificationNotes(results: any[]): string {
+    if (results.length === 0) {
+      return "Aucune vérification n'a été effectuée.";
+    }
+    
+    const toolsUsed = results.map(r => r.toolName).join(', ');
+    return `Vérification effectuée avec les outils suivants : ${toolsUsed}.`;
+  }
+
   /**
    * Détecte les biais potentiels dans une pensée
    * 

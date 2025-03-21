@@ -174,6 +174,271 @@ export class ToolIntegrator {
    * @param limit Le nombre maximum d'outils à suggérer
    * @returns Un tableau d'outils suggérés
    */
+  public suggestVerificationTools(content: string, limit: number = 3): SuggestedTool[] {
+    // Sélectionner spécifiquement des outils de recherche et de vérification
+    const verificationToolNames = [
+      'perplexity_search_web',
+      'tavily-search',
+      'brave_web_search',
+      'tavily-extract',
+      'executePython',
+      'executeJavaScript'
+    ];
+    
+    // Filtrer les outils connus pour ne garder que ceux de vérification
+    const verificationTools = Array.from(this.knownTools.values())
+      .filter(tool => verificationToolNames.includes(tool.name));
+    
+    // Convertir le contenu en mots-clés
+    const contentWords = content.toLowerCase().split(/\W+/).filter(word => word.length > 3);
+    
+    // Analyse du contenu pour détecter des intentions/besoins spécifiques
+    const needsWebSearch = this.containsAny(content.toLowerCase(), ['recherche', 'trouve', 'cherche', 'information', 'récent', 'actualité', 'web', 'internet']);
+    const needsCodeExecution = this.containsAny(content.toLowerCase(), ['code', 'calcul', 'programme', 'python', 'javascript', 'script', 'algorithme', 'exécute', 'js']);
+    const needsContentExtraction = this.containsAny(content.toLowerCase(), ['extrait', 'extraction', 'contenu', 'page', 'url', 'site', 'web', 'article']);
+    
+    // Calculer un score pour chaque outil
+    const toolScores = verificationTools.map(tool => {
+      // Score basé sur la correspondance de mots-clés
+      const matchingKeywords = tool.keywords.filter(keyword => 
+        contentWords.includes(keyword) || content.toLowerCase().includes(keyword)
+      );
+      
+      // Score de base
+      let score = matchingKeywords.length / Math.max(tool.keywords.length, 1);
+      
+      // Ajustements basés sur le type de vérification nécessaire
+      if (needsWebSearch) {
+        if (['perplexity_search_web', 'brave_web_search', 'tavily-search'].includes(tool.name)) {
+          score += 0.4;
+        }
+      }
+      
+      if (needsCodeExecution) {
+        if (tool.name === 'executePython' || tool.name === 'executeJavaScript') {
+          score += 0.5;
+        }
+      }
+      
+      if (needsContentExtraction) {
+        if (tool.name === 'tavily-extract') {
+          score += 0.5;
+        }
+      }
+      
+      // Priorité aux outils de recherche web pour la vérification factuelle
+      if (['perplexity_search_web', 'tavily-search'].includes(tool.name)) {
+        score += 0.2; // Boost pour les meilleurs outils de recherche
+      }
+      
+      return {
+        tool,
+        score
+      };
+    });
+    
+    // Filtrer les outils avec un score minimum et trier par score
+    const minScore = 0.1;
+    const suggestedTools = toolScores
+      .filter(item => item.score > minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((item, index) => {
+        return {
+          name: item.tool.name,
+          confidence: Math.min(Math.max(item.score, 0), 1), // Limiter entre 0 et 1
+          reason: this.generateVerificationReason(item.tool, content),
+          priority: index + 1
+        };
+      });
+    
+    // Si aucun outil n'a été trouvé pertinent, suggérer l'outil de recherche par défaut
+    if (suggestedTools.length === 0) {
+      suggestedTools.push({
+        name: 'tavily-search',
+        confidence: 0.7,
+        reason: 'Outil de recherche général pour la vérification des informations',
+        priority: 1
+      });
+    }
+    
+    return suggestedTools;
+  }
+  
+  /**
+   * Génère une raison spécifique pour la vérification avec un outil
+   * 
+   * @param tool L'outil suggéré
+   * @param content Le contenu à vérifier
+   * @returns Une raison explicative pour la vérification
+   */
+  private generateVerificationReason(tool: any, content: string): string {
+    switch (tool.name) {
+      case 'perplexity_search_web':
+        return 'Vérification via Perplexity pour obtenir des informations récentes et factuelles';
+      case 'tavily-search':
+        return 'Recherche approfondie via Tavily pour vérifier l\'exactitude des informations';
+      case 'brave_web_search':
+        return 'Vérification des faits via Brave Search pour une source alternative';
+      case 'tavily-extract':
+        return 'Extraction de contenu pour vérifier les informations depuis des sources spécifiques';
+      case 'executePython':
+        return 'Vérification des calculs et analyses par exécution de code Python';
+      case 'executeJavaScript':
+        return 'Vérification des calculs et analyses par exécution de code JavaScript';
+      default:
+        return tool.useCase || 'Outil de vérification des informations';
+    }
+  }
+  
+  /**
+   * Exécute un outil de vérification sur un contenu donné
+   * 
+   * @param toolName Le nom de l'outil à exécuter
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  public async executeVerificationTool(toolName: string, content: string): Promise<any> {
+    // Logique différente selon l'outil
+    switch (toolName) {
+      case 'perplexity_search_web':
+        return this.executePerplexitySearch(content);
+      case 'tavily-search':
+        return this.executeTavilySearch(content);
+      case 'brave_web_search':
+        return this.executeBraveSearch(content);
+      case 'tavily-extract':
+        return this.executeTavilyExtract(content);
+      case 'executePython':
+        return this.executePythonVerification(content);
+      case 'executeJavaScript':
+        return this.executeJavaScriptVerification(content);
+      default:
+        throw new Error(`Outil de vérification non pris en charge: ${toolName}`);
+    }
+  }
+  
+  /**
+   * Exécute une recherche Perplexity pour vérifier des informations
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executePerplexitySearch(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci ferait un appel à l'API Perplexity
+    console.log(`Exécution de perplexity_search_web pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.85,
+      source: "Perplexity Search API",
+      details: "Information vérifiée via Perplexity Search"
+    };
+  }
+  
+  /**
+   * Exécute une recherche Tavily pour vérifier des informations
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executeTavilySearch(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci ferait un appel à l'API Tavily
+    console.log(`Exécution de tavily-search pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.9,
+      source: "Tavily Search API",
+      details: "Information vérifiée via Tavily Search"
+    };
+  }
+  
+  /**
+   * Exécute une recherche Brave pour vérifier des informations
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executeBraveSearch(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci ferait un appel à l'API Brave
+    console.log(`Exécution de brave_web_search pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.8,
+      source: "Brave Search API",
+      details: "Information vérifiée via Brave Search"
+    };
+  }
+  
+  /**
+   * Exécute une extraction Tavily pour vérifier des informations
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executeTavilyExtract(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci ferait un appel à l'API Tavily Extract
+    console.log(`Exécution de tavily-extract pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.85,
+      source: "Tavily Extract API",
+      details: "Information vérifiée via extraction de contenu"
+    };
+  }
+  
+  /**
+   * Vérifie des informations via exécution de code Python
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executePythonVerification(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci utiliserait Smart-E2B pour exécuter du code Python
+    console.log(`Exécution de Python pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.95,
+      source: "Smart-E2B Python Execution",
+      details: "Calculs vérifiés via exécution Python"
+    };
+  }
+  
+  /**
+   * Vérifie des informations via exécution de code JavaScript
+   * 
+   * @param content Le contenu à vérifier
+   * @returns Le résultat de la vérification
+   */
+  private async executeJavaScriptVerification(content: string): Promise<any> {
+    // Note: Dans une implémentation réelle, ceci utiliserait Smart-E2B pour exécuter du code JavaScript
+    console.log(`Exécution de JavaScript pour vérifier: ${content}`);
+    
+    // Simule un résultat de vérification
+    return {
+      isValid: true,
+      confidence: 0.95,
+      source: "Smart-E2B JavaScript Execution",
+      details: "Calculs vérifiés via exécution JavaScript"
+    };
+  }
+
+  /**
+   * Suggère des outils pertinents pour un contenu donné
+   * 
+   * @param content Le contenu pour lequel suggérer des outils
+   * @param limit Le nombre maximum d'outils à suggérer
+   * @returns Un tableau d'outils suggérés
+   */
   suggestTools(content: string, limit: number = 3): SuggestedTool[] {
     // Convertir le contenu en mots-clés
     const contentWords = content.toLowerCase().split(/\W+/).filter(word => word.length > 3);

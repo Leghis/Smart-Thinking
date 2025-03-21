@@ -9,7 +9,8 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
-import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions } from './types';
+import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
+import { ThoughtNode } from './types';
 import path from 'path';
 import { promises as fs } from 'fs';
 
@@ -35,6 +36,10 @@ console.error(`
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
+
+// Seuils de confiance pour la vérification
+const MINIMUM_CONFIDENCE_THRESHOLD = 0.7;
+const VERIFICATION_REQUIRED_THRESHOLD = 0.5;
 
 // Clé API Cohere pour les embeddings
 const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
@@ -157,6 +162,18 @@ const SmartThinkingParamsSchema = z.object({
     .describe(
       'Afficher le guide d\'utilisation complet - Exemple: true - ' +
       'Renvoie une documentation détaillée sur l\'utilisation de Smart-Thinking, ses fonctionnalités et des exemples d\'utilisation'
+    ),
+    
+  requestVerification: z.boolean().default(false)
+    .describe(
+      'Demander explicitement une vérification des informations - Exemple: true - ' +
+      'Force le système à vérifier les informations, même si le niveau de confiance est élevé'
+    ),
+  
+  containsCalculations: z.boolean().default(false)
+    .describe(
+      'Indique si la pensée contient des calculs à vérifier - Exemple: true - ' +
+      'Active la vérification spécifique pour les expressions mathématiques et les calculs'
     ),
 
   // Nouvelles options avancées de visualisation
@@ -331,8 +348,81 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
       thoughtId,
       thought: params.thought,
       thoughtType: params.thoughtType || 'regular',
-      qualityMetrics
+      qualityMetrics,
+      isVerified: false, // Par défaut, non vérifié
+      certaintySummary: "Information non vérifiée",
+      reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
     };
+    
+    // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
+    let verification: VerificationResult | undefined = undefined;
+    
+    if (qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) {
+      console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification nécessaire...');
+      
+      verification = await qualityEvaluator.deepVerify(
+        thoughtGraph.getThought(thoughtId) as ThoughtNode, 
+        toolIntegrator,
+        params.containsCalculations
+      );
+      
+      response.verification = verification;
+      response.isVerified = verification.status === 'verified' || verification.status === 'partially_verified';
+      
+      // Ajuster le score de fiabilité
+      response.reliabilityScore = (qualityMetrics.confidence + verification.confidence) / 2;
+      
+      // Si des calculs ont été vérifiés, ajuster le score en fonction de leur exactitude
+      if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
+        const calculationAccuracy = verification.verifiedCalculations.filter(calc => calc.isCorrect).length / 
+                                   verification.verifiedCalculations.length;
+        
+        // Pondérer le score de fiabilité avec l'exactitude des calculs
+        response.reliabilityScore = (response.reliabilityScore * 0.7) + (calculationAccuracy * 0.3);
+      }
+      
+      // Générer un résumé en langage naturel du niveau de certitude
+      response.certaintySummary = generateCertaintySummary(
+        verification.status,
+        response.reliabilityScore,
+        verification.verifiedCalculations
+      );
+    } else if (params.containsCalculations) {
+      // Si la pensée contient des calculs, les vérifier même si la confiance est élevée
+      console.error('Smart-Thinking: Vérification des calculs uniquement...');
+      
+      const verifiedCalculations = qualityEvaluator.detectAndVerifyCalculations(params.thought);
+      
+      // Créer un objet de vérification partiel
+      verification = {
+        status: 'partially_verified',
+        confidence: qualityMetrics.confidence,
+        sources: ['Vérification interne des calculs'],
+        verificationSteps: ['Détection et vérification des expressions mathématiques'],
+        verifiedCalculations
+      };
+      
+      response.verification = verification;
+      response.isVerified = true;
+      
+      // Ajuster le score de fiabilité en fonction de l'exactitude des calculs
+      if (verifiedCalculations.length > 0) {
+        const calculationAccuracy = verifiedCalculations.filter(calc => calc.isCorrect).length / 
+                                   verifiedCalculations.length;
+        
+        response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
+      }
+      
+      // Générer un résumé avec l'accent sur les calculs
+      response.certaintySummary = generateCertaintySummary(
+        'partially_verified',
+        response.reliabilityScore,
+        verifiedCalculations
+      );
+    } else {
+      console.error('Smart-Thinking: Confiance suffisante, vérification non nécessaire');
+      response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+    }
     
     // Si demandé, suggérer des outils
     if (params.suggestTools) {
@@ -483,6 +573,43 @@ async function start() {
     console.error('Erreur lors du démarrage du serveur:', error);
     process.exit(1);
   }
+}
+
+// Fonction pour générer un résumé du niveau de certitude
+function generateCertaintySummary(status: VerificationStatus, score: number, verifiedCalculations?: CalculationVerificationResult[]): string {
+  const percentage = Math.round(score * 100);
+  
+  let summary = "";
+  
+  switch (status) {
+    case 'verified':
+      summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
+      break;
+    case 'partially_verified':
+      summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
+      break;
+    case 'contradicted':
+      summary = `Des contradictions ont été détectées dans l'information. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
+      break;
+    case 'inconclusive':
+      summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%. Je vous suggère de reformuler la question ou de consulter d'autres sources d'information.`;
+      break;
+    default:
+      summary = `Information non vérifiée. Niveau de confiance: ${percentage}%. Considérez avec prudence.`;
+  }
+  
+  // Ajouter des détails sur les calculs si disponibles
+  if (verifiedCalculations && verifiedCalculations.length > 0) {
+    const incorrectCalculations = verifiedCalculations.filter(calc => !calc.isCorrect);
+    
+    if (incorrectCalculations.length > 0) {
+      summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s).`;
+    } else {
+      summary += ` Tous les calculs ont été vérifiés et sont corrects.`;
+    }
+  }
+  
+  return summary;
 }
 
 start();

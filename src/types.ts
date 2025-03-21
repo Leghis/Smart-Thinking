@@ -1,9 +1,13 @@
 /**
  * Types communs pour le projet Smart-Thinking
+ * Avec ajout du système de vérification et de fiabilité
  */
 
 // Types de pensée
 export type ThoughtType = 'regular' | 'revision' | 'meta' | 'hypothesis' | 'conclusion';
+
+// Statut de vérification
+export type VerificationStatus = 'unverified' | 'partially_verified' | 'verified' | 'contradicted' | 'inconclusive';
 
 // Types de connexion enrichis entre les pensées
 export type ConnectionType = 
@@ -68,6 +72,25 @@ export interface ThoughtMetrics {
   relevance: number; // De 0 à 1
   quality: number; // De 0 à 1
   // Peut être étendu avec d'autres métriques
+}
+
+// Interface pour les résultats de vérification de calculs
+export interface CalculationVerificationResult {
+  original: string; // Expression originale
+  verified: string; // Résultat vérifié
+  isCorrect: boolean; // Si le calcul original est correct
+  confidence: number; // Niveau de confiance dans la vérification
+}
+
+// Interface pour les résultats de vérification
+export interface VerificationResult {
+  status: VerificationStatus;
+  confidence: number; // De 0 à 1
+  sources: string[]; // Sources utilisées pour la vérification
+  verificationSteps: string[]; // Description des étapes de vérification effectuées
+  contradictions?: string[]; // Contradictions détectées, le cas échéant
+  notes?: string; // Notes supplémentaires sur la vérification
+  verifiedCalculations?: CalculationVerificationResult[];
 }
 
 // Interface pour un outil suggéré
@@ -209,6 +232,10 @@ export interface SmartThinkingParams {
   visualizationType?: 'graph' | 'chronological' | 'thematic' | 'hierarchical' | 'force' | 'radial';
   help?: boolean;
   
+  // Paramètres de vérification
+  requestVerification?: boolean; // Demander explicitement une vérification, même si la confiance est élevée
+  containsCalculations?: boolean; // Indique si la pensée contient des calculs à vérifier
+  
   // Nouvelles options de visualisation avancée
   visualizationOptions?: {
     clusterBy?: 'type' | 'theme' | 'metric' | 'connectivity';
@@ -230,4 +257,10 @@ export interface SmartThinkingResponse {
   visualization?: Visualization;
   relevantMemories?: MemoryItem[];
   suggestedNextSteps?: NextStepSuggestion[];
+  
+  // Nouveaux champs pour la vérification
+  verification?: VerificationResult;
+  isVerified: boolean; // Indique si la pensée a été vérifiée
+  certaintySummary: string; // Résumé en langage naturel du niveau de certitude
+  reliabilityScore: number; // Score global de fiabilité (0 à 1)
 }
