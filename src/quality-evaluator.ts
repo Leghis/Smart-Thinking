@@ -398,12 +398,27 @@ export class QualityEvaluator {
   public detectAndVerifyCalculations(content: string): CalculationVerificationResult[] {
     const results: CalculationVerificationResult[] = [];
     
-    // Regex pour détecter les expressions mathématiques simples
-    // Note: cette regex est simplifiée, une implémentation réelle serait plus robuste
-    const calculationRegex = /(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g;
+    // Expressions régulières enrichies pour détecter plus de formats d'expressions mathématiques
+    const calculationRegexes = [
+      // Format standard: 5 + 3 = 8
+      /(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g,
+      
+      // Format avec parenthèses: (5 + 3) = 8
+      /\((\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)\)\s*=\s*(\d+(?:\.\d+)?)/g,
+      
+      // Format avec mots: 5 plus 3 égale 8
+      /(\d+(?:\.\d+)?)\s*(plus|moins|fois|divisé par)\s*(\d+(?:\.\d+)?)\s*(?:égale|égal|est égal à|vaut|font|donne)\s*(\d+(?:\.\d+)?)/gi,
+      
+      // Format puissance: 2^3 = 8
+      /(\d+(?:\.\d+)?)\s*(?:\^|\*\*)\s*(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/g,
+      
+      // Format racine carrée: racine carrée de 9 = 3
+      /racine\s+carrée\s+(?:de)?\s+(\d+(?:\.\d+)?)\s*=\s*(\d+(?:\.\d+)?)/gi
+    ];
     
+    // Traiter le format standard (opérations arithmétiques de base)
     let match;
-    while ((match = calculationRegex.exec(content)) !== null) {
+    while ((match = calculationRegexes[0].exec(content)) !== null) {
       const [fullExpression, num1Str, operator, num2Str, resultStr] = match;
       
       try {
@@ -443,6 +458,153 @@ export class QualityEvaluator {
       }
     }
     
+    // Traiter le format avec parenthèses
+    while ((match = calculationRegexes[1].exec(content)) !== null) {
+      const [fullExpression, num1Str, operator, num2Str, resultStr] = match;
+      
+      try {
+        // Même logique que pour le format standard
+        const num1 = parseFloat(num1Str);
+        const num2 = parseFloat(num2Str);
+        const claimedResult = parseFloat(resultStr);
+        
+        let correctResult: number;
+        switch (operator) {
+          case '+': correctResult = num1 + num2; break;
+          case '-': correctResult = num1 - num2; break;
+          case '*': correctResult = num1 * num2; break;
+          case '/': correctResult = num1 / num2; break;
+          default: correctResult = NaN;
+        }
+        
+        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
+        
+        results.push({
+          original: fullExpression,
+          verified: `(${num1} ${operator} ${num2}) = ${correctResult}`,
+          isCorrect,
+          confidence: 0.99
+        });
+      } catch (error) {
+        results.push({
+          original: fullExpression,
+          verified: "Erreur dans l'évaluation du calcul avec parenthèses",
+          isCorrect: false,
+          confidence: 0.5
+        });
+      }
+    }
+    
+    // Traiter le format avec mots
+    while ((match = calculationRegexes[2].exec(content)) !== null) {
+      const [fullExpression, num1Str, operatorWord, num2Str, resultStr] = match;
+      
+      try {
+        const num1 = parseFloat(num1Str);
+        const num2 = parseFloat(num2Str);
+        const claimedResult = parseFloat(resultStr);
+        
+        // Convertir l'opérateur textuel en opérateur mathématique
+        let operator: string;
+        let correctResult: number;
+        
+        switch (operatorWord.toLowerCase()) {
+          case 'plus': 
+            operator = '+';
+            correctResult = num1 + num2; 
+            break;
+          case 'moins': 
+            operator = '-';
+            correctResult = num1 - num2; 
+            break;
+          case 'fois': 
+            operator = '*';
+            correctResult = num1 * num2; 
+            break;
+          case 'divisé par': 
+            operator = '/';
+            correctResult = num1 / num2; 
+            break;
+          default: 
+            operator = '?';
+            correctResult = NaN;
+        }
+        
+        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
+        
+        results.push({
+          original: fullExpression,
+          verified: `${num1} ${operator} ${num2} = ${correctResult}`,
+          isCorrect,
+          confidence: 0.98  // Légèrement moins de confiance due à l'ambigüïté possible du langage naturel
+        });
+      } catch (error) {
+        results.push({
+          original: fullExpression,
+          verified: "Erreur dans l'évaluation du calcul en format texte",
+          isCorrect: false,
+          confidence: 0.5
+        });
+      }
+    }
+    
+    // Traiter le format puissance
+    while ((match = calculationRegexes[3].exec(content)) !== null) {
+      const [fullExpression, baseStr, exponentStr, resultStr] = match;
+      
+      try {
+        const base = parseFloat(baseStr);
+        const exponent = parseFloat(exponentStr);
+        const claimedResult = parseFloat(resultStr);
+        
+        // Calcul de puissance
+        const correctResult = Math.pow(base, exponent);
+        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
+        
+        results.push({
+          original: fullExpression,
+          verified: `${base}^${exponent} = ${correctResult}`,
+          isCorrect,
+          confidence: 0.99
+        });
+      } catch (error) {
+        results.push({
+          original: fullExpression,
+          verified: "Erreur dans l'évaluation de la puissance",
+          isCorrect: false,
+          confidence: 0.5
+        });
+      }
+    }
+    
+    // Traiter le format racine carrée
+    while ((match = calculationRegexes[4].exec(content)) !== null) {
+      const [fullExpression, numberStr, resultStr] = match;
+      
+      try {
+        const number = parseFloat(numberStr);
+        const claimedResult = parseFloat(resultStr);
+        
+        // Calcul de racine carrée
+        const correctResult = Math.sqrt(number);
+        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
+        
+        results.push({
+          original: fullExpression,
+          verified: `racine carrée de ${number} = ${correctResult}`,
+          isCorrect,
+          confidence: 0.99
+        });
+      } catch (error) {
+        results.push({
+          original: fullExpression,
+          verified: "Erreur dans l'évaluation de la racine carrée",
+          isCorrect: false,
+          confidence: 0.5
+        });
+      }
+    }
+    
     // Pour les calculs plus complexes, utiliser Smart-E2B avec executePython
     const complexCalculationRegex = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*(\d+(?:\.\d+)?)/gi;
     
@@ -459,6 +621,43 @@ export class QualityEvaluator {
     }
     
     return results;
+  }
+  
+  /**
+   * Annote une pensée avec les résultats de vérification des calculs
+   * 
+   * @param thought Le texte de la pensée à annoter
+   * @param verifications Les résultats de vérification des calculs
+   * @returns Le texte annoté avec les résultats de vérification
+   */
+  public annotateThoughtWithVerifications(thought: string, verifications: CalculationVerificationResult[]): string {
+    let annotatedThought = thought;
+    
+    // Parcourir les vérifications dans l'ordre inverse pour ne pas perturber les indices
+    for (let i = verifications.length - 1; i >= 0; i--) {
+      const verification = verifications[i];
+      const original = verification.original;
+      
+      // Créer une annotation selon que le calcul est correct ou non
+      if (verification.isCorrect) {
+        annotatedThought = annotatedThought.replace(
+          original, 
+          `${original} [✓ Vérifié]`
+        );
+      } else if (verification.verified === "\u00c0 vérifier via Smart-E2B") {
+        annotatedThought = annotatedThought.replace(
+          original, 
+          `${original} [⏳ Vérification en cours...]`
+        );
+      } else {
+        annotatedThought = annotatedThought.replace(
+          original, 
+          `${original} [✗ Incorrect: ${verification.verified}]`
+        );
+      }
+    }
+    
+    return annotatedThought;
   }
 
   /**

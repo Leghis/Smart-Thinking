@@ -400,9 +400,33 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
     // Utiliser console.error pour les messages de débogage qui ne seront pas interprétés comme JSON
     console.error('Smart-Thinking: traitement de la pensée:', params.thought);
     
-    // Ajouter la pensée au graphe
+    // Vérifier si la pensée contient des calculs avant tout autre traitement
+    let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
+    let initialVerification = false;
+    let preverifiedThought = params.thought;
+    
+    // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
+    const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(params.thought);
+    const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(params.thought);
+    
+    // Si des calculs sont présents ou explicité par le paramètre containsCalculations
+    if (params.containsCalculations || hasSimpleCalculations || hasComplexCalculations) {
+      console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
+      verifiedCalculations = qualityEvaluator.detectAndVerifyCalculations(params.thought);
+      
+      // Si des calculs sont détectés, marquer comme partiellement vérifié
+      initialVerification = verifiedCalculations.length > 0;
+      
+      // Si des calculs ont été détectés, annoter la pensée
+      if (initialVerification) {
+        preverifiedThought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
+        console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
+      }
+    }
+    
+    // Ajouter la pensée au graphe (avec annotations si des calculs ont été vérifiés)
     const thoughtId = thoughtGraph.addThought(
-      params.thought, 
+      preverifiedThought, 
       params.thoughtType,
       params.connections
     );
@@ -413,22 +437,48 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
     // Mettre à jour les métriques dans le graphe
     thoughtGraph.updateThoughtMetrics(thoughtId, qualityMetrics);
     
-    // Préparer la réponse
+    // Préparer la réponse avec l'état de vérification initial
     const response: SmartThinkingResponse = {
       thoughtId,
-      thought: params.thought,
+      thought: preverifiedThought, // Utiliser la pensée annotée si des calculs ont été vérifiés
       thoughtType: params.thoughtType || 'regular',
       qualityMetrics,
-      isVerified: false, // Par défaut, non vérifié
-      certaintySummary: "Information non vérifiée",
+      isVerified: initialVerification, // Initialiser selon la vérification préliminaire
+      verificationStatus: initialVerification ? 'partially_verified' : 'unverified',
+      certaintySummary: initialVerification 
+        ? `Calculs vérifiés préalablement, niveau de confiance initial: ${Math.round(qualityMetrics.confidence * 100)}%.`
+        : "Information non vérifiée",
       reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
     };
+    
+    // Si une vérification préliminaire des calculs a été effectuée
+    if (initialVerification && verifiedCalculations) {
+      // Ajouter dès maintenant les informations de vérification préliminaire
+      response.verification = {
+        status: 'partially_verified',
+        confidence: qualityMetrics.confidence,
+        sources: ['Vérification préliminaire des calculs'],
+        verificationSteps: ['Détection et vérification préliminaire des expressions mathématiques'],
+        verifiedCalculations
+      };
+      
+      // Ajuster le score de fiabilité en fonction de l'exactitude des calculs préliminaires
+      const correctCalculations = verifiedCalculations.filter(calc => calc.isCorrect).length;
+      const totalCalculations = verifiedCalculations.length;
+      if (totalCalculations > 0) {
+        const calculationAccuracy = correctCalculations / totalCalculations;
+        response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
+      }
+    }
     
     // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
     let verification: VerificationResult | undefined = undefined;
     
     if (qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) {
-      console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification nécessaire...');
+      console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
+      
+      // Mettre à jour le statut pendant la vérification
+      response.verificationStatus = 'verification_in_progress';
       
       verification = await qualityEvaluator.deepVerify(
         thoughtGraph.getThought(thoughtId) as ThoughtNode, 
@@ -438,6 +488,7 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
       
       response.verification = verification;
       response.isVerified = verification.status === 'verified' || verification.status === 'partially_verified';
+      response.verificationStatus = verification.status;
       
       // Ajuster le score de fiabilité
       response.reliabilityScore = (qualityMetrics.confidence + verification.confidence) / 2;
@@ -457,41 +508,51 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         response.reliabilityScore,
         verification.verifiedCalculations
       );
-    } else if (params.containsCalculations) {
-      // Si la pensée contient des calculs, les vérifier même si la confiance est élevée
-      console.error('Smart-Thinking: Vérification des calculs uniquement...');
+    } else if (params.containsCalculations && !initialVerification) {
+      // Si la pensée est supposée contenir des calculs mais qu'aucun n'a été détecté préalablement
+      console.error('Smart-Thinking: Vérification spécifique des calculs...');
       
       const verifiedCalculations = qualityEvaluator.detectAndVerifyCalculations(params.thought);
       
-      // Créer un objet de vérification partiel
-      verification = {
-        status: 'partially_verified',
-        confidence: qualityMetrics.confidence,
-        sources: ['Vérification interne des calculs'],
-        verificationSteps: ['Détection et vérification des expressions mathématiques'],
-        verifiedCalculations
-      };
-      
-      response.verification = verification;
-      response.isVerified = true;
-      
-      // Ajuster le score de fiabilité en fonction de l'exactitude des calculs
       if (verifiedCalculations.length > 0) {
+        // Créer un objet de vérification partiel
+        verification = {
+          status: 'partially_verified',
+          confidence: qualityMetrics.confidence,
+          sources: ['Vérification interne des calculs'],
+          verificationSteps: ['Détection et vérification des expressions mathématiques'],
+          verifiedCalculations
+        };
+        
+        response.verification = verification;
+        response.isVerified = true;
+        response.verificationStatus = 'partially_verified';
+        
+        // Ajuster le score de fiabilité en fonction de l'exactitude des calculs
         const calculationAccuracy = verifiedCalculations.filter(calc => calc.isCorrect).length / 
-                                   verifiedCalculations.length;
+                                  verifiedCalculations.length;
         
         response.reliabilityScore = (qualityMetrics.confidence * 0.7) + (calculationAccuracy * 0.3);
+        
+        // Générer un résumé avec l'accent sur les calculs
+        response.certaintySummary = generateCertaintySummary(
+          'partially_verified',
+          response.reliabilityScore,
+          verifiedCalculations
+        );
+        
+        // Mettre à jour la pensée avec les annotations
+        response.thought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
+        thoughtGraph.updateThoughtContent(thoughtId, response.thought);
+      } else {
+        console.error('Smart-Thinking: Aucun calcul détecté malgré le paramètre containsCalculations=true');
+        response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Aucun calcul n'a été détecté pour vérification.`;
       }
-      
-      // Générer un résumé avec l'accent sur les calculs
-      response.certaintySummary = generateCertaintySummary(
-        'partially_verified',
-        response.reliabilityScore,
-        verifiedCalculations
-      );
     } else {
-      console.error('Smart-Thinking: Confiance suffisante, vérification non nécessaire');
-      response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+      console.error('Smart-Thinking: Confiance suffisante, vérification complète non nécessaire');
+      if (!initialVerification) {
+        response.certaintySummary = `Information non vérifiée, niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%. Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+      }
     }
     
     // Si demandé, suggérer des outils

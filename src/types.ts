@@ -9,6 +9,16 @@ export type ThoughtType = 'regular' | 'revision' | 'meta' | 'hypothesis' | 'conc
 // Statut de vérification
 export type VerificationStatus = 'unverified' | 'partially_verified' | 'verified' | 'contradicted' | 'inconclusive';
 
+// Statut de vérification détaillé (avec états intermédiaires)
+export type VerificationDetailedStatus = 
+  'unverified' | 
+  'verification_pending' |  // En attente de vérification
+  'verification_in_progress' |  // Vérification en cours
+  'partially_verified' | 
+  'verified' | 
+  'contradicted' | 
+  'inconclusive';
+
 // Types de connexion enrichis entre les pensées
 export type ConnectionType = 
   // Types existants
@@ -261,6 +271,7 @@ export interface SmartThinkingResponse {
   // Nouveaux champs pour la vérification
   verification?: VerificationResult;
   isVerified: boolean; // Indique si la pensée a été vérifiée
+  verificationStatus?: VerificationDetailedStatus; // Statut détaillé de la vérification
   certaintySummary: string; // Résumé en langage naturel du niveau de certitude
   reliabilityScore: number; // Score global de fiabilité (0 à 1)
 }

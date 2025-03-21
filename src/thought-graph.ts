@@ -983,6 +983,23 @@ export class ThoughtGraph {
   }
   
   /**
+   * Met à jour le contenu d'une pensée existante
+   * 
+   * @param id L'identifiant de la pensée à mettre à jour
+   * @param newContent Le nouveau contenu de la pensée
+   * @returns true si la mise à jour a réussi, false sinon
+   */
+  updateThoughtContent(id: string, newContent: string): boolean {
+    const thought = this.nodes.get(id);
+    if (!thought) return false;
+    
+    thought.content = newContent;
+    thought.metadata.lastUpdated = new Date();
+    
+    return true;
+  }
+  
+  /**
    * Efface toutes les pensées du graphe
    */
   clear(): void {
