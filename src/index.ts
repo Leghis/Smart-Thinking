@@ -18,6 +18,76 @@ import { promises as fs } from 'fs';
  * Point d'entrée du serveur MCP Smart-Thinking
  */
 
+// Protection contre les messages non-JSON envoyés à stdout
+const originalStdoutWrite = process.stdout.write;
+
+// Utiliser une autre approche pour éviter les problèmes de types
+const safeStdoutWrite = function() {
+  // Arguments[0] est le premier argument (chunk)
+  const chunk = arguments[0];
+  
+  if (typeof chunk === 'string') {
+    const trimmed = chunk.trim();
+    
+    // Si ça ressemble à du JSON mais n'en est pas
+    if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && !isValidJSON(trimmed)) {
+      console.error('[ERREUR] JSON invalide détecté:', chunk);
+      // Tenter de le corriger en l'encapsulant dans un format valide
+      try {
+        const safeMessage = JSON.stringify({
+          jsonrpc: "2.0",
+          result: {
+            content: [
+              {
+                type: "text",
+                text: chunk
+              }
+            ]
+          }
+        });
+        // Utiliser directement la fonction originale
+        return originalStdoutWrite.call(process.stdout, safeMessage, arguments[1], arguments[2]);
+      } catch(e) {
+        console.error('[ERREUR] Impossible de corriger le JSON:', e);
+        // En cas d'échec, rediriger vers stderr
+        process.stderr.write(chunk, arguments[1] as any);
+        if (typeof arguments[2] === 'function') arguments[2]();
+        return true;
+      }
+    }
+    
+    // Si c'est du texte brut (non-JSON)
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      console.error('[INFO] Texte non-JSON redirigé vers stderr:', chunk);
+      process.stderr.write(chunk, arguments[1] as any);
+      if (typeof arguments[2] === 'function') arguments[2]();
+      return true;
+    }
+  }
+  
+  // Comportement normal pour le JSON valide ou les non-strings
+  return originalStdoutWrite.apply(process.stdout, arguments as any);
+};
+
+// Remplacer process.stdout.write par notre version sécurisée
+process.stdout.write = safeStdoutWrite as any;
+
+// Fonction utilitaire pour vérifier la validité JSON
+function isValidJSON(str: string): boolean {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Fonction de logging sécurisée pour le debugging
+function safeLog(message: string): void {
+  // Toujours utiliser stderr pour le debugging
+  console.error(`[DEBUG] ${message}`);
+}
+
 // Récupérer les informations du package.json pour la version
 // La version sera mise à jour en 2.0.0 lors de la mise à jour majeure via npm version major
 const packageInfo = require(path.join(__dirname, '..', 'package.json'));
