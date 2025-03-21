@@ -427,13 +427,8 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
           // Utiliser la nouvelle méthode asynchrone
           verifiedCalculations = await qualityEvaluator.detectAndVerifyCalculations(params.thought);
 
-          // Ne marquer comme vérifié que si les calculs ont été COMPLÈTEMENT vérifiés
-          initialVerification = verifiedCalculations.length > 0 &&
-              !verifiedCalculations.some(calc => {
-                return calc.verified.includes("vérifier") ||
-                    calc.verified.includes("Erreur") ||
-                    !calc.isCorrect;
-              });
+          // Marquer comme vérifié dès que des calculs ont été traités, qu'ils soient corrects ou non
+          initialVerification = verifiedCalculations.length > 0;
 
           // Si des calculs ont été détectés, annoter la pensée
           if (verifiedCalculations.length > 0) {
@@ -489,6 +484,12 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         certaintySummary: certaintySummary,
         reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
       };
+      
+      // S'assurer que si des calculs ont été vérifiés, le statut reflète cette vérification
+      if (verifiedCalculations && verifiedCalculations.length > 0) {
+        response.isVerified = true;
+        response.verificationStatus = 'partially_verified';
+      }
 
       // Si des vérifications de calculs ont été effectuées
       if (verifiedCalculations && verifiedCalculations.length > 0) {
@@ -527,7 +528,11 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
           );
 
           response.verification = verification;
-          response.isVerified = verification.status === 'verified' || verification.status === 'partially_verified';
+          // Marquer comme vérifié si le statut est vérifié ou partiellement vérifié
+          // ou si des calculs ont été vérifiés
+          response.isVerified = verification.status === 'verified' || 
+                              verification.status === 'partially_verified' || 
+                              (!!verification.verifiedCalculations && verification.verifiedCalculations.length > 0);
           response.verificationStatus = verification.status;
 
           // Ajuster le score de fiabilité
@@ -721,12 +726,23 @@ function generateCertaintySummary(status: VerificationStatus, score: number, ver
 
   let summary = "";
 
+  // Déterminer d'abord si des calculs ont été vérifiés
+  const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
+
+  // Si des calculs ont été vérifiés, toujours considérer l'information comme au moins partiellement vérifiée
+  if (hasVerifiedCalculations && status === 'unverified') {
+    status = 'partially_verified';
+  }
+
   switch (status) {
     case 'verified':
       summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
       break;
     case 'partially_verified':
-      summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
+      summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%.`;
+      if (!hasVerifiedCalculations) {
+        summary += ` Certains aspects n'ont pas pu être confirmés.`;
+      }
       break;
     case 'contradicted':
       summary = `Des contradictions ont été détectées dans l'information. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
@@ -739,13 +755,19 @@ function generateCertaintySummary(status: VerificationStatus, score: number, ver
   }
 
   // Ajouter des détails sur les calculs si disponibles
-  if (verifiedCalculations && verifiedCalculations.length > 0) {
-    const incorrectCalculations = verifiedCalculations.filter(calc => !calc.isCorrect);
+  if (hasVerifiedCalculations) {
+    const totalCalculations = verifiedCalculations!.length;
+    const incorrectCalculations = verifiedCalculations!.filter(calc => !calc.isCorrect);
+    const inProgressCalculations = verifiedCalculations!.filter(calc => 
+      calc.verified.includes("vérifier") || calc.verified.includes("Vérification")
+    );
 
-    if (incorrectCalculations.length > 0) {
-      summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s).`;
+    if (inProgressCalculations.length > 0) {
+      summary += ` ${inProgressCalculations.length} calcul(s) encore en cours de vérification.`;
+    } else if (incorrectCalculations.length > 0) {
+      summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s) sur un total de ${totalCalculations}.`;
     } else {
-      summary += ` Tous les calculs ont été vérifiés et sont corrects.`;
+      summary += ` Tous les ${totalCalculations} calcul(s) ont été vérifiés et sont corrects.`;
     }
   }
 

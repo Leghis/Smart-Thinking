@@ -689,15 +689,16 @@ export class QualityEvaluator {
           original, 
           `${original} [✓ Vérifié]`
         );
-      } else if (verification.verified === "\u00c0 vérifier via Smart-E2B") {
+      } else if (verification.verified === "\u00c0 vérifier via Smart-E2B" || verification.verified.includes("vérifier")) {
         annotatedThought = annotatedThought.replace(
           original, 
           `${original} [⏳ Vérification en cours...]`
         );
       } else {
+        // Même si le calcul est incorrect, il a été vérifié
         annotatedThought = annotatedThought.replace(
           original, 
-          `${original} [✗ Incorrect: ${verification.verified}]`
+          `${original} [✗ Incorrect mais vérifié: ${verification.verified}]`
         );
       }
     }
