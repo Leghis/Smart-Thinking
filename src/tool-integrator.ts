@@ -272,13 +272,21 @@ export class ToolIntegrator {
         }
         
         // Distinguer entre opérations sandbox et filesystem
-        if (content.toLowerCase().includes('sandbox') || content.toLowerCase().includes('e2b')) {
-          if (['readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
-            score += 0.3;
+        // Note: La logique ici a été inversée pour prioriser les outils sandbox par défaut,
+        // car dans le contexte de Claude, les fichiers sont plus souvent directement
+        // disponibles dans l'environnement Claude que référencés depuis le système local.
+        const indicatesLocalFileSystem = this.containsAny(content.toLowerCase(), 
+          ['fichier local', 'système de fichiers', 'machine locale', 'disque local', 'ordinateur local', 'répertoire local']);
+        
+        if (indicatesLocalFileSystem) {
+          // Si les indices suggèrent clairement un fichier local, favoriser les outils filesystem
+          if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories'].includes(tool.name)) {
+            score += 0.4;  // Augmenter le score pour ces outils
           }
         } else {
-          if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories'].includes(tool.name)) {
-            score += 0.2;
+          // Par défaut, favoriser les outils sandbox pour les fichiers dans Claude
+          if (['readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
+            score += 0.4;  // Augmenter le score pour ces outils
           }
         }
       }
