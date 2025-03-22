@@ -347,7 +347,7 @@ export class VerificationService implements IVerificationService {
         if (result && result.result && result.result.verifiedCalculations) {
           verifiedCalculations = result.result.verifiedCalculations;
           calculationsVerifiedExternally = true;
-          console.error(`Smart-Thinking: Calculs vérifiés par l'outil externe "${result.toolName}": ${verifiedCalculations.length} calcul(s)`);
+          console.error(`Smart-Thinking: Calculs vérifiés par l'outil externe "${result.toolName}": ${verifiedCalculations ? verifiedCalculations.length : 0} calcul(s)`);
           break;
         }
       }
@@ -366,7 +366,7 @@ export class VerificationService implements IVerificationService {
       verificationStages.push('vérification complémentaire');
       
       // Utiliser un outil différent des premiers outils
-      const usedToolNames = validPrimaryResults.map(r => r.toolName);
+      const usedToolNames = validPrimaryResults.filter(r => r !== null).map(r => r.toolName);
       const complementaryTools = verificationTools.filter(tool => !usedToolNames.includes(tool.name));
       
       if (complementaryTools.length > 0) {
