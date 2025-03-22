@@ -978,6 +978,7 @@ export class ThoughtGraph {
   
   /**
    * Suggère les prochaines étapes de raisonnement
+   * AMÉLIORÉ: Inclut des recommandations d'outils spécifiques
    * 
    * @param limit Le nombre maximum de suggestions
    * @returns Un tableau de suggestions pour les prochaines étapes
@@ -994,7 +995,46 @@ export class ThoughtGraph {
     
     const suggestions: NextStepSuggestion[] = [];
     const recentThoughts = this.getRecentThoughts(3);
+    const recentContent = recentThoughts.map(t => t.content).join(' ');
     const allThoughts = this.getAllThoughts();
+    
+    // Analyser le contenu récent pour détecter des besoins spécifiques
+    const needsFactChecking = this.containsAny(recentContent.toLowerCase(), 
+      ['vérifier', 'confirmer', 'source', 'preuve', 'statistique', 'données', 'affirme', 'selon'])
+    const needsCalculation = this.containsAny(recentContent.toLowerCase(), 
+      ['calculer', 'calcul', 'équation', 'résoudre', 'chiffre', 'formule', 'mathématique'])
+    const needsExternalInfo = this.containsAny(recentContent.toLowerCase(), 
+      ['chercher', 'information', 'recherche', 'trouver', 'données', 'référence', 'source', 'actualité'])
+    const containsUncertainty = this.containsAny(recentContent.toLowerCase(), 
+      ['peut-être', 'probablement', 'semble', 'possible', 'hypothèse', 'incertain', 'pourrait'])
+    
+    // Suggestions basées sur les besoins détectés
+    if (needsFactChecking) {
+      suggestions.push({
+        description: "Vérifiez les informations avec une recherche web",
+        type: 'regular',
+        confidence: 0.9,
+        reasoning: "Utilisez l'outil perplexity_search_web ou tavily-search pour confirmer les faits mentionnés"
+      });
+    }
+    
+    if (needsCalculation) {
+      suggestions.push({
+        description: "Exécutez du code pour effectuer les calculs nécessaires",
+        type: 'regular',
+        confidence: 0.85,
+        reasoning: "Utilisez l'outil executePython ou executeJavaScript pour résoudre les calculs ou équations"
+      });
+    }
+    
+    if (needsExternalInfo) {
+      suggestions.push({
+        description: "Recherchez des informations supplémentaires en ligne",
+        type: 'regular',
+        confidence: 0.9,
+        reasoning: "Utilisez les outils de recherche web pour enrichir votre analyse avec des données pertinentes"
+      });
+    }
     
     // Vérifier s'il y a des contradictions à résoudre
     const hasContradictions = allThoughts.some(thought => 
@@ -1003,10 +1043,21 @@ export class ThoughtGraph {
     
     if (hasContradictions) {
       suggestions.push({
-        description: "Résolvez les contradictions identifiées dans votre raisonnement",
+        description: "Résolvez les contradictions en consultant des sources fiables",
         type: 'meta',
         confidence: 0.85,
-        reasoning: "Des contradictions non résolues peuvent affaiblir votre analyse"
+        reasoning: "Utilisez tavily-search ou perplexity_search_web pour vérifier quelle position est correcte"
+      });
+    }
+    
+    // Suggestion pour extraire du contenu web si des URL sont mentionnées
+    const containsUrl = /https?:\/\/[^\s]+/.test(recentContent);
+    if (containsUrl) {
+      suggestions.push({
+        description: "Extrayez et analysez le contenu des URL mentionnées",
+        type: 'regular',
+        confidence: 0.85,
+        reasoning: "Utilisez l'outil tavily-extract pour analyser en profondeur le contenu des pages web"
       });
     }
     
@@ -1023,7 +1074,7 @@ export class ThoughtGraph {
     
     // Vérifier s'il est temps de former une hypothèse
     const hasHypothesis = allThoughts.some(thought => thought.type === 'hypothesis');
-    if (allThoughts.length >= 3 && !hasHypothesis) {
+    if ((allThoughts.length >= 3 && !hasHypothesis) || containsUncertainty) {
       suggestions.push({
         description: "Formulez une hypothèse basée sur vos observations",
         type: 'hypothesis',
@@ -1065,6 +1116,17 @@ export class ThoughtGraph {
     }
     
     return suggestions.slice(0, limit);
+  }
+  
+  /**
+   * Vérifie si un texte contient l'un des termes donnés
+   * 
+   * @param text Le texte à vérifier
+   * @param terms Les termes à rechercher
+   * @returns true si le texte contient au moins un des termes, false sinon
+   */
+  private containsAny(text: string, terms: string[]): boolean {
+    return terms.some(term => text.includes(term));
   }
   
   /**

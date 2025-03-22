@@ -189,7 +189,7 @@ export class VerificationService implements IVerificationService {
 
   /**
    * Vérification approfondie d'une pensée
-   * AMÉLIORÉ: Priorité aux outils externes et meilleure persistance
+   * AMÉLIORÉ: Processus de vérification multi-étapes et validation plus stricte
    * 
    * @param thought La pensée à vérifier
    * @param containsCalculations Indique si la pensée contient des calculs à vérifier
@@ -204,6 +204,9 @@ export class VerificationService implements IVerificationService {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID
   ): Promise<VerificationResult> {
     const content = thought.content;
+    
+    // Ajouter un log pour tracer le début de la vérification
+    console.error(`Smart-Thinking: Début de la vérification approfondie pour une pensée de ${content.length} caractères`);
     
     // Vérifier si l'information a déjà été vérifiée
     if (!forceVerification) {
@@ -224,8 +227,28 @@ export class VerificationService implements IVerificationService {
       }
     }
     
-    // AMÉLIORÉ: Obtenir TOUS les outils de vérification disponibles, pas seulement ceux qui semblent pertinents
-    // Utiliser directement suggestVerificationTools car getAllVerificationTools n'existe pas
+    // ÉTAPE 1: Déterminer les besoins de vérification spécifiques
+    console.error('Smart-Thinking: Étape 1 - Analyse des besoins de vérification');
+    
+    // Détecter les catégories de vérification nécessaires
+    const containsFactualClaims = this.containsFactualClaims(content);
+    const containsOpinions = this.containsOpinions(content);
+    const containsStatistics = this.containsStatistics(content);
+    const containsExternalRefs = this.containsExternalReferences(content);
+    
+    // Catégoriser le contenu pour déterminer la stratégie de vérification
+    const contentCategories = [];
+    if (containsFactualClaims) contentCategories.push('claims');
+    if (containsCalculations) contentCategories.push('calculations');
+    if (containsOpinions) contentCategories.push('opinions');
+    if (containsStatistics) contentCategories.push('statistics');
+    if (containsExternalRefs) contentCategories.push('references');
+    
+    console.error(`Smart-Thinking: Catégories de contenu détectées: ${contentCategories.join(', ') || 'aucune spécifique'}`);
+    
+    // ÉTAPE 2: Sélectionner les bons outils de vérification en fonction des catégories
+    console.error('Smart-Thinking: Étape 2 - Sélection des outils de vérification');
+    
     const verificationTools = this.toolIntegrator.suggestVerificationTools(content);
     
     if (verificationTools.length === 0) {
@@ -244,66 +267,148 @@ export class VerificationService implements IVerificationService {
     thought.metadata.verificationReasons = verificationRequirements.reasons;
     thought.metadata.recommendedVerificationsCount = verificationRequirements.recommendedVerificationsCount;
     
-    // Résultats de vérification pour chaque outil
-    const verificationResults: any[] = [];
+    // ÉTAPE 3: Exécuter les vérifications avec les outils appropriés
+    console.error('Smart-Thinking: Étape 3 - Exécution des vérifications');
     
-    // AMÉLIORÉ: Utiliser tous les outils disponibles si nécessaire
-    const toolsToUse = Math.min(
+    // Calculer le nombre optimal d'outils à utiliser en fonction de la complexité et des besoins
+    const baseToolCount = Math.min(
       verificationRequirements.requiresMultipleVerifications ? 
         verificationRequirements.recommendedVerificationsCount : 1,
       Math.max(1, verificationTools.length) // Utiliser au moins un outil si disponible
     );
     
+    // Ajuster le nombre d'outils en fonction des catégories de contenu
+    let toolsToUse = baseToolCount;
+    if (contentCategories.length > 2) {
+      // Si le contenu est complexe (plusieurs catégories), utiliser plus d'outils
+      toolsToUse = Math.min(baseToolCount + 1, verificationTools.length);
+    }
+    
     console.error(`Smart-Thinking: Utilisation de ${toolsToUse} outil(s) externe(s) pour la vérification`);
     
+    // Vérification sous forme de processus multi-étapes
+    const verificationStages = [];
+    const verificationResults: any[] = [];
+    
+    // Étape 3.1: Vérification principale avec les outils sélectionnés
+    console.error('Smart-Thinking: Étape 3.1 - Vérification principale');
+    verificationStages.push('vérification principale');
+    
     // Utiliser chaque outil pour vérifier l'information en parallèle avec Promise.all
-    const verificationPromises = verificationTools.slice(0, toolsToUse).map(async (tool: SuggestedTool) => {
+    const primaryVerificationPromises = verificationTools.slice(0, toolsToUse).map(async (tool: SuggestedTool) => {
       try {
         console.error(`Smart-Thinking: Utilisation de l'outil de vérification "${tool.name}"...`);
         const result = await this.toolIntegrator.executeVerificationTool(tool.name, content);
         console.error(`Smart-Thinking: Vérification avec "${tool.name}" terminée avec succès`);
-        return {
-          toolName: tool.name,
-          result,
-          confidence: tool.confidence
-        };
+        
+        // Vérifier si l'outil a retourné un résultat exploitable
+        const isValidResult = result && 
+          (result.isValid !== undefined || 
+           result.verifiedCalculations || 
+           result.sources || 
+           result.details);
+        
+        if (isValidResult) {
+          return {
+            toolName: tool.name,
+            result,
+            confidence: tool.confidence,
+            stage: 'primary'
+          };
+        } else {
+          console.error(`Smart-Thinking: Résultat de ${tool.name} incomplet ou invalide`);
+          return null;
+        }
       } catch (error) {
         console.error(`Smart-Thinking: Erreur lors de la vérification avec l'outil "${tool.name}":`, error);
         return null;
       }
     });
     
-    // Attendre que toutes les vérifications soient terminées
-    const results = await Promise.all(verificationPromises);
+    // Attendre que toutes les vérifications principales soient terminées
+    const primaryResults = await Promise.all(primaryVerificationPromises);
     // Filtrer les résultats nuls (en cas d'erreur)
-    const validResults = results.filter((r: any) => r !== null);
-    verificationResults.push(...validResults);
+    const validPrimaryResults = primaryResults.filter((r: any) => r !== null);
+    verificationResults.push(...validPrimaryResults);
     
-    console.error(`Smart-Thinking: ${validResults.length}/${results.length} vérifications externes réussies`);
+    console.error(`Smart-Thinking: ${validPrimaryResults.length}/${primaryResults.length} vérifications principales réussies`);
     
-    // Si aucun outil externe n'a réussi et que la pensée contient des calculs, utiliser la vérification interne
+    // Étape 3.2: Vérification des calculs si nécessaire
     let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
     
-    if (validResults.length === 0 && containsCalculations) {
-      console.error('Smart-Thinking: Aucun outil externe n\'a réussi, utilisation de la vérification interne pour les calculs');
-      verifiedCalculations = await this.detectAndVerifyCalculations(content);
-      console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs vérifiés en interne`);
-    } else if (validResults.length > 0) {
-      // Si des outils externes ont réussi, utiliser leurs résultats de vérification de calculs si disponibles
-      for (const result of validResults) {
+    if (containsCalculations) {
+      console.error('Smart-Thinking: Étape 3.2 - Vérification des calculs');
+      verificationStages.push('vérification des calculs');
+      
+      // Vérifier si des calculs ont déjà été vérifiés par les outils principaux
+      let calculationsVerifiedExternally = false;
+      
+      for (const result of validPrimaryResults) {
         if (result && result.result && result.result.verifiedCalculations) {
           verifiedCalculations = result.result.verifiedCalculations;
-          console.error(`Smart-Thinking: Utilisation des calculs vérifiés par l'outil "${result.toolName}"`);
+          calculationsVerifiedExternally = true;
+          console.error(`Smart-Thinking: Calculs vérifiés par l'outil externe "${result.toolName}": ${verifiedCalculations.length} calcul(s)`);
           break;
         }
       }
+      
+      // Si aucun outil n'a vérifié les calculs, utiliser la vérification interne
+      if (!calculationsVerifiedExternally) {
+        console.error('Smart-Thinking: Aucun outil externe n\'a vérifié les calculs, utilisation de la vérification interne');
+        verifiedCalculations = await this.detectAndVerifyCalculations(content);
+        console.error(`Smart-Thinking: ${verifiedCalculations ? verifiedCalculations.length : 0} calcul(s) vérifié(s) en interne`);
+      }
     }
+    
+    // Étape 3.3: Vérification complémentaire si les résultats sont contradictoires ou insuffisants
+    if (validPrimaryResults.length < 2 && verificationRequirements.requiresMultipleVerifications) {
+      console.error('Smart-Thinking: Étape 3.3 - Vérification complémentaire nécessaire');
+      verificationStages.push('vérification complémentaire');
+      
+      // Utiliser un outil différent des premiers outils
+      const usedToolNames = validPrimaryResults.map(r => r.toolName);
+      const complementaryTools = verificationTools.filter(tool => !usedToolNames.includes(tool.name));
+      
+      if (complementaryTools.length > 0) {
+        const complementaryTool = complementaryTools[0];
+        console.error(`Smart-Thinking: Utilisation de l'outil complémentaire "${complementaryTool.name}"`);
+        
+        try {
+          const result = await this.toolIntegrator.executeVerificationTool(complementaryTool.name, content);
+          if (result) {
+            verificationResults.push({
+              toolName: complementaryTool.name,
+              result,
+              confidence: complementaryTool.confidence,
+              stage: 'complementary'
+            });
+            console.error(`Smart-Thinking: Vérification complémentaire réussie avec "${complementaryTool.name}"`);
+          }
+        } catch (error) {
+          console.error(`Smart-Thinking: Erreur lors de la vérification complémentaire:`, error);
+        }
+      } else {
+        console.error('Smart-Thinking: Aucun outil complémentaire disponible');
+      }
+    }
+    
+    // ÉTAPE 4: Agréger et analyser les résultats
+    console.error('Smart-Thinking: Étape 4 - Analyse des résultats de vérification');
     
     // Agréger et analyser les résultats
     let status = this.metricsCalculator.determineVerificationStatus(verificationResults);
     let confidence = this.metricsCalculator.calculateVerificationConfidence(verificationResults);
-    const sources = verificationResults.map(r => `${r.toolName}: ${r.result.source || 'Source non spécifiée'}`);
-    const steps = verificationResults.map(r => `Vérifié avec ${r.toolName}`);
+    
+    // Construire la liste des sources et des étapes de vérification
+    const sources = verificationResults.map(r => {
+      const source = r.result.source || `${r.toolName} (source non spécifiée)`;
+      return `${r.toolName}: ${source}`;
+    });
+    
+    const steps = [
+      ...verificationStages.map(stage => `Étape de ${stage}`),
+      ...verificationResults.map(r => `Vérifié avec ${r.toolName} (${r.stage})`)
+    ];
     
     // Si aucune vérification n'a été effectuée, s'assurer que le statut est 'unverified'
     if (verificationResults.length === 0 && !verifiedCalculations) {
@@ -311,14 +416,49 @@ export class VerificationService implements IVerificationService {
       confidence = Math.min(confidence, VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED);
       console.error('Smart-Thinking: Aucune vérification effectuée, statut: unverified');
     } else {
-      console.error(`Smart-Thinking: Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
+      console.error(`Smart-Thinking: Vérification effectuée avec ${verificationResults.length} outil(s), statut préliminaire: ${status}`);
+    }
+    
+    // Vérification de confirmation des résultats
+    // Vérifier si au moins un outil a explicitement confirmé l'information
+    const hasExplicitConfirmation = verificationResults.some(r => 
+      r.result.isValid === true || 
+      (r.result.confidence && r.result.confidence > 0.8)
+    );
+    
+    // AMÉLIORÉ: Adapter la stratégie en fonction des résultats des outils externes
+    if (hasExplicitConfirmation) {
+      console.error('Smart-Thinking: Confirmation explicite reçue d\'au moins un outil');
+      
+      // Si l'information est explicitement confirmée, augmenter la confiance
+      if (status === 'partially_verified') {
+        const multipleConfirmations = verificationResults.filter(r => 
+          r.result.isValid === true || 
+          (r.result.confidence && r.result.confidence > 0.7)
+        ).length >= 2;
+        
+        if (multipleConfirmations) {
+          status = 'verified';
+          confidence = Math.max(confidence, 0.85);
+          console.error('Smart-Thinking: Confirmations multiples reçues, statut mis à jour vers "verified"');
+        }
+      }
+    } else {
+      console.error('Smart-Thinking: Aucune confirmation explicite des outils externes');
+      
+      // Si aucun outil n'a explicitement confirmé l'information, réduire la confiance
+      if (status === 'verified') {
+        status = 'partially_verified';
+        confidence *= 0.8;
+        console.error('Smart-Thinking: Statut réduit à "partially_verified" en raison du manque de confirmation explicite');
+      }
     }
     
     // AMÉLIORÉ: Si des calculs ont été vérifiés, considérer comme au moins partiellement vérifié
     if (verifiedCalculations && verifiedCalculations.length > 0) {
       if (status === 'unverified') {
         status = 'partially_verified';
-        console.error('Smart-Thinking: Statut mis à jour vers partially_verified en raison des calculs vérifiés');
+        console.error('Smart-Thinking: Statut mis à jour vers "partially_verified" en raison des calculs vérifiés');
       }
       
       // Augmenter la confiance en fonction du nombre de calculs corrects
@@ -333,11 +473,13 @@ export class VerificationService implements IVerificationService {
     // Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
     if (status === 'verified' && confidence < VerificationConfig.CONFIDENCE.MINIMUM_THRESHOLD) {
       status = 'partially_verified';
+      console.error(`Smart-Thinking: Confiance insuffisante (${confidence.toFixed(2)}), statut réduit à "partially_verified"`);
     }
     
     // Si plusieurs vérifications ont échoué, considérer comme non concluant
     if (status === 'unverified' && verificationResults.length >= 2) {
       status = 'inconclusive';
+      console.error('Smart-Thinking: Multiples vérifications sans confirmation, statut: "inconclusive"');
     }
     
     // IMPORTANT: Mettre à jour les métadonnées de la pensée
@@ -346,6 +488,7 @@ export class VerificationService implements IVerificationService {
     thought.metadata.verificationSource = verificationResults.length > 0 ? 'tools' : 'internal';
     thought.metadata.verificationSessionId = sessionId;
     thought.metadata.verificationToolsUsed = verificationResults.length;
+    thought.metadata.verificationStages = verificationStages;
     
     // Détecter les contradictions entre les sources
     const contradictions = this.detectContradictions(verificationResults);
@@ -376,12 +519,101 @@ export class VerificationService implements IVerificationService {
       status,
       confidence,
       timestamp: new Date(),
-      sources
+      sources,
+      stages: verificationStages
     };
     
     console.error(`Smart-Thinking: Vérification complétée, statut final: ${status}, confiance: ${confidence.toFixed(2)}`);
     
     return verificationResult;
+  }
+  
+  /**
+   * Détecte si le contenu contient des affirmations factuelles
+   * 
+   * @param content Le contenu à analyser
+   * @returns true si le contenu contient des affirmations factuelles
+   */
+  private containsFactualClaims(content: string): boolean {
+    const factualKeywords = [
+      'est', 'sont', 'a été', 'ont été', 'existe', 'existait', 'a démontré', 
+      'montre', 'prouve', 'confirme', 'indique', 'révèle', 'selon', 'd\'après', 
+      'en', 'depuis', 'à partir de', 'en raison de', 'parce que'
+    ];
+    
+    return this.containsAny(content.toLowerCase(), factualKeywords);
+  }
+  
+  /**
+   * Vérifie si un texte contient l'un des termes donnés
+   * 
+   * @param text Le texte à vérifier
+   * @param terms Les termes à rechercher
+   * @returns true si le texte contient au moins un des termes, false sinon
+   */
+  private containsAny(text: string, terms: string[]): boolean {
+    return terms.some(term => text.includes(term));
+  }
+  
+  /**
+   * Détecte si le contenu contient des opinions
+   * 
+   * @param content Le contenu à analyser
+   * @returns true si le contenu contient des opinions
+   */
+  private containsOpinions(content: string): boolean {
+    const opinionKeywords = [
+      'je pense', 'selon moi', 'à mon avis', 'je crois', 'il me semble', 
+      'pourrait', 'devrait', 'semble', 'apparemment', 'probablement',
+      'peut-être', 'possiblement', 'opinion', 'point de vue', 'perspective'
+    ];
+    
+    return this.containsAny(content.toLowerCase(), opinionKeywords);
+  }
+  
+  /**
+   * Détecte si le contenu contient des statistiques
+   * 
+   * @param content Le contenu à analyser
+   * @returns true si le contenu contient des statistiques
+   */
+  private containsStatistics(content: string): boolean {
+    const statisticsPatterns = [
+      /\d+\s*%/, // Pourcentages
+      /\d+\s*sur\s*\d+/, // X sur Y
+      /moyenne/i, /médiane/i, /écart.type/i, // Termes statistiques
+      /augmentation/i, /diminution/i, /croissance/i, /baisse/i, // Évolution
+      /statistique/i, /données/i, /étude/i, /sondage/i, /enquête/i // Références à des sources de données
+    ];
+    
+    return statisticsPatterns.some(pattern => pattern.test(content));
+  }
+  
+  /**
+   * Détecte si le contenu contient des références externes
+   * 
+   * @param content Le contenu à analyser
+   * @returns true si le contenu contient des références externes
+   */
+  private containsExternalReferences(content: string): boolean {
+    // Vérifier les URLs
+    if (/https?:\/\/[^\s]+/.test(content)) {
+      return true;
+    }
+    
+    // Vérifier les citations ou mentions de sources
+    const referencePatterns = [
+      /selon\s+[^,.]+/, // "selon X"
+      /d'après\s+[^,.]+/, // "d'après X"
+      /\bcit[eé]\b/, // "cité" ou "cite"
+      /d'(une|[l']) étude/i, // référence à une étude
+      /référence/i, /source/i, // mentions explicites
+      /publié/i, /rapport/i, /article/i, // publications
+      /dans ([A-Z][^,.]+)/, // Potentielles sources commencant par une majuscule "dans Le Monde"
+      /"[^"]{10,}"/ // Citations entre guillemets d'au moins 10 caractères
+    ];
+    
+    return referencePatterns.some(pattern => pattern.test(content));
   }
 
   /**

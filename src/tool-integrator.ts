@@ -169,6 +169,7 @@ export class ToolIntegrator {
   
   /**
    * Suggère des outils pertinents pour un contenu donné avec option pour la vérification
+   * AMÉLIORÉ: Scores plus dynamiques et adaptés au raisonnement
    * 
    * @param content Le contenu pour lequel suggérer des outils
    * @param options Options de configuration (limite, mode vérification, etc)
@@ -177,12 +178,16 @@ export class ToolIntegrator {
   public suggestToolsGeneric(content: string, options: {
     limit?: number,
     verificationMode?: boolean,
-    toolFilter?: string[]  // Optionnel: liste des outils à considérer
+    toolFilter?: string[],  // Optionnel: liste des outils à considérer
+    previousSuggestions?: SuggestedTool[], // Optionnel: suggestions précédentes pour ajuster le score 
+    reasoningStage?: 'initial' | 'developing' | 'advanced' | 'final' // Optionnel: étape du raisonnement
   } = {}): SuggestedTool[] {
     const {
       limit = 3,
       verificationMode = false,
-      toolFilter = []
+      toolFilter = [],
+      previousSuggestions = [],
+      reasoningStage = 'initial'
     } = options;
     
     // Déterminer les outils à considérer selon le mode
@@ -222,6 +227,35 @@ export class ToolIntegrator {
     const needsPythonExecution = this.containsAny(content.toLowerCase(), ['python', 'py', 'pandas', 'numpy', 'sklearn']);
     const needsJavaScriptExecution = this.containsAny(content.toLowerCase(), ['javascript', 'js', 'node', 'react', 'vue', 'angular']);
     
+    // Détection des besoins de vérification de faits ou d'informations
+    const needsFactChecking = this.containsAny(content.toLowerCase(), [
+      'vérifier', 'confirmer', 'source', 'preuve', 'statistique', 'données', 
+      'affirme', 'selon', 'citation', 'cité', 'mentionné', 'rapporté'
+    ]);
+    
+    // Détection d'incertitude ou de doute
+    const hasUncertainty = this.containsAny(content.toLowerCase(), [
+      'peut-être', 'potentiellement', 'probablement', 'semble', 'apparaît',
+      'pourrait', 'il se peut', 'incertain', 'doute', 'question', 'hypothèse'
+    ]);
+    
+    // Facteur d'ajustement basé sur l'étape de raisonnement
+    let stageFactor = 1.0;
+    switch (reasoningStage) {
+      case 'initial':
+        stageFactor = 0.7; // Scores de base plus bas au début
+        break;
+      case 'developing':
+        stageFactor = 1.0; // Scores normaux pendant le développement
+        break;
+      case 'advanced':
+        stageFactor = 1.2; // Scores plus élevés pour les étapes avancées
+        break;
+      case 'final':
+        stageFactor = 1.3; // Scores encore plus élevés pour la finalisation
+        break;
+    }
+    
     // Calculer un score pour chaque outil
     const toolScores = relevantTools.map(tool => {
       // Score basé sur la correspondance de mots-clés
@@ -229,8 +263,8 @@ export class ToolIntegrator {
         contentWords.includes(keyword) || content.toLowerCase().includes(keyword)
       );
       
-      // Score de base
-      let score = matchingKeywords.length / Math.max(tool.keywords.length, 1);
+      // Score de base - démarre plus bas qu'avant
+      let score = (matchingKeywords.length / Math.max(tool.keywords.length, 1)) * 0.6;
       
       // Ajustements basés sur les besoins détectés
       if (needsWebSearch) {
@@ -252,6 +286,11 @@ export class ToolIntegrator {
             score += 0.4;
           }
         }
+      }
+      
+      // Favoriser la recherche web en cas d'incertitude ou de besoin de vérification
+      if ((needsFactChecking || hasUncertainty) && ['perplexity_search_web', 'tavily-search'].includes(tool.name)) {
+        score += 0.3;
       }
       
       if (needsContentExtraction && tool.name === 'tavily-extract') {
@@ -326,11 +365,28 @@ export class ToolIntegrator {
         }
       }
       
-      return { tool, score };
+      // Ajustement progressif en fonction de l'étape de raisonnement
+      score *= stageFactor;
+      
+      // Ajustement basé sur les suggestions précédentes (favoriser la diversité des outils)
+      const toolWasSuggestedBefore = previousSuggestions.some(s => s.name === tool.name);
+      if (toolWasSuggestedBefore) {
+        // Réduire le score des outils déjà suggérés, sauf si le contenu actuel les mentionne spécifiquement
+        if (!content.toLowerCase().includes(tool.name.toLowerCase())) {
+          score *= 0.7; // Réduction de 30% pour encourager la diversité
+        }
+      }
+      
+      // Conversion du score: fonction non linéaire pour accentuer les différences
+      // Un score bas reste bas, mais un score élevé devient plus élevé
+      const adjustedScore = score < 0.5 ? score * 0.8 : score + Math.pow(score - 0.5, 2);
+      
+      return { tool, score: adjustedScore };
     });
     
     // Filtrer et normaliser les résultats
-    const minScore = 0.1;
+    const minScore = reasoningStage === 'initial' ? 0.05 : 0.1;
+    
     const suggestedTools = toolScores
       .filter(item => item.score > minScore)
       .sort((a, b) => b.score - a.score)
@@ -346,11 +402,18 @@ export class ToolIntegrator {
         };
       });
     
-    // Outil par défaut si aucun n'est trouvé
+    // Log pour le debugging
+    console.error(`Smart-Thinking: Suggestion d'outils - étape ${reasoningStage}, ${suggestedTools.length} outil(s) suggéré(s)`);
+    
+    // Outil par défaut si aucun n'est trouvé, avec score adapté au stade de raisonnement
     if (suggestedTools.length === 0) {
+      const defaultConfidence = verificationMode ? 
+        0.5 * stageFactor : 
+        0.3 * stageFactor;
+        
       suggestedTools.push({
         name: 'tavily-search',
-        confidence: verificationMode ? 0.7 : 0.5,
+        confidence: Math.min(defaultConfidence, 1.0),
         reason: verificationMode
           ? 'Outil de recherche général pour la vérification des informations'
           : 'Aucun outil spécifique n\'a été identifié comme fortement pertinent. Une recherche web générale pourrait aider à explorer ce sujet.',

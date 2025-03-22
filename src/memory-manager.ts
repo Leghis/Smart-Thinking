@@ -329,6 +329,7 @@ export class MemoryManager {
   
   /**
    * Récupère les éléments de mémoire les plus pertinents pour un contexte donné
+   * AMÉLIORÉ: Fiabilité améliorée et meilleure gestion des erreurs
    * 
    * @param context Le contexte pour lequel chercher des éléments pertinents
    * @param limit Le nombre maximum d'éléments à récupérer
@@ -337,15 +338,36 @@ export class MemoryManager {
   async getRelevantMemories(context: string, limit: number = 3): Promise<MemoryItem[]> {
     const allMemories = Array.from(this.memories.values());
     
-    // Si pas de mémoires ou pas de service d'embeddings, utiliser l'algorithme de base
-    if (allMemories.length === 0 || !this.embeddingService) {
+    // Vérifier si nous avons des mémoires à traiter
+    if (allMemories.length === 0) {
+      console.error('Smart-Thinking: Aucune mémoire disponible pour la recherche de pertinence');
+      return [];
+    }
+    
+    // Si nous n'avons pas de service d'embeddings, utiliser l'algorithme de base
+    if (!this.embeddingService) {
+      console.error('Smart-Thinking: Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés');
       return this.getRelevantMemoriesWithKeywords(context, limit);
     }
     
     try {
       // Utiliser le service d'embeddings pour trouver les mémoires similaires
       const memoryTexts = allMemories.map(memory => memory.content);
-      const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit);
+      
+      console.error(`Smart-Thinking: Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec embeddings`);
+      
+      // Utiliser un seuil de similarité plus bas pour augmenter les chances de trouver des correspondances
+      const threshold = 0.3; // Seuil de similarité plus bas
+      
+      const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit, threshold);
+      
+      console.error(`Smart-Thinking: ${similarResults.length} résultats similaires trouvés avec embeddings`);
+      
+      if (similarResults.length === 0) {
+        // Aucun résultat avec embeddings, essayer avec mots-clés
+        console.error('Smart-Thinking: Aucun résultat avec embeddings, utilisation des mots-clés');
+        return this.getRelevantMemoriesWithKeywords(context, limit);
+      }
       
       // Convertir les résultats en mémoires
       const memoryResults: MemoryItem[] = [];
@@ -358,12 +380,13 @@ export class MemoryManager {
             ...matchingMemory,
             relevanceScore: result.score
           });
+          console.error(`Smart-Thinking: Mémoire correspondante trouvée avec score ${result.score.toFixed(2)}`);
         }
       }
       
       return memoryResults;
     } catch (error) {
-      console.error('Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
+      console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
       // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés
       return this.getRelevantMemoriesWithKeywords(context, limit);
     }
