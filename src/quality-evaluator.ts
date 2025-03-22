@@ -2,11 +2,23 @@ import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, Ca
 import { ThoughtGraph } from './thought-graph';
 import { ToolIntegrator } from './tool-integrator';
 import { MetricsCalculator } from './metrics-calculator';
-import { VerificationMemory } from './verification-memory';
+import { VerificationMemory, VerificationSearchResult } from './verification-memory';
 import { MathEvaluator } from './utils/math-evaluator';
+import { VerificationConfig, SystemConfig } from './config';
 
 /**
- * Classe qui évalue la qualité des pensées
+ * Interface pour les vérifications détectées dans une étape préliminaire
+ */
+interface PreliminaryVerificationResult {
+  verifiedCalculations: CalculationVerificationResult[] | undefined;
+  initialVerification: boolean;
+  verificationInProgress: boolean;
+  preverifiedThought: string;
+}
+
+/**
+ * Classe qui évalue la qualité des pensées et gère la vérification
+ * Implémente une approche unifiée entre vérification préliminaire et approfondie
  */
 export class QualityEvaluator {
   private toolIntegrator: ToolIntegrator | null = null;
@@ -61,6 +73,117 @@ export class QualityEvaluator {
   }
   
   /**
+   * Effectue une vérification préliminaire d'une pensée pour détecter des calculs
+   * 
+   * @param thought Le contenu de la pensée à vérifier
+   * @param explicitlyRequested Si la vérification est explicitement demandée
+   * @returns Résultat de la vérification préliminaire
+   */
+  public async performPreliminaryVerification(
+    thought: string,
+    explicitlyRequested: boolean = false
+  ): Promise<PreliminaryVerificationResult> {
+    let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
+    let initialVerification = false;
+    let verificationInProgress = false;
+    let preverifiedThought = thought;
+    
+    // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
+    const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(thought);
+    const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(thought);
+    
+    // Si des calculs sont présents ou explicitement demandé
+    if (explicitlyRequested || hasSimpleCalculations || hasComplexCalculations) {
+      console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
+      verificationInProgress = true; // Indiquer que la vérification est en cours
+      
+      try {
+        // Utiliser la méthode unifiée pour détecter et vérifier les calculs
+        verifiedCalculations = await this.detectAndVerifyCalculations(thought);
+        
+        // Marquer comme vérifié dès que des calculs ont été traités, qu'ils soient corrects ou non
+        initialVerification = verifiedCalculations.length > 0;
+        
+        // Si des calculs ont été détectés, annoter la pensée
+        if (verifiedCalculations.length > 0) {
+          preverifiedThought = this.annotateThoughtWithVerifications(thought, verifiedCalculations);
+          console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
+        }
+      } catch (error) {
+        console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
+        verificationInProgress = true;
+        initialVerification = false;
+      }
+    }
+    
+    return {
+      verifiedCalculations,
+      initialVerification,
+      verificationInProgress,
+      preverifiedThought
+    };
+  }
+  
+  /**
+   * Vérifie si une pensée similaire a déjà été vérifiée
+   * 
+   * @param thought La pensée à vérifier
+   * @param sessionId ID de session
+   * @returns Résultat de la vérification précédente si trouvée
+   */
+  public async checkPreviousVerification(
+    thoughtContent: string,
+    sessionId: string = SystemConfig.DEFAULT_SESSION_ID
+  ): Promise<{
+    previousVerification: VerificationSearchResult | null,
+    verification?: VerificationResult,
+    isVerified: boolean,
+    verificationStatus: VerificationDetailedStatus,
+    certaintySummary: string
+  }> {
+    // Valeurs par défaut
+    const result = {
+      previousVerification: null,
+      isVerified: false,
+      verificationStatus: 'unverified' as VerificationDetailedStatus,
+      certaintySummary: 'Information non vérifiée'
+    };
+    
+    try {
+      // Rechercher une vérification similaire dans la mémoire
+      const previousVerification = await this.verificationMemory.findVerification(
+        thoughtContent,
+        sessionId,
+        VerificationConfig.SIMILARITY.HIGH_SIMILARITY
+      );
+      
+      if (previousVerification) {
+        console.error(`Vérification précédente trouvée avec similarité: ${previousVerification.similarity}`);
+        
+        // Préparer la réponse avec les informations de vérification précédente
+        return {
+          previousVerification,
+          isVerified: ['verified', 'partially_verified'].includes(previousVerification.status),
+          verificationStatus: previousVerification.status as VerificationDetailedStatus,
+          certaintySummary: `Information vérifiée précédemment avec ${Math.round(previousVerification.similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerification.confidence * 100)}%.`,
+          verification: {
+            status: previousVerification.status,
+            confidence: previousVerification.confidence,
+            sources: previousVerification.sources || [],
+            verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
+            notes: `Cette information est très similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée précédemment.`
+          }
+        };
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification avec la mémoire:', error);
+    }
+    
+    // Aucune vérification précédente n'a été trouvée
+    return result;
+  }
+  
+  /**
    * Vérification approfondie d'une pensée
    * 
    * @param thought La pensée à vérifier
@@ -75,37 +198,24 @@ export class QualityEvaluator {
     toolIntegrator: ToolIntegrator, 
     containsCalculations: boolean = false,
     forceVerification: boolean = false,
-    sessionId: string = 'default'
+    sessionId: string = SystemConfig.DEFAULT_SESSION_ID
   ): Promise<VerificationResult> {
     const content = thought.content;
     
     // Vérifier si l'information a déjà été vérifiée et si on ne force pas une nouvelle vérification
     if (!forceVerification) {
-      try {
-        const existingVerification = await this.verificationMemory.findVerification(content, sessionId);
+      const previousCheckResult = await this.checkPreviousVerification(content, sessionId);
+      
+      if (previousCheckResult.previousVerification) {
+        // Mettre à jour les métadonnées de la pensée
+        thought.metadata.isVerified = previousCheckResult.isVerified;
+        thought.metadata.verificationSource = 'memory';
+        thought.metadata.verificationTimestamp = previousCheckResult.previousVerification.timestamp;
+        thought.metadata.verificationSessionId = sessionId;
+        thought.metadata.semanticSimilarity = previousCheckResult.previousVerification.similarity;
         
-        if (existingVerification) {
-          console.error(`Vérification trouvée en mémoire avec similarité: ${existingVerification.similarity}`);
-          
-          // Mettre à jour les métadonnées de la pensée
-          thought.metadata.isVerified = existingVerification.status === 'verified' || 
-                                        existingVerification.status === 'partially_verified';
-          thought.metadata.verificationSource = 'memory';
-          thought.metadata.verificationTimestamp = existingVerification.timestamp;
-          thought.metadata.verificationSessionId = sessionId;
-          thought.metadata.semanticSimilarity = existingVerification.similarity;
-          
-          // Retourner la vérification existante
-          return {
-            status: existingVerification.status,
-            confidence: existingVerification.confidence,
-            sources: existingVerification.sources,
-            verificationSteps: [`Information déjà vérifiée précédemment avec similarité ${Math.round(existingVerification.similarity * 100)}% (${existingVerification.timestamp.toISOString()})`],
-            notes: `Cette information (ou une information très similaire) a déjà été vérifiée dans cette conversation le ${existingVerification.timestamp.toLocaleString()}.`
-          };
-        }
-      } catch (error) {
-        console.error('Erreur lors de la recherche de vérification en mémoire:', error);
+        // Retourner la vérification existante
+        return previousCheckResult.verification!;
       }
     }
     
@@ -158,13 +268,13 @@ export class QualityEvaluator {
     let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
     
     if (containsCalculations) {
-      // Utiliser la nouvelle méthode optimisée
+      // Utiliser la méthode unifiée (identique à celle utilisée dans la vérification préliminaire)
       verifiedCalculations = await this.detectAndVerifyCalculations(content);
     }
     
     // Agréger et analyser les résultats
-    let status = this.aggregateVerificationStatus(verificationResults);
-    let confidence = this.calculateVerificationConfidence(verificationResults);
+    let status = this.metricsCalculator.determineVerificationStatus(verificationResults);
+    let confidence = this.metricsCalculator.calculateVerificationConfidence(verificationResults);
     const sources = verificationResults.map(r => `${r.toolName}: ${r.result.source || 'Source non spécifiée'}`);
     const steps = verificationResults.map(r => `Vérifié avec ${r.toolName}`);
     
@@ -172,14 +282,14 @@ export class QualityEvaluator {
     if (verificationResults.length === 0 && !verifiedCalculations) {
       status = 'unverified';
       // Limiter la confiance maximale pour l'information non vérifiée
-      confidence = Math.min(confidence, 0.6);
+      confidence = Math.min(confidence, VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED);
       console.error('Aucune vérification effectuée, statut: unverified');
     } else {
       console.error(`Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
     }
     
     // Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
-    if (status === 'verified' && confidence < 0.7) {
+    if (status === 'verified' && confidence < VerificationConfig.CONFIDENCE.MINIMUM_THRESHOLD) {
       status = 'partially_verified';
     }
     
@@ -237,8 +347,8 @@ export class QualityEvaluator {
   }
 
   /**
-   * Détecte et vérifie les calculs dans un texte de manière asynchrone en utilisant
-   * le nouveau MathEvaluator optimisé
+   * Détecte et vérifie les calculs dans un texte de manière asynchrone
+   * Méthode unifiée utilisée à la fois pour les vérifications préliminaires et approfondies
    * 
    * @param content Le texte contenant potentiellement des calculs
    * @returns Une promesse résolvant vers un tableau de résultats de vérification de calculs
@@ -247,7 +357,7 @@ export class QualityEvaluator {
     console.error('Smart-Thinking: Détection et vérification des calculs avec MathEvaluator');
     
     try {
-      // Utiliser le nouveau MathEvaluator pour détecter et évaluer les expressions mathématiques
+      // Utiliser le MathEvaluator optimisé pour détecter et évaluer les expressions mathématiques
       const evaluationResults = MathEvaluator.detectAndEvaluate(content);
       
       console.error(`Smart-Thinking: ${evaluationResults.length} calcul(s) détecté(s)`);
@@ -298,26 +408,6 @@ export class QualityEvaluator {
     }
     
     return annotatedThought;
-  }
-
-  /**
-   * Agrège les statuts de vérification
-   * 
-   * @param results Les résultats de vérification
-   * @returns Le statut global de vérification
-   */
-  private aggregateVerificationStatus(results: any[]): VerificationStatus {
-    return this.metricsCalculator.determineVerificationStatus(results);
-  }
-
-  /**
-   * Calcule la confiance globale dans la vérification
-   * 
-   * @param results Les résultats de vérification
-   * @returns Le niveau de confiance global (0 à 1)
-   */
-  private calculateVerificationConfidence(results: any[]): number {
-    return this.metricsCalculator.calculateVerificationConfidence(results);
   }
 
   /**
@@ -384,13 +474,13 @@ export class QualityEvaluator {
     const suggestions: string[] = [];
 
     // Suggestions basées sur la confiance
-    if (metrics.confidence < 0.4) {
+    if (metrics.confidence < VerificationConfig.CONFIDENCE.LOW_CONFIDENCE) {
       suggestions.push('Renforcez l\'argumentation avec des preuves ou des références précises.');
       suggestions.push('Évitez les modalisateurs d\'incertitude excessive ("peut-être", "probablement").');
     }
 
     // Suggestions basées sur la pertinence
-    if (metrics.relevance < 0.4) {
+    if (metrics.relevance < VerificationConfig.CONFIDENCE.LOW_CONFIDENCE) {
       suggestions.push('Clarifiez le lien avec le contexte ou le sujet principal.');
 
       if (connectedThoughts.length > 0) {
@@ -399,7 +489,7 @@ export class QualityEvaluator {
     }
 
     // Suggestions basées sur la qualité
-    if (metrics.quality < 0.4) {
+    if (metrics.quality < VerificationConfig.CONFIDENCE.LOW_CONFIDENCE) {
       suggestions.push('Améliorez la structure et la clarté de cette pensée.');
 
       // Analyser le contenu pour des suggestions spécifiques
@@ -408,7 +498,7 @@ export class QualityEvaluator {
 
       if (wordCount < 10) {
         suggestions.push('Développez davantage cette pensée, elle est trop courte pour être complète.');
-      } else if (wordCount > 200) {
+      } else if (wordCount > SystemConfig.MAX_THOUGHT_LENGTH / 50) {
         suggestions.push('Considérez diviser cette pensée en plusieurs parties plus ciblées.');
       }
     }
