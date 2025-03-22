@@ -1,14 +1,15 @@
-import { ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from '../types';
+import { ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, SuggestedTool } from '../types';
 import { VerificationMemory, VerificationSearchResult } from '../verification-memory';
 import { ToolIntegrator } from '../tool-integrator';
 import { MetricsCalculator } from '../metrics-calculator';
-import { MathEvaluator } from '../utils/math-evaluator'; // Utiliser l'évaluateur standard (pas avec le suffixe -improved)
+import { MathEvaluator } from '../utils/math-evaluator';
 import { VerificationConfig, SystemConfig } from '../config';
 import { IVerificationService, PreliminaryVerificationResult, PreviousVerificationResult } from './verification-service.interface';
 
 /**
  * Service amélioré pour la vérification des informations
  * Utilise l'évaluateur mathématique amélioré et améliore la détection des contextes spécifiques
+ * Privilégie les outils externes pour les vérifications
  */
 export class VerificationService implements IVerificationService {
   private toolIntegrator: ToolIntegrator;
@@ -48,28 +49,64 @@ export class VerificationService implements IVerificationService {
     let verificationInProgress = false;
     let preverifiedThought = content;
     
-    // AMÉLIORÉ: Détection plus robuste des calculs potentiels
+    // AMÉLIORÉ: Détection des calculs pour orienter vers les outils appropriés
     const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(content);
     const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(content);
-    const hasMathNotation = /\d+(?:[\³\²\¹])/.test(content); // Détecter les exposants Unicode
-    const hasSequentialCalculations = /=\s*[\d\-+]+\s*=\s*[\d\-+]+/.test(content); // Détecter les calculs séquentiels
+    const hasMathNotation = /\d+(?:[\³\²\¹])/.test(content);
+    const hasSequentialCalculations = /=\s*[\d\-+]+\s*=\s*[\d\-+]+/.test(content);
     
-    // Si des calculs sont présents ou explicitement demandé
-    if (explicitlyRequested || hasSimpleCalculations || hasComplexCalculations || hasMathNotation || hasSequentialCalculations) {
-      console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
-      verificationInProgress = true; // Indiquer que la vérification est en cours
+    // Essayer d'utiliser d'abord des outils externes pour la vérification
+    const hasCalculations = hasSimpleCalculations || hasComplexCalculations || hasMathNotation || hasSequentialCalculations;
+    
+    if (explicitlyRequested || hasCalculations) {
+      console.error('Smart-Thinking: Détection de calculs, recherche d\'outils de vérification externe...');
+      verificationInProgress = true;
+      
+      // Vérifier s'il existe des outils de vérification adaptés
+      const calculationTools = this.toolIntegrator.suggestVerificationTools(content)
+        .filter(tool => tool.name.toLowerCase().includes('calc') || 
+               tool.name.toLowerCase().includes('math') || 
+               tool.name.toLowerCase().includes('python') || 
+               tool.name.toLowerCase().includes('javascript'));
+      
+      if (calculationTools.length > 0) {
+        console.error(`Smart-Thinking: Utilisation de l'outil externe ${calculationTools[0].name} pour vérifier les calculs`);
+        try {
+          // Tenter d'utiliser l'outil externe en priorité
+          const result = await this.toolIntegrator.executeVerificationTool(calculationTools[0].name, content);
+          if (result && result.verifiedCalculations) {
+            verifiedCalculations = result.verifiedCalculations;
+            initialVerification = true;
+            
+            if (verifiedCalculations && verifiedCalculations.length > 0) {
+              preverifiedThought = this.annotateThoughtWithVerifications(content, verifiedCalculations);
+              console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs vérifiés via outil externe`);
+            }
+            
+            // Retourner immédiatement le résultat de l'outil externe
+            return {
+              verifiedCalculations,
+              initialVerification,
+              verificationInProgress,
+              preverifiedThought
+            };
+          }
+        } catch (error) {
+          console.error(`Smart-Thinking: Erreur lors de l'utilisation de l'outil externe:`, error);
+          // Continuer avec la vérification interne en cas d'échec
+        }
+      }
+      
+      // Seulement si aucun outil externe n'est disponible ou a échoué, utiliser la vérification interne
+      console.error('Smart-Thinking: Aucun outil externe disponible, utilisation de la vérification interne...');
       
       try {
-        // Utiliser la méthode unifiée pour détecter et vérifier les calculs
         verifiedCalculations = await this.detectAndVerifyCalculations(content);
-        
-        // Marquer comme vérifié dès que des calculs ont été traités, qu'ils soient corrects ou non
         initialVerification = verifiedCalculations.length > 0;
         
-        // Si des calculs ont été détectés, annoter la pensée
         if (verifiedCalculations.length > 0) {
           preverifiedThought = this.annotateThoughtWithVerifications(content, verifiedCalculations);
-          console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
+          console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés par mécanisme interne`);
         }
       } catch (error) {
         console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
@@ -88,6 +125,7 @@ export class VerificationService implements IVerificationService {
 
   /**
    * Vérifie si une pensée similaire a déjà été vérifiée
+   * AMÉLIORÉ: Recherche plus efficace et critères de similarité ajustés
    * 
    * @param content Le contenu de la pensée à vérifier
    * @param sessionId ID de session
@@ -106,20 +144,28 @@ export class VerificationService implements IVerificationService {
     };
     
     try {
-      // Rechercher une vérification similaire dans la mémoire
+      // AMÉLIORÉ: Réduire le seuil de similarité pour une meilleure correspondance
+      const similarityThreshold = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY;
+      
+      // Rechercher une vérification similaire dans la mémoire avec un seuil de similarité plus bas
+      console.error(`Smart-Thinking: Recherche de vérifications précédentes avec seuil ${similarityThreshold}...`);
+      
       const previousVerification = await this.verificationMemory.findVerification(
         content,
         sessionId,
-        VerificationConfig.SIMILARITY.HIGH_SIMILARITY
+        similarityThreshold
       );
       
       if (previousVerification) {
-        console.error(`Vérification précédente trouvée avec similarité: ${previousVerification.similarity}`);
+        console.error(`Smart-Thinking: Vérification précédente trouvée avec similarité: ${previousVerification.similarity}`);
+        
+        // AMÉLIORÉ: Toujours marquer comme vérifié si une correspondance est trouvée
+        const isVerified = ['verified', 'partially_verified'].includes(previousVerification.status);
         
         // Préparer la réponse avec les informations de vérification précédente
         return {
           previousVerification,
-          isVerified: ['verified', 'partially_verified'].includes(previousVerification.status),
+          isVerified,
           verificationStatus: previousVerification.status as VerificationDetailedStatus,
           certaintySummary: `Information vérifiée précédemment avec ${Math.round(previousVerification.similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerification.confidence * 100)}%.`,
           verification: {
@@ -127,12 +173,14 @@ export class VerificationService implements IVerificationService {
             confidence: previousVerification.confidence,
             sources: previousVerification.sources || [],
             verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
-            notes: `Cette information est très similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée précédemment.`
+            notes: `Cette information est similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée.`
           }
         };
+      } else {
+        console.error('Smart-Thinking: Aucune vérification précédente trouvée.');
       }
     } catch (error) {
-      console.error('Erreur lors de la vérification avec la mémoire:', error);
+      console.error('Smart-Thinking: Erreur lors de la vérification avec la mémoire:', error);
     }
     
     // Aucune vérification précédente n'a été trouvée
@@ -141,6 +189,7 @@ export class VerificationService implements IVerificationService {
 
   /**
    * Vérification approfondie d'une pensée
+   * AMÉLIORÉ: Priorité aux outils externes et meilleure persistance
    * 
    * @param thought La pensée à vérifier
    * @param containsCalculations Indique si la pensée contient des calculs à vérifier
@@ -156,11 +205,13 @@ export class VerificationService implements IVerificationService {
   ): Promise<VerificationResult> {
     const content = thought.content;
     
-    // Vérifier si l'information a déjà été vérifiée et si on ne force pas une nouvelle vérification
+    // Vérifier si l'information a déjà été vérifiée
     if (!forceVerification) {
       const previousCheckResult = await this.checkPreviousVerification(content, sessionId);
       
       if (previousCheckResult.previousVerification) {
+        console.error('Smart-Thinking: Utilisation d\'une vérification précédente trouvée en mémoire');
+        
         // Mettre à jour les métadonnées de la pensée
         thought.metadata.isVerified = previousCheckResult.isVerified;
         thought.metadata.verificationSource = 'memory';
@@ -173,8 +224,15 @@ export class VerificationService implements IVerificationService {
       }
     }
     
-    // Déterminer quels outils de recherche sont pertinents pour la vérification
+    // AMÉLIORÉ: Obtenir TOUS les outils de vérification disponibles, pas seulement ceux qui semblent pertinents
+    // Utiliser directement suggestVerificationTools car getAllVerificationTools n'existe pas
     const verificationTools = this.toolIntegrator.suggestVerificationTools(content);
+    
+    if (verificationTools.length === 0) {
+      console.error('Smart-Thinking: Aucun outil de vérification disponible');
+    } else {
+      console.error(`Smart-Thinking: ${verificationTools.length} outils de vérification disponibles`);
+    }
     
     // Déterminer si plusieurs vérifications sont nécessaires
     const verificationRequirements = this.metricsCalculator.determineVerificationRequirements(
@@ -189,25 +247,28 @@ export class VerificationService implements IVerificationService {
     // Résultats de vérification pour chaque outil
     const verificationResults: any[] = [];
     
-    // Nombre d'outils à utiliser, en fonction des exigences de vérification
+    // AMÉLIORÉ: Utiliser tous les outils disponibles si nécessaire
     const toolsToUse = Math.min(
       verificationRequirements.requiresMultipleVerifications ? 
         verificationRequirements.recommendedVerificationsCount : 1,
-      verificationTools.length
+      Math.max(1, verificationTools.length) // Utiliser au moins un outil si disponible
     );
     
+    console.error(`Smart-Thinking: Utilisation de ${toolsToUse} outil(s) externe(s) pour la vérification`);
+    
     // Utiliser chaque outil pour vérifier l'information en parallèle avec Promise.all
-    const verificationPromises = verificationTools.slice(0, toolsToUse).map(async (tool) => {
+    const verificationPromises = verificationTools.slice(0, toolsToUse).map(async (tool: SuggestedTool) => {
       try {
-        console.error(`Utilisation de l'outil de vérification ${tool.name}...`);
+        console.error(`Smart-Thinking: Utilisation de l'outil de vérification "${tool.name}"...`);
         const result = await this.toolIntegrator.executeVerificationTool(tool.name, content);
+        console.error(`Smart-Thinking: Vérification avec "${tool.name}" terminée avec succès`);
         return {
           toolName: tool.name,
           result,
           confidence: tool.confidence
         };
       } catch (error) {
-        console.error(`Erreur lors de la vérification avec l'outil ${tool.name}:`, error);
+        console.error(`Smart-Thinking: Erreur lors de la vérification avec l'outil "${tool.name}":`, error);
         return null;
       }
     });
@@ -215,14 +276,27 @@ export class VerificationService implements IVerificationService {
     // Attendre que toutes les vérifications soient terminées
     const results = await Promise.all(verificationPromises);
     // Filtrer les résultats nuls (en cas d'erreur)
-    verificationResults.push(...results.filter(r => r !== null));
+    const validResults = results.filter((r: any) => r !== null);
+    verificationResults.push(...validResults);
     
-    // Si la pensée contient des calculs, les vérifier
+    console.error(`Smart-Thinking: ${validResults.length}/${results.length} vérifications externes réussies`);
+    
+    // Si aucun outil externe n'a réussi et que la pensée contient des calculs, utiliser la vérification interne
     let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
     
-    if (containsCalculations) {
-      // Utiliser la méthode unifiée (identique à celle utilisée dans la vérification préliminaire)
+    if (validResults.length === 0 && containsCalculations) {
+      console.error('Smart-Thinking: Aucun outil externe n\'a réussi, utilisation de la vérification interne pour les calculs');
       verifiedCalculations = await this.detectAndVerifyCalculations(content);
+      console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs vérifiés en interne`);
+    } else if (validResults.length > 0) {
+      // Si des outils externes ont réussi, utiliser leurs résultats de vérification de calculs si disponibles
+      for (const result of validResults) {
+        if (result && result.result && result.result.verifiedCalculations) {
+          verifiedCalculations = result.result.verifiedCalculations;
+          console.error(`Smart-Thinking: Utilisation des calculs vérifiés par l'outil "${result.toolName}"`);
+          break;
+        }
+      }
     }
     
     // Agréger et analyser les résultats
@@ -234,11 +308,26 @@ export class VerificationService implements IVerificationService {
     // Si aucune vérification n'a été effectuée, s'assurer que le statut est 'unverified'
     if (verificationResults.length === 0 && !verifiedCalculations) {
       status = 'unverified';
-      // Limiter la confiance maximale pour l'information non vérifiée
       confidence = Math.min(confidence, VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED);
-      console.error('Aucune vérification effectuée, statut: unverified');
+      console.error('Smart-Thinking: Aucune vérification effectuée, statut: unverified');
     } else {
-      console.error(`Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
+      console.error(`Smart-Thinking: Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
+    }
+    
+    // AMÉLIORÉ: Si des calculs ont été vérifiés, considérer comme au moins partiellement vérifié
+    if (verifiedCalculations && verifiedCalculations.length > 0) {
+      if (status === 'unverified') {
+        status = 'partially_verified';
+        console.error('Smart-Thinking: Statut mis à jour vers partially_verified en raison des calculs vérifiés');
+      }
+      
+      // Augmenter la confiance en fonction du nombre de calculs corrects
+      const correctCalculations = verifiedCalculations.filter(calc => calc.isCorrect).length;
+      if (correctCalculations > 0) {
+        const calculationAccuracy = correctCalculations / verifiedCalculations.length;
+        confidence = Math.max(confidence, calculationAccuracy * 0.7);
+        console.error(`Smart-Thinking: Confiance ajustée à ${confidence.toFixed(2)} basée sur la précision des calculs`);
+      }
     }
     
     // Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
@@ -251,10 +340,10 @@ export class VerificationService implements IVerificationService {
       status = 'inconclusive';
     }
     
-    // Mettre à jour les métadonnées de la pensée
+    // IMPORTANT: Mettre à jour les métadonnées de la pensée
     thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
     thought.metadata.verificationTimestamp = new Date();
-    thought.metadata.verificationSource = 'tools';
+    thought.metadata.verificationSource = verificationResults.length > 0 ? 'tools' : 'internal';
     thought.metadata.verificationSessionId = sessionId;
     thought.metadata.verificationToolsUsed = verificationResults.length;
     
@@ -268,11 +357,12 @@ export class VerificationService implements IVerificationService {
       sources,
       verificationSteps: steps,
       contradictions: contradictions.length > 0 ? contradictions : undefined,
-      notes: this.generateVerificationNotes(verificationResults),
+      notes: this.generateVerificationNotes(verificationResults, verifiedCalculations),
       verifiedCalculations
     };
     
-    // Enregistrer la vérification dans la mémoire sémantique
+    // AMÉLIORÉ: Toujours stocker le résultat dans la mémoire pour les futures vérifications
+    console.error(`Smart-Thinking: Enregistrement de la vérification en mémoire avec statut: ${status}`);
     await this.storeVerification(
       content,
       status,
@@ -289,7 +379,7 @@ export class VerificationService implements IVerificationService {
       sources
     };
     
-    console.error(`Vérification complétée et enregistrée en mémoire, statut: ${status}`);
+    console.error(`Smart-Thinking: Vérification complétée, statut final: ${status}, confiance: ${confidence.toFixed(2)}`);
     
     return verificationResult;
   }
@@ -323,16 +413,14 @@ export class VerificationService implements IVerificationService {
   /**
    * Détecte et vérifie les calculs dans un texte de manière asynchrone
    * Méthode unifiée utilisée à la fois pour les vérifications préliminaires et approfondies
-   * Utilise l'évaluateur amélioré pour une meilleure détection
    * 
    * @param content Le texte contenant potentiellement des calculs
    * @returns Une promesse résolvant vers un tableau de résultats de vérification de calculs
    */
   public async detectAndVerifyCalculations(content: string): Promise<CalculationVerificationResult[]> {
-    console.error('Smart-Thinking: Détection et vérification des calculs avec MathEvaluator amélioré');
+    console.error('Smart-Thinking: Détection et vérification des calculs avec MathEvaluator');
     
     try {
-      // AMÉLIORÉ: Utiliser l'évaluateur mathématique amélioré
       const evaluationResults = MathEvaluator.detectAndEvaluate(content);
       
       console.error(`Smart-Thinking: ${evaluationResults.length} calcul(s) détecté(s)`);
@@ -355,7 +443,6 @@ export class VerificationService implements IVerificationService {
   
   /**
    * Annote une pensée avec les résultats de vérification des calculs
-   * AMÉLIORÉ: Gestion améliorée des notations de fonctions
    * 
    * @param content Le texte de la pensée à annoter
    * @param verifications Les résultats de vérification des calculs
@@ -432,16 +519,29 @@ export class VerificationService implements IVerificationService {
 
   /**
    * Génère des notes sur la vérification
+   * AMÉLIORÉ: Inclut les informations sur les calculs vérifiés
    * 
    * @param results Les résultats de vérification
+   * @param calculations Les calculs vérifiés
    * @returns Une note explicative sur la vérification
    */
-  private generateVerificationNotes(results: any[]): string {
-    if (results.length === 0) {
+  private generateVerificationNotes(results: any[], calculations?: CalculationVerificationResult[]): string {
+    let notes = "";
+    
+    if (results.length === 0 && (!calculations || calculations.length === 0)) {
       return "Aucune vérification n'a été effectuée.";
     }
     
-    const toolsUsed = results.map(r => r.toolName).join(', ');
-    return `Vérification effectuée avec les outils suivants : ${toolsUsed}.`;
+    if (results.length > 0) {
+      const toolsUsed = results.map(r => r.toolName).join(', ');
+      notes += `Vérification effectuée avec les outils externes suivants : ${toolsUsed}. `;
+    }
+    
+    if (calculations && calculations.length > 0) {
+      const correctCount = calculations.filter(c => c.isCorrect).length;
+      notes += `${calculations.length} calcul(s) mathématique(s) vérifié(s), dont ${correctCount} correct(s).`;
+    }
+    
+    return notes.trim();
   }
 }

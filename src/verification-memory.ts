@@ -33,6 +33,7 @@ export interface VerificationSearchResult {
 /**
  * Classe qui gère la mémoire des vérifications avec recherche vectorielle efficace
  * pour assurer leur persistance à travers les différentes étapes du raisonnement
+ * AMÉLIORÉ: Meilleure gestion des similarités et persistance des vérifications
  */
 export class VerificationMemory {
   private static instance: VerificationMemory;
@@ -43,6 +44,9 @@ export class VerificationMemory {
   
   // Index par session pour accès rapide
   private sessionIndex: Map<string, Set<string>> = new Map();
+  
+  // NOUVEAU: Cache de similarité pour éviter de recalculer les similitudes entre les mêmes textes
+  private similarityCache: Map<string, Map<string, number>> = new Map();
   
   /**
    * Méthode statique pour implémenter le singleton
@@ -62,6 +66,11 @@ export class VerificationMemory {
   private constructor() {
     // Configurer le nettoyage périodique des entrées expirées
     setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2);
+    
+    // NOUVEAU: Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
+    setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION);
+    
+    console.error('VerificationMemory: Système de mémoire de vérification initialisé');
   }
   
   /**
@@ -71,10 +80,12 @@ export class VerificationMemory {
    */
   public setEmbeddingService(embeddingService: EmbeddingService): void {
     this.embeddingService = embeddingService;
+    console.error('VerificationMemory: Service d\'embedding configuré');
   }
   
   /**
    * Ajoute une nouvelle vérification à la mémoire
+   * AMÉLIORÉ: Meilleure détection des duplicatas avec cache de similarité
    * 
    * @param text Texte de l'information vérifiée
    * @param status Statut de vérification
@@ -92,9 +103,13 @@ export class VerificationMemory {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
     ttl: number = VerificationConfig.MEMORY.DEFAULT_SESSION_TTL
   ): Promise<string> {
+    console.error(`VerificationMemory: Ajout d'une vérification avec statut ${status}, confiance ${confidence.toFixed(2)}`);
+    
     // Vérifier si une entrée très similaire existe déjà dans cette session
     const existingEntry = await this.findExactDuplicate(text, sessionId);
     if (existingEntry) {
+      console.error(`VerificationMemory: Entrée similaire trouvée, mise à jour plutôt que création`);
+      
       // Mettre à jour l'entrée existante au lieu d'en créer une nouvelle
       this.verifications.set(existingEntry.id, {
         ...existingEntry,
@@ -113,9 +128,12 @@ export class VerificationMemory {
     if (this.embeddingService) {
       try {
         embedding = await this.embeddingService.getEmbedding(text);
+        console.error(`VerificationMemory: Embedding généré avec succès (${embedding.length} dimensions)`);
       } catch (error) {
-        console.error('Erreur lors de la génération de l\'embedding pour la vérification:', error);
+        console.error('VerificationMemory: Erreur lors de la génération de l\'embedding:', error);
       }
+    } else {
+      console.error('VerificationMemory: Aucun service d\'embedding disponible');
     }
     
     // Générer un identifiant unique
@@ -146,11 +164,14 @@ export class VerificationMemory {
     }
     this.sessionIndex.get(sessionId)!.add(id);
     
+    console.error(`VerificationMemory: Vérification ajoutée avec succès, ID: ${id}`);
+    
     return id;
   }
   
   /**
    * Recherche une vérification existante identique pour éviter les doublons
+   * AMÉLIORÉ: Utilisation du cache de similarité pour des recherches plus rapides
    * 
    * @param text Texte à rechercher
    * @param sessionId ID de session
@@ -160,6 +181,8 @@ export class VerificationMemory {
     text: string,
     sessionId: string
   ): Promise<VerificationEntry | null> {
+    console.error(`VerificationMemory: Recherche de duplicata pour "${text.substring(0, 30)}..."`);
+    
     // Si pas de service d'embedding, recherche textuelle exacte uniquement
     if (!this.embeddingService) {
       const sessionEntries = this.getSessionEntriesArray(sessionId);
@@ -173,41 +196,93 @@ export class VerificationMemory {
       // Obtenir les entrées pour cette session
       const sessionEntries = this.getSessionEntriesArray(sessionId);
       
-      // Rechercher une correspondance avec similarité très élevée
+      // AMÉLIORÉ: Utiliser le cache de similarité pour des recherches plus rapides
       for (const entry of sessionEntries) {
-        if (entry.embedding && this.embeddingService.calculateCosineSimilarity(
-          embedding, entry.embedding
-        ) >= VerificationConfig.SIMILARITY.EXACT_MATCH) {
+        if (!entry.embedding) continue;
+        
+        // Vérifier si la similarité est déjà dans le cache
+        const cacheKey = `${text.substring(0, 50)}_${entry.id}`;
+        let similarity: number;
+        
+        if (this.getCachedSimilarity(cacheKey)) {
+          similarity = this.getCachedSimilarity(cacheKey)!;
+        } else {
+          similarity = this.embeddingService.calculateCosineSimilarity(embedding, entry.embedding);
+          this.setCachedSimilarity(cacheKey, similarity);
+        }
+        
+        // AMÉLIORÉ: Seuil de similarité plus bas pour capturer plus de correspondances
+        const similarityThreshold = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY;
+        
+        if (similarity >= similarityThreshold) {
+          console.error(`VerificationMemory: Duplicata trouvé avec similarité ${similarity.toFixed(3)}`);
           return entry;
         }
       }
     } catch (error) {
-      console.error('Erreur lors de la recherche de duplicata exact:', error);
+      console.error('VerificationMemory: Erreur lors de la recherche de duplicata:', error);
     }
     
+    console.error('VerificationMemory: Aucun duplicata trouvé');
     return null;
   }
   
   /**
+   * NOUVEAU: Obtient une similarité mise en cache
+   * 
+   * @param key Clé du cache
+   * @returns Similarité mise en cache ou undefined si non trouvée
+   */
+  private getCachedSimilarity(key: string): number | undefined {
+    for (const [prefix, similarities] of this.similarityCache.entries()) {
+      if (key.startsWith(prefix)) {
+        return similarities.get(key);
+      }
+    }
+    return undefined;
+  }
+  
+  /**
+   * NOUVEAU: Définit une similarité dans le cache
+   * 
+   * @param key Clé du cache
+   * @param similarity Valeur de similarité à mettre en cache
+   */
+  private setCachedSimilarity(key: string, similarity: number): void {
+    const prefix = key.split('_')[0];
+    
+    if (!this.similarityCache.has(prefix)) {
+      this.similarityCache.set(prefix, new Map());
+    }
+    
+    this.similarityCache.get(prefix)!.set(key, similarity);
+  }
+  
+  /**
    * Recherche une vérification existante similaire à l'information fournie
-   * Utilise une recherche vectorielle optimisée
+   * AMÉLIORÉ: Recherche plus efficace avec seuils de similarité ajustés
    * 
    * @param text Texte de l'information à rechercher
    * @param sessionId Identifiant de la session
-   * @param similarityThreshold Seuil de similarité (utilise la valeur de config par défaut)
+   * @param similarityThreshold Seuil de similarité
    * @returns La vérification trouvée, ou null si aucune correspondance
    */
   public async findVerification(
     text: string,
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    similarityThreshold: number = VerificationConfig.SIMILARITY.HIGH_SIMILARITY
+    similarityThreshold: number = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY
   ): Promise<VerificationSearchResult | null> {
+    console.error(`VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
+    
     // Obtenir les ID des vérifications pour cette session
     const sessionIds = this.sessionIndex.get(sessionId);
     
     if (!sessionIds || sessionIds.size === 0) {
+      console.error(`VerificationMemory: Aucune vérification pour la session ${sessionId}`);
       return null;
     }
+    
+    console.error(`VerificationMemory: ${sessionIds.size} vérifications disponibles pour cette session`);
     
     // Si le service d'embedding est disponible, utiliser la recherche vectorielle
     if (this.embeddingService) {
@@ -224,15 +299,25 @@ export class VerificationMemory {
         );
         
         if (entriesWithEmbeddings.length === 0) {
+          console.error('VerificationMemory: Aucune entrée avec embedding, utilisation de la recherche textuelle');
           return this.fallbackToTextSearch(text, sessionId);
         }
         
         // Calculer les similarités en utilisant des calculs vectoriels optimisés
         const similarities = entriesWithEmbeddings.map(entry => {
-          const similarity = this.embeddingService!.calculateCosineSimilarity(
-            queryEmbedding, 
-            entry.embedding!
-          );
+          // Utiliser le cache de similarité si disponible
+          const cacheKey = `${text.substring(0, 50)}_${entry.id}`;
+          let similarity: number;
+          
+          if (this.getCachedSimilarity(cacheKey)) {
+            similarity = this.getCachedSimilarity(cacheKey)!;
+          } else {
+            similarity = this.embeddingService!.calculateCosineSimilarity(
+              queryEmbedding, 
+              entry.embedding!
+            );
+            this.setCachedSimilarity(cacheKey, similarity);
+          }
           
           return {
             entry,
@@ -243,9 +328,16 @@ export class VerificationMemory {
         // Trier par similarité décroissante
         similarities.sort((a, b) => b.similarity - a.similarity);
         
+        // AMÉLIORÉ: Afficher les meilleures correspondances pour le débogage
+        if (similarities.length > 0) {
+          console.error(`VerificationMemory: Meilleure correspondance - similarité: ${similarities[0].similarity.toFixed(3)}, texte: "${similarities[0].entry.text.substring(0, 50)}..."`);
+        }
+        
         // Retourner la plus similaire si elle dépasse le seuil
         if (similarities.length > 0 && similarities[0].similarity >= similarityThreshold) {
           const bestMatch = similarities[0].entry;
+          console.error(`VerificationMemory: Vérification trouvée avec similarité ${similarities[0].similarity.toFixed(3)}`);
+          
           return {
             id: bestMatch.id,
             status: bestMatch.status,
@@ -255,21 +347,26 @@ export class VerificationMemory {
             similarity: similarities[0].similarity,
             text: bestMatch.text
           };
+        } else if (similarities.length > 0) {
+          console.error(`VerificationMemory: Meilleure correspondance (${similarities[0].similarity.toFixed(3)}) en dessous du seuil (${similarityThreshold})`);
         }
       } catch (error) {
-        console.error('Erreur lors de la recherche par similarité vectorielle:', error);
+        console.error('VerificationMemory: Erreur lors de la recherche par similarité vectorielle:', error);
         return this.fallbackToTextSearch(text, sessionId);
       }
     } else {
       // Si pas de service d'embedding, utiliser la recherche textuelle
+      console.error('VerificationMemory: Aucun service d\'embedding, utilisation de la recherche textuelle');
       return this.fallbackToTextSearch(text, sessionId);
     }
     
+    console.error('VerificationMemory: Aucune vérification trouvée');
     return null;
   }
   
   /**
    * Méthode de secours pour la recherche basée sur le texte
+   * AMÉLIORÉ: Recherche textuelle plus flexible
    * 
    * @param text Texte à rechercher
    * @param sessionId ID de session
@@ -279,12 +376,15 @@ export class VerificationMemory {
     text: string,
     sessionId: string
   ): VerificationSearchResult | null {
+    console.error('VerificationMemory: Utilisation de la recherche textuelle');
+    
     // Obtenir les entrées pour cette session
     const sessionEntries = this.getSessionEntriesArray(sessionId);
     
     // Recherche exacte par texte
     const exactMatch = sessionEntries.find(entry => entry.text === text);
     if (exactMatch) {
+      console.error('VerificationMemory: Correspondance exacte trouvée');
       return {
         id: exactMatch.id,
         status: exactMatch.status,
@@ -296,44 +396,71 @@ export class VerificationMemory {
       };
     }
     
-    // Recherche par sous-chaîne avec un seuil plus élevé
-    const partialMatches = sessionEntries.filter(entry => 
-      entry.text.includes(text) || text.includes(entry.text)
-    );
+    // AMÉLIORÉ: Normaliser les textes pour une meilleure correspondance
+    const normalizedText = this.normalizeText(text);
     
-    if (partialMatches.length > 0) {
-      // Calculer un score de similarité basé sur la longueur relative
-      partialMatches.sort((a, b) => {
-        const lenA = a.text.length;
-        const lenB = b.text.length;
-        const lenText = text.length;
-        
-        const ratioA = Math.min(lenA, lenText) / Math.max(lenA, lenText);
-        const ratioB = Math.min(lenB, lenText) / Math.max(lenB, lenText);
-        
-        return ratioB - ratioA;
-      });
+    // AMÉLIORÉ: Recherche par inclusion de mots-clés
+    const keywordsMatches = sessionEntries.map(entry => {
+      const normalizedEntry = this.normalizeText(entry.text);
       
-      const bestMatch = partialMatches[0];
-      const similarity = Math.min(
-        bestMatch.text.length, 
-        text.length
-      ) / Math.max(bestMatch.text.length, text.length);
+      // Calculer le nombre de mots en commun
+      const textWords = new Set(normalizedText.split(/\s+/).filter(w => w.length > 3));
+      const entryWords = new Set(normalizedEntry.split(/\s+/).filter(w => w.length > 3));
       
-      if (similarity >= VerificationConfig.SIMILARITY.TEXT_MATCH) {
-        return {
-          id: bestMatch.id,
-          status: bestMatch.status,
-          confidence: bestMatch.confidence,
-          sources: bestMatch.sources,
-          timestamp: bestMatch.timestamp,
-          similarity,
-          text: bestMatch.text
-        };
+      let commonWords = 0;
+      for (const word of textWords) {
+        if (entryWords.has(word)) {
+          commonWords++;
+        }
       }
+      
+      // Calculer un score de similarité basé sur les mots en commun
+      const totalUniqueWords = new Set([...textWords, ...entryWords]).size;
+      const similarity = totalUniqueWords > 0 ? commonWords / totalUniqueWords : 0;
+      
+      return {
+        entry,
+        similarity
+      };
+    });
+    
+    // Trier par similarité décroissante
+    keywordsMatches.sort((a, b) => b.similarity - a.similarity);
+    
+    // AMÉLIORÉ: Seuil de similarité pour les correspondances textuelles
+    const textSimilarityThreshold = VerificationConfig.SIMILARITY.TEXT_MATCH;
+    
+    if (keywordsMatches.length > 0 && keywordsMatches[0].similarity >= textSimilarityThreshold) {
+      const bestMatch = keywordsMatches[0].entry;
+      console.error(`VerificationMemory: Correspondance textuelle trouvée avec similarité ${keywordsMatches[0].similarity.toFixed(3)}`);
+      
+      return {
+        id: bestMatch.id,
+        status: bestMatch.status,
+        confidence: bestMatch.confidence,
+        sources: bestMatch.sources,
+        timestamp: bestMatch.timestamp,
+        similarity: keywordsMatches[0].similarity,
+        text: bestMatch.text
+      };
     }
     
+    console.error('VerificationMemory: Aucune correspondance textuelle trouvée');
     return null;
+  }
+  
+  /**
+   * NOUVEAU: Normalise un texte pour la recherche textuelle
+   * 
+   * @param text Texte à normaliser
+   * @returns Texte normalisé
+   */
+  private normalizeText(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')  // Remplacer la ponctuation par des espaces
+      .replace(/\s+/g, ' ')      // Normaliser les espaces
+      .trim();
   }
   
   /**
@@ -343,8 +470,13 @@ export class VerificationMemory {
    * @returns Tableau des entrées pour cette session
    */
   private getSessionEntriesArray(sessionId: string): VerificationEntry[] {
+    console.error(`VerificationMemory: Récupération des entrées pour la session ${sessionId}`);
+    
     const sessionIds = this.sessionIndex.get(sessionId);
-    if (!sessionIds) return [];
+    if (!sessionIds) {
+      console.error(`VerificationMemory: Aucune entrée pour cette session`);
+      return [];
+    }
     
     const entries: VerificationEntry[] = [];
     for (const id of sessionIds) {
@@ -354,6 +486,7 @@ export class VerificationMemory {
       }
     }
     
+    console.error(`VerificationMemory: ${entries.length} entrées récupérées`);
     return entries;
   }
   
@@ -484,6 +617,8 @@ export class VerificationMemory {
     
     // Supprimer l'index de session
     this.sessionIndex.delete(sessionId);
+    
+    console.error(`VerificationMemory: Session ${sessionId} nettoyée`);
   }
   
   /**
@@ -499,6 +634,8 @@ export class VerificationMemory {
         expiredIds.add(id);
       }
     }
+    
+    if (expiredIds.size === 0) return;
     
     // Supprimer les entrées expirées
     for (const id of expiredIds) {
@@ -519,9 +656,22 @@ export class VerificationMemory {
       }
     }
     
-    if (expiredIds.size > 0) {
-      console.log(`Nettoyage: ${expiredIds.size} entrées expirées supprimées`);
-    }
+    console.error(`VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
+  }
+  
+  /**
+   * NOUVEAU: Nettoie le cache de similarité
+   */
+  private cleanSimilarityCache(): void {
+    const cacheSize = Array.from(this.similarityCache.values())
+      .reduce((total, map) => total + map.size, 0);
+    
+    if (cacheSize === 0) return;
+    
+    // Vider le cache
+    this.similarityCache.clear();
+    
+    console.error(`VerificationMemory: Cache de similarité nettoyé (${cacheSize} entrées)`);
   }
   
   /**
@@ -530,6 +680,8 @@ export class VerificationMemory {
   public clearAll(): void {
     this.verifications.clear();
     this.sessionIndex.clear();
+    this.similarityCache.clear();
+    console.error('VerificationMemory: Mémoire de vérification entièrement nettoyée');
   }
   
   /**
@@ -538,6 +690,7 @@ export class VerificationMemory {
   public getStats(): {
     totalEntries: number;
     sessionCount: number;
+    cacheSize: number;
     entriesByStatus: Record<VerificationStatus, number>;
   } {
     const entriesByStatus: Record<VerificationStatus, number> = {
@@ -545,9 +698,7 @@ export class VerificationMemory {
       partially_verified: 0,
       unverified: 0,
       contradicted: 0,
-      inconclusive: 0,
-      // verification_in_progress n'est pas dans VerificationStatus
-      // Commenté pour éviter l'erreur
+      inconclusive: 0
     };
     
     // Compter les entrées par statut
@@ -555,9 +706,14 @@ export class VerificationMemory {
       entriesByStatus[entry.status] = (entriesByStatus[entry.status] || 0) + 1;
     }
     
+    // Calculer la taille du cache
+    const cacheSize = Array.from(this.similarityCache.values())
+      .reduce((total, map) => total + map.size, 0);
+    
     return {
       totalEntries: this.verifications.size,
       sessionCount: this.sessionIndex.size,
+      cacheSize,
       entriesByStatus
     };
   }
