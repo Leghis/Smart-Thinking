@@ -1,12 +1,18 @@
 import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
 import { ThoughtGraph } from './thought-graph';
 import { ToolIntegrator } from './tool-integrator';
+import { MetricsCalculator } from './metrics-calculator';
 
 /**
  * Classe qui évalue la qualité des pensées
  */
 export class QualityEvaluator {
   private toolIntegrator: ToolIntegrator | null = null;
+  private metricsCalculator: MetricsCalculator;
+  
+  constructor() {
+    this.metricsCalculator = new MetricsCalculator();
+  }
   
   /**
    * Définit l'instance de ToolIntegrator à utiliser pour les vérifications
@@ -75,10 +81,10 @@ export class QualityEvaluator {
     // Récupérer les pensées connectées pour le contexte
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thoughtId);
     
-    // Évaluer chaque métrique
-    const confidence = this.evaluateConfidence(thought);
-    const relevance = this.evaluateRelevance(thought, connectedThoughts);
-    const quality = this.evaluateQuality(thought, connectedThoughts);
+    // Utiliser le calculateur de métriques pour obtenir des valeurs plus précises
+    const confidence = this.metricsCalculator.calculateConfidence(thought);
+    const relevance = this.metricsCalculator.calculateRelevance(thought, connectedThoughts);
+    const quality = this.metricsCalculator.calculateQuality(thought, connectedThoughts);
     
     return {
       confidence,
@@ -713,37 +719,7 @@ export class QualityEvaluator {
    * @returns Le statut global de vérification
    */
   private aggregateVerificationStatus(results: any[]): VerificationStatus {
-    if (results.length === 0) {
-      return 'unverified';
-    }
-    
-    // Compter les différents statuts
-    const statusCounts = {
-      verified: 0,
-      contradicted: 0,
-      inconclusive: 0
-    };
-    
-    for (const result of results) {
-      if (result.result.isValid === true) {
-        statusCounts.verified++;
-      } else if (result.result.isValid === false) {
-        statusCounts.contradicted++;
-      } else {
-        statusCounts.inconclusive++;
-      }
-    }
-    
-    // Logique de décision pour le statut global
-    if (statusCounts.contradicted > 0) {
-      return 'contradicted';
-    } else if (statusCounts.verified > 0 && statusCounts.inconclusive === 0) {
-      return 'verified';
-    } else if (statusCounts.verified > 0) {
-      return 'partially_verified';
-    } else {
-      return 'inconclusive';
-    }
+    return this.metricsCalculator.determineVerificationStatus(results);
   }
 
   /**
@@ -753,18 +729,7 @@ export class QualityEvaluator {
    * @returns Le niveau de confiance global (0 à 1)
    */
   private calculateVerificationConfidence(results: any[]): number {
-    if (results.length === 0) {
-      return 0;
-    }
-    
-    // Moyenne pondérée des confiances de chaque outil
-    const totalWeight = results.reduce((sum, r) => sum + r.confidence, 0);
-    const weightedConfidence = results.reduce((sum, r) => {
-      const resultConfidence = r.result.confidence || 0.5;
-      return sum + (resultConfidence * r.confidence);
-    }, 0);
-    
-    return totalWeight > 0 ? weightedConfidence / totalWeight : 0.5;
+    return this.metricsCalculator.calculateVerificationConfidence(results);
   }
 
   /**
@@ -814,27 +779,7 @@ export class QualityEvaluator {
    * @returns Un tableau de biais détectés, vide si aucun
    */
   detectBiases(thought: ThoughtNode): string[] {
-    const content = thought.content.toLowerCase();
-    const detectedBiases: string[] = [];
-    
-    // Dictionnaire de marqueurs linguistiques de biais cognitifs courants
-    const biasMarkers: Record<string, string[]> = {
-      'confirmation': ['toujours', 'jamais', 'tous', 'aucun', 'évidemment', 'clairement', 'sans aucun doute'],
-      'ancrage': ['initialement', 'au début', 'comme dit précédemment', 'revenons à'],
-      'disponibilité': ['récemment', 'dernièrement', 'exemple frappant', 'cas célèbre'],
-      'autorité': ['expert', 'autorité', 'scientifique', 'étude montre', 'recherche prouve'],
-      'faux consensus': ['tout le monde', 'majorité', 'consensus', 'généralement accepté', 'communément'],
-      'corrélation/causalité': ['parce que', 'donc', 'cause', 'effet', 'entraîne', 'provoque']
-    };
-    
-    // Vérifier chaque type de biais
-    for (const [bias, markers] of Object.entries(biasMarkers)) {
-      if (markers.some(marker => content.includes(marker))) {
-        detectedBiases.push(bias);
-      }
-    }
-    
-    return detectedBiases;
+    return this.metricsCalculator.detectBiases(thought);
   }
   
   /**
@@ -845,49 +790,9 @@ export class QualityEvaluator {
    * @returns Un tableau de suggestions d'amélioration
    */
   suggestImprovements(thought: ThoughtNode, thoughtGraph: ThoughtGraph): string[] {
-    const suggestions: string[] = [];
     const metrics = this.evaluate(thought.id, thoughtGraph);
-    
-    // Suggérer des améliorations basées sur les métriques
-    if (metrics.confidence < 0.4) {
-      suggestions.push('Renforcez l\'argumentation avec des preuves ou des références.');
-    }
-    
-    if (metrics.relevance < 0.4) {
-      suggestions.push('Clarifiez le lien avec les pensées précédentes ou le sujet principal.');
-    }
-    
-    if (metrics.quality < 0.4) {
-      suggestions.push('Améliorez la structure et la clarté de cette pensée.');
-    }
-    
-    // Vérifier la présence de biais
-    const biases = this.detectBiases(thought);
-    if (biases.length > 0) {
-      suggestions.push(`Attention aux biais potentiels: ${biases.join(', ')}.`);
-    }
-    
-    // Suggestions spécifiques au type de pensée
-    if (thought.type === 'hypothesis' && !thought.content.toLowerCase().includes('si')) {
-      suggestions.push('Formulez l\'hypothèse sous forme conditionnelle (si... alors...).');
-    }
-    
-    if (thought.type === 'conclusion' && thought.connections.length < 2) {
-      suggestions.push('Une conclusion devrait synthétiser plusieurs pensées précédentes.');
-    }
-    
-    // Vérifier les contradictions
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thought.id);
-    const contradictions = connectedThoughts.filter(t => 
-      thought.connections.some(conn => 
-        conn.targetId === t.id && conn.type === 'contradicts'
-      )
-    );
     
-    if (contradictions.length > 0) {
-      suggestions.push('Résolvez ou clarifiez les contradictions avec d\'autres pensées.');
-    }
-    
-    return suggestions;
+    return this.metricsCalculator.suggestImprovements(thought, metrics, connectedThoughts);
   }
 }

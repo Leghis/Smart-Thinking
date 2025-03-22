@@ -9,6 +9,7 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
+import { MetricsCalculator } from './metrics-calculator';
 import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from './types';
 import { ThoughtNode } from './types';
 import path from 'path';
@@ -116,6 +117,7 @@ const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
 
 // Créer une instance de chaque composant
 const embeddingService = new EmbeddingService(COHERE_API_KEY);
+const metricsCalculator = new MetricsCalculator();
 const qualityEvaluator = new QualityEvaluator();
 const toolIntegrator = new ToolIntegrator();
 const thoughtGraph = new ThoughtGraph(undefined, embeddingService, qualityEvaluator);
@@ -482,7 +484,11 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         isVerified: initialVerification, // Initialiser selon la vérification préliminaire
         verificationStatus: verificationStatus,
         certaintySummary: certaintySummary,
-        reliabilityScore: qualityMetrics.confidence // Utiliser la confiance comme score initial
+        reliabilityScore: metricsCalculator.calculateReliabilityScore(
+          qualityMetrics, 
+          initialVerification ? 'partially_verified' : 'unverified', 
+          verifiedCalculations
+        )
       };
       
       // S'assurer que si des calculs ont été vérifiés, le statut reflète cette vérification
@@ -536,19 +542,14 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
           response.verificationStatus = verification.status;
 
           // Ajuster le score de fiabilité
-          response.reliabilityScore = (qualityMetrics.confidence + verification.confidence) / 2;
-
-          // Si des calculs ont été vérifiés, ajuster le score en fonction de leur exactitude
-          if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
-            const calculationAccuracy = verification.verifiedCalculations.filter(calc => calc.isCorrect).length /
-                verification.verifiedCalculations.length;
-
-            // Pondérer le score de fiabilité avec l'exactitude des calculs
-            response.reliabilityScore = (response.reliabilityScore * 0.7) + (calculationAccuracy * 0.3);
-          }
+          response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
+            qualityMetrics,
+            verification.status,
+            verification.verifiedCalculations
+          );
 
           // Générer un résumé en langage naturel du niveau de certitude
-          response.certaintySummary = generateCertaintySummary(
+          response.certaintySummary = metricsCalculator.generateCertaintySummary(
               verification.status,
               response.reliabilityScore,
               verification.verifiedCalculations
@@ -722,56 +723,7 @@ async function start() {
 
 // Fonction pour générer un résumé du niveau de certitude
 function generateCertaintySummary(status: VerificationStatus, score: number, verifiedCalculations?: CalculationVerificationResult[]): string {
-  const percentage = Math.round(score * 100);
-
-  let summary = "";
-
-  // Déterminer d'abord si des calculs ont été vérifiés
-  const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
-
-  // Si des calculs ont été vérifiés, toujours considérer l'information comme au moins partiellement vérifiée
-  if (hasVerifiedCalculations && status === 'unverified') {
-    status = 'partially_verified';
-  }
-
-  switch (status) {
-    case 'verified':
-      summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
-      break;
-    case 'partially_verified':
-      summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%.`;
-      if (!hasVerifiedCalculations) {
-        summary += ` Certains aspects n'ont pas pu être confirmés.`;
-      }
-      break;
-    case 'contradicted':
-      summary = `Des contradictions ont été détectées dans l'information. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
-      break;
-    case 'inconclusive':
-      summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%. Je vous suggère de reformuler la question ou de consulter d'autres sources d'information.`;
-      break;
-    default:
-      summary = `Information non vérifiée. Niveau de confiance: ${percentage}%. Considérez avec prudence.`;
-  }
-
-  // Ajouter des détails sur les calculs si disponibles
-  if (hasVerifiedCalculations) {
-    const totalCalculations = verifiedCalculations!.length;
-    const incorrectCalculations = verifiedCalculations!.filter(calc => !calc.isCorrect);
-    const inProgressCalculations = verifiedCalculations!.filter(calc => 
-      calc.verified.includes("vérifier") || calc.verified.includes("Vérification")
-    );
-
-    if (inProgressCalculations.length > 0) {
-      summary += ` ${inProgressCalculations.length} calcul(s) encore en cours de vérification.`;
-    } else if (incorrectCalculations.length > 0) {
-      summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s) sur un total de ${totalCalculations}.`;
-    } else {
-      summary += ` Tous les ${totalCalculations} calcul(s) ont été vérifiés et sont corrects.`;
-    }
-  }
-
-  return summary;
+  return metricsCalculator.generateCertaintySummary(status, score, verifiedCalculations);
 }
 
 start();
