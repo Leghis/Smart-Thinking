@@ -12,6 +12,7 @@ import { EmbeddingService } from './embedding-service';
 import { MetricsCalculator } from './metrics-calculator';
 import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from './types';
 import { ThoughtNode } from './types';
+import { VerificationMemory } from './verification-memory';
 import path from 'path';
 import { promises as fs } from 'fs';
 
@@ -123,6 +124,10 @@ const toolIntegrator = new ToolIntegrator();
 const thoughtGraph = new ThoughtGraph(undefined, embeddingService, qualityEvaluator);
 const memoryManager = new MemoryManager(embeddingService);
 const visualizer = new Visualizer();
+const verificationMemory = VerificationMemory.getInstance();
+
+// Configurer les dépendances
+verificationMemory.setEmbeddingService(embeddingService);
 
 // Injecter le ToolIntegrator dans le QualityEvaluator
 qualityEvaluator.setToolIntegrator(toolIntegrator);
@@ -517,20 +522,100 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         }
       }
 
+      // NOUVELLE FONCTIONNALITÉ: Vérifier si l'information a déjà été vérifiée dans des étapes précédentes
+      // en utilisant les connexions et l'analyse sémantique
+      let previousVerification = null;
+      const thought = thoughtGraph.getThought(thoughtId);
+
+      if (params.connections && params.connections.length > 0 && thought) {
+        console.error('Smart-Thinking: Vérification des connections avec les pensées précédentes...');
+        
+        // Parcourir les connexions pour trouver les pensées précédentes
+        for (const connection of params.connections) {
+          const targetId = connection.targetId;
+          const previousThought = thoughtGraph.getThought(targetId);
+          
+          if (previousThought && previousThought.metadata && previousThought.metadata.verificationResult) {
+            console.error(`Pensée précédente trouvée avec vérification: ${targetId}`);
+            
+            // Vérifier si l'information est similaire sémantiquement
+            try {
+              // Obtenir les embeddings des deux textes
+              const thoughtEmbedding = await embeddingService.getEmbedding(params.thought);
+              const previousThoughtEmbedding = await embeddingService.getEmbedding(previousThought.content);
+              
+              // Calculer la similarité entre les embeddings
+              const similarity = embeddingService.calculateCosineSimilarity(
+                thoughtEmbedding,
+                previousThoughtEmbedding
+              );
+              
+              console.error(`Similarité sémantique avec la pensée précédente: ${similarity}`);
+              
+              // Si la similarité est suffisamment élevée, réutiliser le statut de vérification
+              if (similarity > 0.85) {
+                previousVerification = previousThought.metadata.verificationResult;
+                console.error('Information déjà vérifiée dans une étape précédente du raisonnement');
+                
+                // Stocker la référence à la précédente vérification
+                thought.metadata.previousVerification = {
+                  thoughtId: targetId,
+                  similarity,
+                  status: previousVerification.status,
+                  confidence: previousVerification.confidence,
+                  timestamp: previousVerification.timestamp
+                };
+                
+                // Mettre à jour la réponse avec les informations de vérification
+                response.isVerified = ['verified', 'partially_verified'].includes(previousVerification.status);
+                response.verificationStatus = previousVerification.status;
+                response.certaintySummary = `Information vérifiée précédemment dans le raisonnement avec ${Math.round(similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerification.confidence * 100)}%.`;
+                response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
+                  qualityMetrics,
+                  previousVerification.status,
+                  verifiedCalculations
+                );
+                
+                // Ajouter la vérification complète
+                response.verification = {
+                  status: previousVerification.status,
+                  confidence: previousVerification.confidence,
+                  sources: previousVerification.sources || [],
+                  verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
+                  notes: `Cette information est très similaire (${Math.round(similarity * 100)}%) à une information déjà vérifiée précédemment.`
+                };
+                
+                // Nous avons trouvé une vérification précédente, donc nous n'avons pas besoin d'en faire une nouvelle
+                break;
+              }
+            } catch (error) {
+              console.error('Erreur lors de la comparaison sémantique:', error);
+            }
+          }
+        }
+      }
+
       // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
+      // ET qu'aucune vérification précédente n'a été trouvée
       let verification: VerificationResult | undefined = undefined;
 
-      if (qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) {
+      if ((qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) && !previousVerification) {
         console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
 
         // Mettre à jour le statut pendant la vérification
         response.verificationStatus = 'verification_in_progress';
 
+        // Utiliser l'ID de session pour isoler les vérifications entre conversations
+        const sessionId = params.sessionId || 'default';
+        console.error(`Smart-Thinking: Utilisation de l'ID de session: ${sessionId}`);
+
         try {
           verification = await qualityEvaluator.deepVerify(
               thoughtGraph.getThought(thoughtId) as ThoughtNode,
               toolIntegrator,
-              params.containsCalculations
+              params.containsCalculations,
+              false,  // Ne pas forcer la vérification si déjà vérifiée
+              sessionId  // Passer l'ID de session
           );
 
           response.verification = verification;
@@ -562,6 +647,20 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
                 verification.verifiedCalculations
             );
             thoughtGraph.updateThoughtContent(thoughtId, response.thought);
+          }
+          
+          // Stocker l'ID de session dans les métadonnées de la pensée
+          if (thought) {
+            thought.metadata.sessionId = sessionId;
+            
+            // IMPORTANT: Stocker explicitement le résultat de vérification dans les métadonnées
+            // pour les futures références des étapes de raisonnement
+            thought.metadata.verificationResult = {
+              status: verification.status,
+              confidence: verification.confidence,
+              timestamp: new Date(),
+              sources: verification.sources
+            };
           }
         } catch (error) {
           console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);

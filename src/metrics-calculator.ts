@@ -932,4 +932,80 @@ export class MetricsCalculator {
 
     return summary;
   }
+
+  /**
+   * Détermine si une information nécessite plusieurs vérifications
+   * en fonction de sa complexité et de son importance
+   * 
+   * @param content Le contenu à analyser
+   * @param initialConfidence La confiance initiale
+   * @returns Un objet indiquant si plusieurs vérifications sont nécessaires et combien
+   */
+  determineVerificationRequirements(content: string, initialConfidence: number): {
+    requiresMultipleVerifications: boolean,
+    recommendedVerificationsCount: number,
+    reasons: string[]
+  } {
+    const reasons: string[] = [];
+    let recommendedCount = 1;
+    
+    // 1. Analyser la complexité de l'information
+    const wordCount = content.split(/\s+/).length;
+    const hasNumbers = /\d+([.,]\d+)?%?/.test(content);
+    const hasNames = /[A-Z][a-z]+ [A-Z][a-z]+/.test(content); // Noms propres
+    const hasDates = /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2} [a-z]+ \d{2,4}/i.test(content);
+    const hasComplexClaims = /(affirmation|déclare|selon|d'après|prétend|allègue)/i.test(content);
+    
+    // 2. Facteur d'importance de l'information
+    const criticalTopics = [
+      'santé', 'médecine', 'légal', 'juridique', 'financier', 'sécurité',
+      'scientifique', 'recherche', 'historique', 'politique'
+    ];
+    
+    const hasCriticalTopic = criticalTopics.some(topic => 
+      content.toLowerCase().includes(topic)
+    );
+    
+    // 3. Facteur de confiance initiale
+    const lowConfidence = initialConfidence < 0.6;
+    
+    // 4. Autres indicateurs de besoin de vérification approfondie
+    const hasMixedConcepts = content.split('.').length > 2;
+    const hasQualifiers = /(certains|parfois|peut-être|dans certains cas)/i.test(content);
+    
+    // Logique de décision
+    if (hasComplexClaims) {
+      recommendedCount++;
+      reasons.push("Contient des affirmations complexes");
+    }
+    
+    if (hasNames && (hasDates || hasNumbers)) {
+      recommendedCount++;
+      reasons.push("Contient des noms propres avec dates ou chiffres");
+    }
+    
+    if (hasCriticalTopic) {
+      recommendedCount++;
+      reasons.push("Aborde un sujet critique nécessitant une vérification approfondie");
+    }
+    
+    if (lowConfidence) {
+      recommendedCount++;
+      reasons.push("Faible niveau de confiance initial");
+    }
+    
+    if (hasMixedConcepts && hasQualifiers) {
+      recommendedCount++;
+      reasons.push("Contient des concepts mixtes avec qualificateurs");
+    }
+    
+    // Limiter à un maximum raisonnable
+    recommendedCount = Math.min(recommendedCount, 4);
+    
+    return {
+      requiresMultipleVerifications: recommendedCount > 1,
+      recommendedVerificationsCount: recommendedCount,
+      reasons
+    };
+  }
 }

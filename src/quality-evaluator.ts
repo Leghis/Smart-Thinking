@@ -1,17 +1,20 @@
-import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
+import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from './types';
 import { ThoughtGraph } from './thought-graph';
 import { ToolIntegrator } from './tool-integrator';
 import { MetricsCalculator } from './metrics-calculator';
+import { VerificationMemory } from './verification-memory';
 
 /**
  * Classe qui évalue la qualité des pensées
  */
 export class QualityEvaluator {
   private toolIntegrator: ToolIntegrator | null = null;
-  private metricsCalculator: MetricsCalculator;
+  public metricsCalculator: MetricsCalculator;
+  private verificationMemory: VerificationMemory;
   
   constructor() {
     this.metricsCalculator = new MetricsCalculator();
+    this.verificationMemory = VerificationMemory.getInstance();
   }
   
   /**
@@ -285,10 +288,49 @@ export class QualityEvaluator {
    * @param thought La pensée à vérifier
    * @param toolIntegrator L'intégrateur d'outils pour la vérification
    * @param containsCalculations Indique si la pensée contient des calculs à vérifier
+   * @param forceVerification Force une nouvelle vérification même si déjà vérifiée
+   * @param sessionId Identifiant de la session de conversation actuelle
    * @returns Le résultat de la vérification
    */
-  public async deepVerify(thought: ThoughtNode, toolIntegrator: ToolIntegrator, containsCalculations: boolean = false): Promise<VerificationResult> {
+  public async deepVerify(
+    thought: ThoughtNode, 
+    toolIntegrator: ToolIntegrator, 
+    containsCalculations: boolean = false,
+    forceVerification: boolean = false,
+    sessionId: string = 'default'
+  ): Promise<VerificationResult> {
     const content = thought.content;
+    
+    // NOUVELLE APPROCHE: Utiliser la mémoire des vérifications sémantiques
+    // Vérifier si l'information a déjà été vérifiée et si on ne force pas une nouvelle vérification
+    if (!forceVerification) {
+      try {
+        const existingVerification = await this.verificationMemory.findVerification(content, sessionId);
+        
+        if (existingVerification) {
+          console.error(`Vérification trouvée en mémoire avec similarité: ${existingVerification.similarity}`);
+          
+          // Mettre à jour les métadonnées de la pensée
+          thought.metadata.isVerified = existingVerification.status === 'verified' || 
+                                        existingVerification.status === 'partially_verified';
+          thought.metadata.verificationSource = 'memory';
+          thought.metadata.verificationTimestamp = existingVerification.timestamp;
+          thought.metadata.verificationSessionId = sessionId;
+          thought.metadata.semanticSimilarity = existingVerification.similarity;
+          
+          // Retourner la vérification existante
+          return {
+            status: existingVerification.status,
+            confidence: existingVerification.confidence,
+            sources: existingVerification.sources,
+            verificationSteps: [`Information déjà vérifiée précédemment avec similarité ${Math.round(existingVerification.similarity * 100)}% (${existingVerification.timestamp.toISOString()})`],
+            notes: `Cette information (ou une information très similaire) a déjà été vérifiée dans cette conversation le ${existingVerification.timestamp.toLocaleString()}.`
+          };
+        }
+      } catch (error) {
+        console.error('Erreur lors de la recherche de vérification en mémoire:', error);
+      }
+    }
     
     // Définir temporairement le toolIntegrator pour cette opération si non déjà défini
     const previousToolIntegrator = this.toolIntegrator;
@@ -299,12 +341,31 @@ export class QualityEvaluator {
     // Déterminer quels outils de recherche sont pertinents pour la vérification
     const verificationTools = toolIntegrator.suggestVerificationTools(content);
     
+    // Déterminer si plusieurs vérifications sont nécessaires
+    const verificationRequirements = this.metricsCalculator.determineVerificationRequirements(
+      content, 
+      thought.metrics?.confidence || 0.5
+    );
+    
+    thought.metadata.requiresMultipleVerifications = verificationRequirements.requiresMultipleVerifications;
+    thought.metadata.verificationReasons = verificationRequirements.reasons;
+    thought.metadata.recommendedVerificationsCount = verificationRequirements.recommendedVerificationsCount;
+    
     // Résultats de vérification pour chaque outil
     const verificationResults: any[] = [];
     
+    // Nombre d'outils à utiliser, en fonction des exigences de vérification
+    const toolsToUse = Math.min(
+      verificationRequirements.requiresMultipleVerifications ? 
+        verificationRequirements.recommendedVerificationsCount : 1,
+      verificationTools.length
+    );
+    
     // Utiliser chaque outil pour vérifier l'information
-    for (const tool of verificationTools) {
+    for (let i = 0; i < toolsToUse; i++) {
+      const tool = verificationTools[i];
       try {
+        console.error(`Utilisation de l'outil de vérification ${tool.name}...`);
         const result = await toolIntegrator.executeVerificationTool(tool.name, content);
         verificationResults.push({
           toolName: tool.name,
@@ -330,15 +391,33 @@ export class QualityEvaluator {
     const sources = verificationResults.map(r => `${r.toolName}: ${r.result.source || 'Source non spécifiée'}`);
     const steps = verificationResults.map(r => `Vérifié avec ${r.toolName}`);
     
-    // NOUVELLE CORRECTION: Si aucune vérification n'a été effectuée, s'assurer que le statut est 'unverified'
+    // Si aucune vérification n'a été effectuée, s'assurer que le statut est 'unverified'
     if (verificationResults.length === 0 && !verifiedCalculations) {
       status = 'unverified';
       // Limiter la confiance maximale pour l'information non vérifiée
       confidence = Math.min(confidence, 0.6);
+      console.error('Aucune vérification effectuée, statut: unverified');
+    } else {
+      console.error(`Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
+    }
+    
+    // NOUVEAU: Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
+    // Si la confiance est trop faible, considérer comme non concluant même si des sources sont trouvées
+    if (status === 'verified' && confidence < 0.7) {
+      status = 'partially_verified';
+    }
+    
+    // NOUVEAU: Si plusieurs vérifications ont échoué, considérer comme non concluant
+    if (status === 'unverified' && verificationResults.length >= 2) {
+      status = 'inconclusive';
     }
     
     // Mettre à jour les métadonnées de la pensée
-    thought.metadata.isVerified = status !== 'unverified';
+    thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
+    thought.metadata.verificationTimestamp = new Date();
+    thought.metadata.verificationSource = 'tools';
+    thought.metadata.verificationSessionId = sessionId;
+    thought.metadata.verificationToolsUsed = verificationResults.length;
     
     // Détecter les contradictions entre les sources
     const contradictions = this.detectContradictions(verificationResults);
@@ -348,7 +427,8 @@ export class QualityEvaluator {
       this.toolIntegrator = null;
     }
     
-    return {
+    // Créer le résultat de vérification
+    const verificationResult = {
       status,
       confidence,
       sources,
@@ -357,6 +437,28 @@ export class QualityEvaluator {
       notes: this.generateVerificationNotes(verificationResults),
       verifiedCalculations
     };
+    
+    // NOUVELLE APPROCHE: Enregistrer la vérification dans la mémoire sémantique
+    // pour permettre aux futures requêtes similaires de réutiliser les résultats
+    await this.verificationMemory.addVerification(
+      content,
+      status,
+      confidence,
+      sources,
+      sessionId
+    );
+    
+    // IMPORTANT: Attacher explicitement le statut de vérification à la pensée elle-même
+    thought.metadata.verificationResult = {
+      status,
+      confidence,
+      timestamp: new Date(),
+      sources
+    };
+    
+    console.error(`Vérification complétée et enregistrée en mémoire, statut: ${status}`);
+    
+    return verificationResult;
   }
 
   /**
