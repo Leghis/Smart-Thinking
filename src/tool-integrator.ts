@@ -168,37 +168,62 @@ export class ToolIntegrator {
   }
   
   /**
-   * Suggère des outils pertinents pour un contenu donné
+   * Suggère des outils pertinents pour un contenu donné avec option pour la vérification
    * 
    * @param content Le contenu pour lequel suggérer des outils
-   * @param limit Le nombre maximum d'outils à suggérer
+   * @param options Options de configuration (limite, mode vérification, etc)
    * @returns Un tableau d'outils suggérés
    */
-  public suggestVerificationTools(content: string, limit: number = 3): SuggestedTool[] {
-    // Sélectionner spécifiquement des outils de recherche et de vérification
-    const verificationToolNames = [
-      'perplexity_search_web',
-      'tavily-search',
-      'brave_web_search',
-      'tavily-extract',
-      'executePython',
-      'executeJavaScript'
-    ];
+  public suggestToolsGeneric(content: string, options: {
+    limit?: number,
+    verificationMode?: boolean,
+    toolFilter?: string[]  // Optionnel: liste des outils à considérer
+  } = {}): SuggestedTool[] {
+    const {
+      limit = 3,
+      verificationMode = false,
+      toolFilter = []
+    } = options;
     
-    // Filtrer les outils connus pour ne garder que ceux de vérification
-    const verificationTools = Array.from(this.knownTools.values())
-      .filter(tool => verificationToolNames.includes(tool.name));
+    // Déterminer les outils à considérer selon le mode
+    let relevantTools = Array.from(this.knownTools.values());
+    
+    // Filtrer les outils si nécessaire
+    if (verificationMode) {
+      const verificationToolNames = [
+        'perplexity_search_web',
+        'tavily-search',
+        'brave_web_search',
+        'tavily-extract',
+        'executePython',
+        'executeJavaScript'
+      ];
+      relevantTools = relevantTools.filter(tool => verificationToolNames.includes(tool.name));
+    } else if (toolFilter.length > 0) {
+      relevantTools = relevantTools.filter(tool => toolFilter.includes(tool.name));
+    }
     
     // Convertir le contenu en mots-clés
     const contentWords = content.toLowerCase().split(/\W+/).filter(word => word.length > 3);
     
     // Analyse du contenu pour détecter des intentions/besoins spécifiques
     const needsWebSearch = this.containsAny(content.toLowerCase(), ['recherche', 'trouve', 'cherche', 'information', 'récent', 'actualité', 'web', 'internet']);
-    const needsCodeExecution = this.containsAny(content.toLowerCase(), ['code', 'calcul', 'programme', 'python', 'javascript', 'script', 'algorithme', 'exécute', 'js']);
+    const needsCodeExecution = this.containsAny(content.toLowerCase(), ['code', 'calcul', 'programme', 'python', 'javascript', 'script', 'algorithme', 'exécute', 'js', 'sandbox']);
+    const needsFileOperation = !verificationMode && this.containsAny(content.toLowerCase(), ['fichier', 'document', 'lecture', 'écriture', 'sauvegarde', 'dossier', 'répertoire', 'arborescence']);
+    const needsLocalSearch = !verificationMode && this.containsAny(content.toLowerCase(), ['local', 'près', 'proximité', 'entreprise', 'restaurant', 'magasin', 'adresse', 'lieu']);
     const needsContentExtraction = this.containsAny(content.toLowerCase(), ['extrait', 'extraction', 'contenu', 'page', 'url', 'site', 'web', 'article']);
     
+    // Détections supplémentaires (uniquement en mode non-vérification)
+    const needsDirectoryListing = !verificationMode && this.containsAny(content.toLowerCase(), ['liste', 'lister', 'contenu', 'répertoire', 'dossier', 'afficher', 'voir']);
+    const needsDirectoryTree = !verificationMode && this.containsAny(content.toLowerCase(), ['arborescence', 'structure', 'hiérarchie', 'tree', 'visualiser']);
+    const needsFileCreation = !verificationMode && this.containsAny(content.toLowerCase(), ['créer', 'nouveau', 'dossier', 'répertoire', 'mkdir']);
+    const needsFileMove = !verificationMode && this.containsAny(content.toLowerCase(), ['déplacer', 'renommer', 'déplacement', 'transfert', 'mv', 'move']);
+    const needsFileSearch = !verificationMode && this.containsAny(content.toLowerCase(), ['chercher', 'trouver', 'rechercher', 'pattern', 'motif', 'fichier']);
+    const needsPythonExecution = this.containsAny(content.toLowerCase(), ['python', 'py', 'pandas', 'numpy', 'sklearn']);
+    const needsJavaScriptExecution = this.containsAny(content.toLowerCase(), ['javascript', 'js', 'node', 'react', 'vue', 'angular']);
+    
     // Calculer un score pour chaque outil
-    const toolScores = verificationTools.map(tool => {
+    const toolScores = relevantTools.map(tool => {
       // Score basé sur la correspondance de mots-clés
       const matchingKeywords = tool.keywords.filter(keyword => 
         contentWords.includes(keyword) || content.toLowerCase().includes(keyword)
@@ -207,37 +232,104 @@ export class ToolIntegrator {
       // Score de base
       let score = matchingKeywords.length / Math.max(tool.keywords.length, 1);
       
-      // Ajustements basés sur le type de vérification nécessaire
+      // Ajustements basés sur les besoins détectés
       if (needsWebSearch) {
         if (['perplexity_search_web', 'brave_web_search', 'tavily-search'].includes(tool.name)) {
-          score += 0.4;
+          score += verificationMode ? 0.4 : 0.3;
         }
+        
+        // Affiner les scores en mode non-vérification
+        if (!verificationMode) {
+          if (content.toLowerCase().includes('actualité') && tool.name === 'perplexity_search_web') {
+            score += 0.2;
+          }
+          
+          if (content.toLowerCase().includes('détaillé') && tool.name === 'tavily-search') {
+            score += 0.2;
+          }
+          
+          if (content.toLowerCase().includes('brave') && tool.name === 'brave_web_search') {
+            score += 0.4;
+          }
+        }
+      }
+      
+      if (needsContentExtraction && tool.name === 'tavily-extract') {
+        score += 0.5;
       }
       
       if (needsCodeExecution) {
         if (tool.name === 'executePython' || tool.name === 'executeJavaScript') {
-          score += 0.5;
+          score += verificationMode ? 0.5 : 0.3;
+        }
+        
+        // Prioriser le bon langage
+        if (needsPythonExecution && tool.name === 'executePython') {
+          score += 0.3;
+        }
+        
+        if (needsJavaScriptExecution && tool.name === 'executeJavaScript') {
+          score += 0.3;
         }
       }
       
-      if (needsContentExtraction) {
-        if (tool.name === 'tavily-extract') {
-          score += 0.5;
+      // Logique pour le mode non-vérification uniquement
+      if (!verificationMode) {
+        if (needsFileOperation) {
+          if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories', 'readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
+            score += 0.3;
+          }
+          
+          // Spécifications plus précises
+          if (needsDirectoryListing && (tool.name === 'list_directory' || tool.name === 'listFiles')) {
+            score += 0.3;
+          }
+          
+          if (needsDirectoryTree && tool.name === 'directory_tree') {
+            score += 0.4;
+          }
+          
+          if (needsFileCreation && tool.name === 'create_directory') {
+            score += 0.4;
+          }
+          
+          if (needsFileMove && tool.name === 'move_file') {
+            score += 0.4;
+          }
+          
+          if (needsFileSearch && tool.name === 'search_files') {
+            score += 0.4;
+          }
+          
+          // Distinguer entre opérations sandbox et filesystem
+          const indicatesLocalFileSystem = this.containsAny(content.toLowerCase(), 
+            ['fichier local', 'système de fichiers', 'machine locale', 'disque local', 'ordinateur local', 'répertoire local']);
+          
+          if (indicatesLocalFileSystem) {
+            if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories'].includes(tool.name)) {
+              score += 0.4;
+            }
+          } else {
+            if (['readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
+              score += 0.4;
+            }
+          }
+        }
+        
+        if (needsLocalSearch && tool.name === 'brave_local_search') {
+          score += 0.4;
+        }
+      } else {
+        // Ajustements spécifiques au mode vérification
+        if (['perplexity_search_web', 'tavily-search'].includes(tool.name)) {
+          score += 0.2; // Boost pour les meilleurs outils de recherche en vérification
         }
       }
       
-      // Priorité aux outils de recherche web pour la vérification factuelle
-      if (['perplexity_search_web', 'tavily-search'].includes(tool.name)) {
-        score += 0.2; // Boost pour les meilleurs outils de recherche
-      }
-      
-      return {
-        tool,
-        score
-      };
+      return { tool, score };
     });
     
-    // Filtrer les outils avec un score minimum et trier par score
+    // Filtrer et normaliser les résultats
     const minScore = 0.1;
     const suggestedTools = toolScores
       .filter(item => item.score > minScore)
@@ -246,23 +338,37 @@ export class ToolIntegrator {
       .map((item, index) => {
         return {
           name: item.tool.name,
-          confidence: Math.min(Math.max(item.score, 0), 1), // Limiter entre 0 et 1
-          reason: this.generateVerificationReason(item.tool, content),
+          confidence: Math.min(Math.max(item.score, 0), 1), // Limite entre 0 et 1
+          reason: verificationMode 
+            ? this.generateVerificationReason(item.tool, content)
+            : this.generateReason(item.tool, content),
           priority: index + 1
         };
       });
     
-    // Si aucun outil n'a été trouvé pertinent, suggérer l'outil de recherche par défaut
+    // Outil par défaut si aucun n'est trouvé
     if (suggestedTools.length === 0) {
       suggestedTools.push({
         name: 'tavily-search',
-        confidence: 0.7,
-        reason: 'Outil de recherche général pour la vérification des informations',
+        confidence: verificationMode ? 0.7 : 0.5,
+        reason: verificationMode
+          ? 'Outil de recherche général pour la vérification des informations'
+          : 'Aucun outil spécifique n\'a été identifié comme fortement pertinent. Une recherche web générale pourrait aider à explorer ce sujet.',
         priority: 1
       });
     }
     
     return suggestedTools;
+  }
+  
+  /**
+   * Suggère des outils de vérification pertinents pour un contenu donné
+   * @param content Le contenu pour lequel suggérer des outils
+   * @param limit Le nombre maximum d'outils à suggérer
+   * @returns Un tableau d'outils suggérés
+   */
+  public suggestVerificationTools(content: string, limit: number = 3): SuggestedTool[] {
+    return this.suggestToolsGeneric(content, { limit, verificationMode: true });
   }
   
   /**
@@ -440,158 +546,7 @@ export class ToolIntegrator {
    * @returns Un tableau d'outils suggérés
    */
   suggestTools(content: string, limit: number = 3): SuggestedTool[] {
-    // Convertir le contenu en mots-clés
-    const contentWords = content.toLowerCase().split(/\W+/).filter(word => word.length > 3);
-    
-    // Analyse du contenu pour détecter des intentions/besoins spécifiques
-    const needsWebSearch = this.containsAny(content.toLowerCase(), ['recherche', 'trouve', 'cherche', 'information', 'récent', 'actualité', 'web', 'internet']);
-    const needsCodeExecution = this.containsAny(content.toLowerCase(), ['code', 'calcul', 'programme', 'python', 'javascript', 'script', 'algorithme', 'exécute', 'js', 'sandbox']);
-    const needsFileOperation = this.containsAny(content.toLowerCase(), ['fichier', 'document', 'lecture', 'écriture', 'sauvegarde', 'dossier', 'répertoire', 'arborescence']);
-    const needsLocalSearch = this.containsAny(content.toLowerCase(), ['local', 'près', 'proximité', 'entreprise', 'restaurant', 'magasin', 'adresse', 'lieu']);
-    const needsContentExtraction = this.containsAny(content.toLowerCase(), ['extrait', 'extraction', 'contenu', 'page', 'url', 'site', 'web', 'article']);
-    
-    // Détection plus spécifique pour le type d'opération sur fichier
-    const needsDirectoryListing = this.containsAny(content.toLowerCase(), ['liste', 'lister', 'contenu', 'répertoire', 'dossier', 'afficher', 'voir']);
-    const needsDirectoryTree = this.containsAny(content.toLowerCase(), ['arborescence', 'structure', 'hiérarchie', 'tree', 'visualiser']);
-    const needsFileCreation = this.containsAny(content.toLowerCase(), ['créer', 'nouveau', 'dossier', 'répertoire', 'mkdir']);
-    const needsFileMove = this.containsAny(content.toLowerCase(), ['déplacer', 'renommer', 'déplacement', 'transfert', 'mv', 'move']);
-    const needsFileSearch = this.containsAny(content.toLowerCase(), ['chercher', 'trouver', 'rechercher', 'pattern', 'motif', 'fichier']);
-    
-    // Détection spécifique pour le type de code à exécuter
-    const needsPythonExecution = this.containsAny(content.toLowerCase(), ['python', 'py', 'pandas', 'numpy', 'sklearn']);
-    const needsJavaScriptExecution = this.containsAny(content.toLowerCase(), ['javascript', 'js', 'node', 'react', 'vue', 'angular']);
-    
-    // Calculer un score pour chaque outil
-    const toolScores = Array.from(this.knownTools.values()).map(tool => {
-      // Score basé sur la correspondance de mots-clés
-      const matchingKeywords = tool.keywords.filter(keyword => 
-        contentWords.includes(keyword) || content.toLowerCase().includes(keyword)
-      );
-      
-      // Score de base
-      let score = matchingKeywords.length / Math.max(tool.keywords.length, 1);
-      
-      // Ajustements basés sur l'intention détectée
-      if (needsWebSearch) {
-        if (['perplexity_search_web', 'brave_web_search', 'tavily-search'].includes(tool.name)) {
-          score += 0.3;
-        }
-        
-        // Ajustements spécifiques selon le type de recherche
-        if (content.toLowerCase().includes('actualité') && tool.name === 'perplexity_search_web') {
-          score += 0.2;
-        }
-        
-        if (content.toLowerCase().includes('détaillé') && tool.name === 'tavily-search') {
-          score += 0.2;
-        }
-        
-        if (content.toLowerCase().includes('brave') && tool.name === 'brave_web_search') {
-          score += 0.4;
-        }
-      }
-      
-      if (needsContentExtraction && tool.name === 'tavily-extract') {
-        score += 0.5;
-      }
-      
-      if (needsCodeExecution) {
-        if (tool.name === 'executePython' || tool.name === 'executeJavaScript') {
-          score += 0.3;
-        }
-        
-        // Ajustements spécifiques selon le langage
-        if (needsPythonExecution && tool.name === 'executePython') {
-          score += 0.3;
-        }
-        
-        if (needsJavaScriptExecution && tool.name === 'executeJavaScript') {
-          score += 0.3;
-        }
-      }
-      
-      if (needsFileOperation) {
-        if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories', 'readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
-          score += 0.3;
-        }
-        
-        // Ajustements spécifiques selon l'opération sur fichier
-        if (needsDirectoryListing && (tool.name === 'list_directory' || tool.name === 'listFiles')) {
-          score += 0.3;
-        }
-        
-        if (needsDirectoryTree && tool.name === 'directory_tree') {
-          score += 0.4;
-        }
-        
-        if (needsFileCreation && tool.name === 'create_directory') {
-          score += 0.4;
-        }
-        
-        if (needsFileMove && tool.name === 'move_file') {
-          score += 0.4;
-        }
-        
-        if (needsFileSearch && tool.name === 'search_files') {
-          score += 0.4;
-        }
-        
-        // Distinguer entre opérations sandbox et filesystem
-        // Note: La logique ici a été inversée pour prioriser les outils sandbox par défaut,
-        // car dans le contexte de Claude, les fichiers sont plus souvent directement
-        // disponibles dans l'environnement Claude que référencés depuis le système local.
-        const indicatesLocalFileSystem = this.containsAny(content.toLowerCase(), 
-          ['fichier local', 'système de fichiers', 'machine locale', 'disque local', 'ordinateur local', 'répertoire local']);
-        
-        if (indicatesLocalFileSystem) {
-          // Si les indices suggèrent clairement un fichier local, favoriser les outils filesystem
-          if (['read_file', 'write_file', 'list_directory', 'directory_tree', 'create_directory', 'move_file', 'search_files', 'get_file_info', 'list_allowed_directories'].includes(tool.name)) {
-            score += 0.4;  // Augmenter le score pour ces outils
-          }
-        } else {
-          // Par défaut, favoriser les outils sandbox pour les fichiers dans Claude
-          if (['readFile', 'listFiles', 'uploadFile'].includes(tool.name)) {
-            score += 0.4;  // Augmenter le score pour ces outils
-          }
-        }
-      }
-      
-      if (needsLocalSearch && tool.name === 'brave_local_search') {
-        score += 0.4;
-      }
-      
-      return {
-        tool,
-        score
-      };
-    });
-    
-    // Filtrer les outils avec un score minimum et trier par score
-    const minScore = 0.1;
-    const suggestedTools = toolScores
-      .filter(item => item.score > minScore)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map((item, index) => {
-        return {
-          name: item.tool.name,
-          confidence: Math.min(Math.max(item.score, 0), 1), // Limiter entre 0 et 1
-          reason: this.generateReason(item.tool, content),
-          priority: index + 1
-        };
-      });
-    
-    // Si aucun outil n'a été trouvé pertinent, suggérer l'outil de recherche par défaut
-    if (suggestedTools.length === 0) {
-      suggestedTools.push({
-        name: 'tavily-search',
-        confidence: 0.5,
-        reason: 'Aucun outil spécifique n\'a été identifié comme fortement pertinent. Une recherche web générale pourrait aider à explorer ce sujet.',
-        priority: 1
-      });
-    }
-    
-    return suggestedTools;
+    return this.suggestToolsGeneric(content, { limit, verificationMode: false });
   }
   
   /**

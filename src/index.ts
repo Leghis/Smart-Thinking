@@ -10,8 +10,7 @@ import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
 import { MetricsCalculator } from './metrics-calculator';
-import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus } from './types';
-import { ThoughtNode } from './types';
+import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, ThoughtMetrics, Connection, ThoughtNode } from './types';
 import { VerificationMemory } from './verification-memory';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -88,6 +87,258 @@ function isValidJSON(str: string): boolean {
 function safeLog(message: string): void {
   // Toujours utiliser stderr pour le debugging
   console.error(`[DEBUG] ${message}`);
+}
+
+/**
+ * Vérifie les calculs dans une pensée si nécessaire
+ * 
+ * @param thought Le contenu de la pensée à vérifier
+ * @param explicitlyRequested Si la vérification est explicitement demandée
+ * @param evaluator L'instance du QualityEvaluator
+ * @returns Un objet contenant les résultats de la vérification
+ */
+async function verifyCalculationsIfNeeded(
+  thought: string, 
+  explicitlyRequested: boolean = false, 
+  evaluator: QualityEvaluator
+): Promise<{
+  verifiedCalculations: CalculationVerificationResult[] | undefined,
+  initialVerification: boolean,
+  verificationInProgress: boolean,
+  preverifiedThought: string
+}> {
+  let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
+  let initialVerification = false;
+  let verificationInProgress = false;
+  let preverifiedThought = thought;
+  
+  // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
+  const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(thought);
+  const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(thought);
+  
+  // Si des calculs sont présents ou explicité par le paramètre containsCalculations
+  if (explicitlyRequested || hasSimpleCalculations || hasComplexCalculations) {
+    console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
+    verificationInProgress = true; // Indiquer que la vérification est en cours
+    
+    try {
+      // Utiliser la méthode asynchrone pour détecter et vérifier les calculs
+      verifiedCalculations = await evaluator.detectAndVerifyCalculations(thought);
+      
+      // Marquer comme vérifié dès que des calculs ont été traités, qu'ils soient corrects ou non
+      initialVerification = verifiedCalculations.length > 0;
+      
+      // Si des calculs ont été détectés, annoter la pensée
+      if (verifiedCalculations.length > 0) {
+        preverifiedThought = evaluator.annotateThoughtWithVerifications(thought, verifiedCalculations);
+        console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
+      }
+    } catch (error) {
+      console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
+      verificationInProgress = true;
+      initialVerification = false;
+    }
+  }
+  
+  return {
+    verifiedCalculations,
+    initialVerification,
+    verificationInProgress,
+    preverifiedThought
+  };
+}
+
+/**
+ * Vérifie si une pensée similaire a déjà été vérifiée dans des étapes précédentes
+ * 
+ * @param thought La pensée actuelle
+ * @param thoughtGraph Le graphe de pensées
+ * @param thoughtId L'ID de la pensée actuelle
+ * @param connections Les connexions avec d'autres pensées
+ * @param embeddingService Le service d'embeddings
+ * @returns Un résultat de vérification si trouvé, null sinon
+ */
+async function checkPreviousVerification(
+  thought: ThoughtNode,
+  thoughtGraph: ThoughtGraph,
+  thoughtId: string,
+  connections: Connection[] | undefined,
+  embeddingService: EmbeddingService
+): Promise<{
+  previousVerification: any | null,
+  verification?: VerificationResult,
+  isVerified: boolean,
+  verificationStatus: VerificationDetailedStatus,
+  certaintySummary: string
+}> {
+  // Valeurs par défaut
+  const result = {
+    previousVerification: null,
+    isVerified: false,
+    verificationStatus: 'unverified' as VerificationDetailedStatus,
+    certaintySummary: 'Information non vérifiée'
+  };
+  
+  // Si pas de connexions ou pas de pensée, rien à vérifier
+  if (!connections || connections.length === 0 || !thought) {
+    return result;
+  }
+  
+  console.error('Smart-Thinking: Vérification des connections avec les pensées précédentes...');
+  
+  // Parcourir les connexions pour trouver les pensées précédentes
+  for (const connection of connections) {
+    const targetId = connection.targetId;
+    const previousThought = thoughtGraph.getThought(targetId);
+    
+    if (previousThought?.metadata?.verificationResult) {
+      console.error(`Pensée précédente trouvée avec vérification: ${targetId}`);
+      
+      try {
+        // Obtenir les embeddings des deux textes
+        const thoughtEmbedding = await embeddingService.getEmbedding(thought.content);
+        const previousThoughtEmbedding = await embeddingService.getEmbedding(previousThought.content);
+        
+        // Calculer la similarité entre les embeddings
+        const similarity = embeddingService.calculateCosineSimilarity(
+          thoughtEmbedding,
+          previousThoughtEmbedding
+        );
+        
+        console.error(`Similarité sémantique avec la pensée précédente: ${similarity}`);
+        
+        // Si la similarité est suffisamment élevée, réutiliser le statut de vérification
+        if (similarity > 0.85) {
+          const previousVerificationData = previousThought.metadata.verificationResult;
+          
+          // Stocker la référence à la précédente vérification
+          thought.metadata.previousVerification = {
+            thoughtId: targetId,
+            similarity,
+            status: previousVerificationData.status,
+            confidence: previousVerificationData.confidence,
+            timestamp: previousVerificationData.timestamp
+          };
+          
+          // Préparer la réponse avec les informations de vérification
+          return {
+            previousVerification: previousVerificationData,
+            isVerified: ['verified', 'partially_verified'].includes(previousVerificationData.status),
+            verificationStatus: previousVerificationData.status as VerificationDetailedStatus,
+            certaintySummary: `Information vérifiée précédemment dans le raisonnement avec ${Math.round(similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerificationData.confidence * 100)}%.`,
+            verification: {
+              status: previousVerificationData.status,
+              confidence: previousVerificationData.confidence,
+              sources: previousVerificationData.sources || [],
+              verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
+              notes: `Cette information est très similaire (${Math.round(similarity * 100)}%) à une information déjà vérifiée précédemment.`
+            }
+          };
+        }
+      } catch (error) {
+        console.error('Erreur lors de la comparaison sémantique:', error);
+      }
+    }
+  }
+  
+  // Aucune vérification précédente n'a été trouvée
+  return result;
+}
+
+/**
+ * Effectue une vérification approfondie d'une pensée
+ * 
+ * @param thought La pensée à vérifier
+ * @param thoughtId L'ID de la pensée
+ * @param thoughtGraph Le graphe de pensées
+ * @param evaluator L'évaluateur de qualité
+ * @param toolIntegrator L'intégrateur d'outils
+ * @param metricsCalculator Le calculateur de métriques
+ * @param containsCalculations Si la pensée contient des calculs
+ * @param sessionId L'ID de session
+ * @param qualityMetrics Métriques de qualité de la pensée
+ * @param currentResponse La réponse actuelle à mettre à jour
+ * @returns Un objet avec les résultats de la vérification
+ */
+async function performDeepVerification(
+  thought: ThoughtNode,
+  thoughtId: string,
+  thoughtGraph: ThoughtGraph,
+  evaluator: QualityEvaluator,
+  toolIntegrator: ToolIntegrator,
+  metricsCalculator: MetricsCalculator,
+  containsCalculations: boolean = false,
+  sessionId: string = 'default',
+  qualityMetrics: ThoughtMetrics,
+  currentResponse: SmartThinkingResponse
+): Promise<Partial<SmartThinkingResponse>> {
+  const response: Partial<SmartThinkingResponse> = {};
+  
+  console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
+  
+  // Mettre à jour le statut pendant la vérification
+  response.verificationStatus = 'verification_in_progress';
+  console.error(`Smart-Thinking: Utilisation de l'ID de session: ${sessionId}`);
+  
+  try {
+    // Effectuer la vérification approfondie
+    const verification = await evaluator.deepVerify(
+      thought,
+      toolIntegrator,
+      containsCalculations,
+      false,  // Ne pas forcer la vérification si déjà vérifiée
+      sessionId  // Passer l'ID de session
+    );
+    
+    // Mettre à jour la réponse avec les résultats de la vérification
+    response.verification = verification;
+    
+    // Marquer comme vérifié selon les résultats
+    response.isVerified = verification.status === 'verified' || 
+                      verification.status === 'partially_verified' || 
+                      (!!verification.verifiedCalculations && verification.verifiedCalculations.length > 0);
+    response.verificationStatus = verification.status;
+    
+    // Calculer le score de fiabilité
+    response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
+      qualityMetrics,
+      verification.status as VerificationStatus,
+      verification.verifiedCalculations
+    );
+    
+    // Générer un résumé de certitude
+    response.certaintySummary = metricsCalculator.generateCertaintySummary(
+      verification.status as VerificationStatus,
+      response.reliabilityScore,
+      verification.verifiedCalculations
+    );
+    
+    // Mise à jour du contenu si des calculs ont été vérifiés
+    if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
+      response.thought = evaluator.annotateThoughtWithVerifications(
+        currentResponse.thought,
+        verification.verifiedCalculations
+      );
+      thoughtGraph.updateThoughtContent(thoughtId, response.thought);
+    }
+    
+    // Stocker les informations dans les métadonnées pour réutilisation future
+    if (thought) {
+      thought.metadata.sessionId = sessionId;
+      thought.metadata.verificationResult = {
+        status: verification.status,
+        confidence: verification.confidence,
+        timestamp: new Date(),
+        sources: verification.sources
+      };
+    }
+  } catch (error) {
+    console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
+    response.verificationStatus = 'inconclusive';
+    response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%.`;
+  }
+  
+  return response;
 }
 
 // Récupérer les informations du package.json pour la version
@@ -415,39 +666,20 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
       // Utiliser console.error pour les messages de débogage qui ne seront pas interprétés comme JSON
       console.error('Smart-Thinking: traitement de la pensée:', params.thought);
 
-      // Vérifier si la pensée contient des calculs avant tout autre traitement
-      let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
-      let initialVerification = false; // Toujours initialiser à false
-      let verificationInProgress = false;
-      let preverifiedThought = params.thought;
-
-      // Détecter les calculs via des regex simples pour éviter un traitement lourd initial si non nécessaire
-      const hasSimpleCalculations = /\d+\s*[\+\-\*\/]\s*\d+\s*=/.test(params.thought);
-      const hasComplexCalculations = /calcul\s*(?:complexe|avancé)?\s*:?\s*([^=]+)=\s*\d+/.test(params.thought);
-
-      // Si des calculs sont présents ou explicité par le paramètre containsCalculations
-      if (params.containsCalculations || hasSimpleCalculations || hasComplexCalculations) {
-        console.error('Smart-Thinking: Détection préliminaire de calculs, vérification immédiate...');
-        verificationInProgress = true; // Indiquer que la vérification est en cours
-
-        try {
-          // Utiliser la nouvelle méthode asynchrone
-          verifiedCalculations = await qualityEvaluator.detectAndVerifyCalculations(params.thought);
-
-          // Marquer comme vérifié dès que des calculs ont été traités, qu'ils soient corrects ou non
-          initialVerification = verifiedCalculations.length > 0;
-
-          // Si des calculs ont été détectés, annoter la pensée
-          if (verifiedCalculations.length > 0) {
-            preverifiedThought = qualityEvaluator.annotateThoughtWithVerifications(params.thought, verifiedCalculations);
-            console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés préalablement`);
-          }
-        } catch (error) {
-          console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
-          verificationInProgress = true;
-          initialVerification = false;
-        }
-      }
+      // Vérifier les calculs dans la pensée en utilisant la fonction dédiée
+      const calculationResult = await verifyCalculationsIfNeeded(
+        params.thought, 
+        !!params.containsCalculations, 
+        qualityEvaluator
+      );
+      
+      // Récupérer les résultats de la vérification préliminaire
+      const {
+        verifiedCalculations,
+        initialVerification,
+        verificationInProgress,
+        preverifiedThought
+      } = calculationResult;
 
       // Ajouter la pensée au graphe (avec annotations si des calculs ont été vérifiés)
       const thoughtId = thoughtGraph.addThought(
@@ -491,7 +723,7 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         certaintySummary: certaintySummary,
         reliabilityScore: metricsCalculator.calculateReliabilityScore(
           qualityMetrics, 
-          initialVerification ? 'partially_verified' : 'unverified', 
+          initialVerification ? 'partially_verified' as VerificationStatus : 'unverified' as VerificationStatus, 
           verifiedCalculations
         )
       };
@@ -522,151 +754,49 @@ Pour plus d'informations, consultez le paramètre help=true de l'outil.
         }
       }
 
-      // NOUVELLE FONCTIONNALITÉ: Vérifier si l'information a déjà été vérifiée dans des étapes précédentes
-      // en utilisant les connexions et l'analyse sémantique
-      let previousVerification = null;
+      // Vérifier si l'information a déjà été vérifiée dans des étapes précédentes
       const thought = thoughtGraph.getThought(thoughtId);
-
-      if (params.connections && params.connections.length > 0 && thought) {
-        console.error('Smart-Thinking: Vérification des connections avec les pensées précédentes...');
-        
-        // Parcourir les connexions pour trouver les pensées précédentes
-        for (const connection of params.connections) {
-          const targetId = connection.targetId;
-          const previousThought = thoughtGraph.getThought(targetId);
-          
-          if (previousThought && previousThought.metadata && previousThought.metadata.verificationResult) {
-            console.error(`Pensée précédente trouvée avec vérification: ${targetId}`);
-            
-            // Vérifier si l'information est similaire sémantiquement
-            try {
-              // Obtenir les embeddings des deux textes
-              const thoughtEmbedding = await embeddingService.getEmbedding(params.thought);
-              const previousThoughtEmbedding = await embeddingService.getEmbedding(previousThought.content);
-              
-              // Calculer la similarité entre les embeddings
-              const similarity = embeddingService.calculateCosineSimilarity(
-                thoughtEmbedding,
-                previousThoughtEmbedding
-              );
-              
-              console.error(`Similarité sémantique avec la pensée précédente: ${similarity}`);
-              
-              // Si la similarité est suffisamment élevée, réutiliser le statut de vérification
-              if (similarity > 0.85) {
-                previousVerification = previousThought.metadata.verificationResult;
-                console.error('Information déjà vérifiée dans une étape précédente du raisonnement');
-                
-                // Stocker la référence à la précédente vérification
-                thought.metadata.previousVerification = {
-                  thoughtId: targetId,
-                  similarity,
-                  status: previousVerification.status,
-                  confidence: previousVerification.confidence,
-                  timestamp: previousVerification.timestamp
-                };
-                
-                // Mettre à jour la réponse avec les informations de vérification
-                response.isVerified = ['verified', 'partially_verified'].includes(previousVerification.status);
-                response.verificationStatus = previousVerification.status;
-                response.certaintySummary = `Information vérifiée précédemment dans le raisonnement avec ${Math.round(similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerification.confidence * 100)}%.`;
-                response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
-                  qualityMetrics,
-                  previousVerification.status,
-                  verifiedCalculations
-                );
-                
-                // Ajouter la vérification complète
-                response.verification = {
-                  status: previousVerification.status,
-                  confidence: previousVerification.confidence,
-                  sources: previousVerification.sources || [],
-                  verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
-                  notes: `Cette information est très similaire (${Math.round(similarity * 100)}%) à une information déjà vérifiée précédemment.`
-                };
-                
-                // Nous avons trouvé une vérification précédente, donc nous n'avons pas besoin d'en faire une nouvelle
-                break;
-              }
-            } catch (error) {
-              console.error('Erreur lors de la comparaison sémantique:', error);
-            }
-          }
-        }
+      
+      // Utiliser la fonction pour vérifier si une pensée similaire a déjà été vérifiée
+      const previousResult = await checkPreviousVerification(
+        thought as ThoughtNode,
+        thoughtGraph,
+        thoughtId,
+        params.connections,
+        embeddingService
+      );
+      
+      // Si une vérification précédente a été trouvée, mettre à jour la réponse
+      if (previousResult.previousVerification) {
+        response.isVerified = previousResult.isVerified;
+        response.verificationStatus = previousResult.verificationStatus;
+        response.certaintySummary = previousResult.certaintySummary;
+        response.verification = previousResult.verification;
+        response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
+          qualityMetrics,
+          previousResult.verificationStatus as VerificationStatus,
+          verifiedCalculations
+        );
       }
 
-      // Si la confiance est inférieure au seuil ou si la vérification est explicitement demandée
-      // ET qu'aucune vérification précédente n'a été trouvée
-      let verification: VerificationResult | undefined = undefined;
-
-      if ((qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) && !previousVerification) {
-        console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
-
-        // Mettre à jour le statut pendant la vérification
-        response.verificationStatus = 'verification_in_progress';
-
-        // Utiliser l'ID de session pour isoler les vérifications entre conversations
-        const sessionId = params.sessionId || 'default';
-        console.error(`Smart-Thinking: Utilisation de l'ID de session: ${sessionId}`);
-
-        try {
-          verification = await qualityEvaluator.deepVerify(
-              thoughtGraph.getThought(thoughtId) as ThoughtNode,
-              toolIntegrator,
-              params.containsCalculations,
-              false,  // Ne pas forcer la vérification si déjà vérifiée
-              sessionId  // Passer l'ID de session
-          );
-
-          response.verification = verification;
-          // Marquer comme vérifié si le statut est vérifié ou partiellement vérifié
-          // ou si des calculs ont été vérifiés
-          response.isVerified = verification.status === 'verified' || 
-                              verification.status === 'partially_verified' || 
-                              (!!verification.verifiedCalculations && verification.verifiedCalculations.length > 0);
-          response.verificationStatus = verification.status;
-
-          // Ajuster le score de fiabilité
-          response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
-            qualityMetrics,
-            verification.status,
-            verification.verifiedCalculations
-          );
-
-          // Générer un résumé en langage naturel du niveau de certitude
-          response.certaintySummary = metricsCalculator.generateCertaintySummary(
-              verification.status,
-              response.reliabilityScore,
-              verification.verifiedCalculations
-          );
-
-          // Mettre à jour le contenu de la pensée avec les annotations si nécessaire
-          if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
-            response.thought = qualityEvaluator.annotateThoughtWithVerifications(
-                response.thought,
-                verification.verifiedCalculations
-            );
-            thoughtGraph.updateThoughtContent(thoughtId, response.thought);
-          }
-          
-          // Stocker l'ID de session dans les métadonnées de la pensée
-          if (thought) {
-            thought.metadata.sessionId = sessionId;
-            
-            // IMPORTANT: Stocker explicitement le résultat de vérification dans les métadonnées
-            // pour les futures références des étapes de raisonnement
-            thought.metadata.verificationResult = {
-              status: verification.status,
-              confidence: verification.confidence,
-              timestamp: new Date(),
-              sources: verification.sources
-            };
-          }
-        } catch (error) {
-          console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
-          response.verificationStatus = 'inconclusive';
-          response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%.`;
-        }
+      // Vérifier si une vérification profonde est nécessaire
+      if ((qualityMetrics.confidence < VERIFICATION_REQUIRED_THRESHOLD || params.requestVerification) && !previousResult.previousVerification) {
+        // Effectuer une vérification profonde et mettre à jour la réponse
+        const verificationResult = await performDeepVerification(
+          thought as ThoughtNode,
+          thoughtId,
+          thoughtGraph,
+          qualityEvaluator,
+          toolIntegrator,
+          metricsCalculator,
+          params.containsCalculations,
+          params.sessionId || 'default',
+          qualityMetrics,
+          response
+        );
+        
+        // Mettre à jour la réponse avec les résultats de la vérification
+        Object.assign(response, verificationResult);
       }
 
       // Si demandé, suggérer des outils
@@ -820,7 +950,6 @@ async function start() {
   }
 }
 
-// Fonction pour générer un résumé du niveau de certitude
 function generateCertaintySummary(status: VerificationStatus, score: number, verifiedCalculations?: CalculationVerificationResult[]): string {
   return metricsCalculator.generateCertaintySummary(status, score, verifiedCalculations);
 }
