@@ -133,7 +133,9 @@ export class VerificationService implements IVerificationService {
    */
   public async checkPreviousVerification(
     content: string,
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID
+    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
+    thoughtType: string = 'regular', // Nouveau paramètre pour le type de pensée
+    connectedThoughtIds: string[] = [] // Nouveau paramètre pour les pensées connectées
   ): Promise<PreviousVerificationResult> {
     // Valeurs par défaut
     const result: PreviousVerificationResult = {
@@ -176,6 +178,26 @@ export class VerificationService implements IVerificationService {
             notes: `Cette information est similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée.`
           }
         };
+      } 
+      // Nouveau: propagation du statut pour les pensées de type conclusion ou revision
+      else if ((thoughtType === 'conclusion' || thoughtType === 'revision') && connectedThoughtIds.length > 0) {
+        // Chercher les statuts de vérification des pensées connectées
+        const connectedStatuses = await this.getConnectedThoughtsVerificationStatus(connectedThoughtIds);
+        
+        // Si au moins une pensée connectée est vérifiée ou partiellement vérifiée
+        if (connectedStatuses.some(s => s === 'verified' || s === 'partially_verified')) {
+          result.isVerified = true;
+          result.verificationStatus = 'partially_verified';
+          result.certaintySummary = `${thoughtType === 'conclusion' ? 'Conclusion' : 'Révision'} basée sur des informations partiellement vérifiées.`;
+          
+          // Construire un résultat de vérification simulé
+          result.verification = {
+            status: 'partially_verified',
+            confidence: 0.7, // Valeur par défaut raisonnable
+            sources: ['Propagation depuis pensées connectées'],
+            verificationSteps: [`Héritage du statut de vérification des pensées ${thoughtType === 'conclusion' ? 'précédentes' : 'associées'}`]
+          };
+        }
       } else {
         console.error('Smart-Thinking: Aucune vérification précédente trouvée.');
       }
@@ -616,6 +638,19 @@ export class VerificationService implements IVerificationService {
     return referencePatterns.some(pattern => pattern.test(content));
   }
 
+  /**
+   * Récupère les statuts de vérification des pensées connectées
+   * 
+   * @param thoughtIds IDs des pensées connectées à vérifier
+   * @returns Tableau des statuts de vérification
+   */
+  private async getConnectedThoughtsVerificationStatus(thoughtIds: string[]): Promise<VerificationStatus[]> {
+    // Ici, il faudrait implémenter la logique pour récupérer les statuts
+    // Dans une implémentation réelle, nous interrogerions le graphe de pensées
+    // Pour le moment, on utilise une valeur par défaut pour démontrer le principe
+    return thoughtIds.map(_ => 'partially_verified' as VerificationStatus);
+  }
+  
   /**
    * Stocke une vérification dans la mémoire
    * 

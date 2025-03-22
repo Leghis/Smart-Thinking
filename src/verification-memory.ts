@@ -270,7 +270,7 @@ export class VerificationMemory {
   public async findVerification(
     text: string,
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY
+    similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY * 0.9 // Réduction supplémentaire de 10%
   ): Promise<VerificationSearchResult | null> {
     console.error(`VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
     
@@ -465,12 +465,24 @@ export class VerificationMemory {
    * @returns Texte normalisé
    */
   private normalizeText(text: string): string {
-    return text
+    // Préserver les expressions mathématiques en les remplaçant par des tokens
+    const mathExpressions: string[] = [];
+    const tokenizedText = text.replace(/(\d+(?:[.,]\d+)?(?:\s*[\+\-\*\/\^]\s*\d+(?:[.,]\d+)?)+)/g, (match) => {
+      mathExpressions.push(match);
+      return `__MATH_${mathExpressions.length - 1}__`;
+    });
+    
+    const normalized = tokenizedText
       .toLowerCase()
       .replace(/[^\w\s]|_/g, ' ')  // Remplacer ponctuation et underscore par espaces
       .replace(/\s+/g, ' ')        // Normaliser les espaces
       .replace(/\d+/g, 'NUM')      // Normaliser les nombres
       .trim();
+    
+    // Réintégrer les expressions mathématiques
+    return mathExpressions.reduce((text, expr, idx) => {
+      return text.replace(`__math_${idx}__`, expr);
+    }, normalized);
   }
   
   /**

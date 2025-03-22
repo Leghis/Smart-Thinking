@@ -46,11 +46,15 @@ export interface IVerificationService {
    * 
    * @param content Le contenu de la pensée à vérifier
    * @param sessionId L'identifiant de la session
+   * @param thoughtType Le type de pensée (regular, conclusion, etc.)
+   * @param connectedThoughtIds IDs des pensées connectées
    * @returns Le résultat de la recherche de vérification existante
    */
   checkPreviousVerification(
     content: string,
-    sessionId?: string
+    sessionId?: string,
+    thoughtType?: string,
+    connectedThoughtIds?: string[]
   ): Promise<PreviousVerificationResult>;
   
   /**

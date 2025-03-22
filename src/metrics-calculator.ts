@@ -468,7 +468,8 @@ export class MetricsCalculator {
   calculateReliabilityScore(
       metrics: ThoughtMetrics,
       verificationStatus: VerificationStatus,
-      calculationResults?: CalculationVerificationResult[]
+      calculationResults?: CalculationVerificationResult[],
+      previousScore?: number // Nouveau paramètre pour tenir compte du score précédent
   ): number {
     // Poids initiaux des différentes composantes
     const initialWeights: Record<string, number> = {
@@ -560,6 +561,18 @@ export class MetricsCalculator {
     };
     
     reliabilityScore = Math.min(reliabilityScore, statusMaxScores[verificationStatus] || 0.5);
+
+    // Lissage avec le score précédent si disponible
+    if (previousScore !== undefined) {
+      // Éviter les baisses lorsque la qualité augmente
+      if (reliabilityScore < previousScore && metrics.quality > 0.55) {
+        // Lissage pondéré
+        reliabilityScore = previousScore * 0.7 + reliabilityScore * 0.3;
+      } else {
+        // Lissage normal pour éviter les sauts brusques
+        reliabilityScore = previousScore * 0.3 + reliabilityScore * 0.7;
+      }
+    }
 
     // Limiter entre MIN_RELIABILITY et MAX_RELIABILITY
     return Math.min(Math.max(reliabilityScore, this.THRESHOLDS.MIN_RELIABILITY), this.THRESHOLDS.MAX_RELIABILITY);
@@ -845,7 +858,8 @@ export class MetricsCalculator {
   generateCertaintySummary(
       status: VerificationStatus,
       score: number,
-      verifiedCalculations?: CalculationVerificationResult[]
+      verifiedCalculations?: CalculationVerificationResult[],
+      thoughtType?: string // Nouveau paramètre pour adapter le message au type de pensée
   ): string {
     const percentage = Math.round(score * 100);
     
@@ -889,6 +903,15 @@ export class MetricsCalculator {
             break;
         default:
             summary = `Information non vérifiée. Niveau de confiance: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+    }
+    
+    // Ajustement pour les conclusions
+    if (thoughtType === 'conclusion') {
+      if (effectiveStatus === 'unverified' && score > 0.7) {
+        summary = `Conclusion fondée sur une analyse structurée avec un niveau de confiance de ${percentage}%.`;
+      } else if (effectiveStatus === 'partially_verified') {
+        summary = `Conclusion partiellement vérifiée avec un niveau de confiance de ${percentage}%. Elle s'appuie sur des éléments vérifiés.`;
+      }
     }
 
     // Ajouter des détails sur les calculs si disponibles

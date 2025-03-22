@@ -367,7 +367,8 @@ generateVisualization: true
         reliabilityScore: metricsCalculator.calculateReliabilityScore(
           qualityMetrics, 
           preliminaryResult.initialVerification ? 'partially_verified' as VerificationStatus : 'unverified' as VerificationStatus, 
-          preliminaryResult.verifiedCalculations
+          preliminaryResult.verifiedCalculations,
+          undefined // Pas de score précédent pour la première pensée
         )
       };
       
@@ -393,9 +394,14 @@ generateVisualization: true
 
       // Vérification des informations précédemment vérifiées
       const thought = thoughtGraph.getThought(thoughtId);
+      // Récupérer les IDs des pensées connectées
+      const connectedThoughtIds = params.connections?.map(conn => conn.targetId) || [];
+      // Appel amélioré avec type de pensée et connexions
       const previousResult = await verificationService.checkPreviousVerification(
         thought?.content || params.thought,
-        params.sessionId || 'default'
+        params.sessionId || 'default',
+        params.thoughtType || 'regular',
+        connectedThoughtIds
       );
       
       if (previousResult.previousVerification) {
@@ -406,7 +412,8 @@ generateVisualization: true
         response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
           qualityMetrics,
           previousResult.verificationStatus as VerificationStatus,
-          preliminaryResult.verifiedCalculations
+          preliminaryResult.verifiedCalculations,
+          response.reliabilityScore // Utiliser le score déjà calculé comme référence
         );
         
         if (thought) {
@@ -442,12 +449,14 @@ generateVisualization: true
             response.reliabilityScore = metricsCalculator.calculateReliabilityScore(
               qualityMetrics,
               verification.status as VerificationStatus,
-              verification.verifiedCalculations
+              verification.verifiedCalculations,
+              response.reliabilityScore // Utiliser le score déjà calculé comme référence
             );
             response.certaintySummary = metricsCalculator.generateCertaintySummary(
               verification.status as VerificationStatus,
               response.reliabilityScore,
-              verification.verifiedCalculations
+              verification.verifiedCalculations,
+              params.thoughtType // Ajouter le type de pensée pour adapter le message
             );
             
             if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {
