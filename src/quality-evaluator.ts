@@ -132,6 +132,12 @@ export class QualityEvaluator {
       confidenceScore *= 1.1; // Les conclusions devraient être plus certaines
     }
     
+    // NOUVELLE CORRECTION: Ajouter un ajustement final pour la vérification
+    if (!thought.metadata.isVerified) {
+      // Si la pensée n'est pas vérifiée, limiter la confiance maximale
+      confidenceScore = Math.min(confidenceScore, 0.6);
+    }
+    
     // Limiter le score entre 0.1 et 0.9
     return Math.min(Math.max(confidenceScore, 0.1), 0.9);
   }
@@ -319,10 +325,20 @@ export class QualityEvaluator {
     }
     
     // Agréger et analyser les résultats
-    const status = this.aggregateVerificationStatus(verificationResults);
-    const confidence = this.calculateVerificationConfidence(verificationResults);
+    let status = this.aggregateVerificationStatus(verificationResults);
+    let confidence = this.calculateVerificationConfidence(verificationResults);
     const sources = verificationResults.map(r => `${r.toolName}: ${r.result.source || 'Source non spécifiée'}`);
     const steps = verificationResults.map(r => `Vérifié avec ${r.toolName}`);
+    
+    // NOUVELLE CORRECTION: Si aucune vérification n'a été effectuée, s'assurer que le statut est 'unverified'
+    if (verificationResults.length === 0 && !verifiedCalculations) {
+      status = 'unverified';
+      // Limiter la confiance maximale pour l'information non vérifiée
+      confidence = Math.min(confidence, 0.6);
+    }
+    
+    // Mettre à jour les métadonnées de la pensée
+    thought.metadata.isVerified = status !== 'unverified';
     
     // Détecter les contradictions entre les sources
     const contradictions = this.detectContradictions(verificationResults);
