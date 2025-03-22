@@ -75,6 +75,29 @@ export class MetricsCalculator {
     'plus', 'moins', 'très', 'trop', 'peu', 'beaucoup'
   ];
 
+  // Constantes centralisées pour les seuils utilisés dans les calculs
+  private readonly THRESHOLDS = {
+    // Confiance
+    MIN_CONFIDENCE: 0.1,
+    MAX_CONFIDENCE: 0.95,
+    // Pertinence
+    MIN_RELEVANCE: 0.2,
+    MAX_RELEVANCE: 0.95,
+    // Qualité
+    MIN_QUALITY: 0.3,
+    MAX_QUALITY: 0.95,
+    // Fiabilité
+    MIN_RELIABILITY: 0.1,
+    MAX_RELIABILITY: 0.95,
+    // Similarité
+    HIGH_SIMILARITY: 0.85,
+    // Vérification
+    VERIFIED_THRESHOLD: 0.7,
+    CONTRADICTION_THRESHOLD: 0.3,
+    // Erreur numérique
+    WEIGHT_TOLERANCE: 0.001
+  };
+
   // Paramètres configurables pour ajuster les calculs
   private config = {
     // Poids des différentes composantes dans le calcul de la confiance
@@ -129,32 +152,37 @@ export class MetricsCalculator {
   }
   
   /**
-   * Valide que tous les poids dans les configurations s'additionnent à 1.0
-   * Affiche un avertissement si ce n'est pas le cas
+   * Valide et normalise tous les poids dans les configurations pour s'assurer qu'ils s'additionnent à 1.0
+   * Affiche un avertissement si ce n'est pas le cas et corrige automatiquement
    */
   private validateWeights(): void {
-    // Vérifier les poids de confiance
-    const confidenceSum = Object.values(this.config.confidenceWeights).reduce((sum, w) => sum + w, 0);
-    if (Math.abs(confidenceSum - 1.0) > 0.001) {
-      console.error(`AVERTISSEMENT: Les poids de confiance s'additionnent à ${confidenceSum}, pas à 1.0`);
-    }
+    const categories = [
+      { name: 'confiance', weights: this.config.confidenceWeights as Record<string, number> },
+      { name: 'pertinence', weights: this.config.relevanceWeights as Record<string, number> },
+      { name: 'qualité', weights: this.config.qualityWeights as Record<string, number> }
+    ];
     
-    // Vérifier les poids de pertinence
-    const relevanceSum = Object.values(this.config.relevanceWeights).reduce((sum, w) => sum + w, 0);
-    if (Math.abs(relevanceSum - 1.0) > 0.001) {
-      console.error(`AVERTISSEMENT: Les poids de pertinence s'additionnent à ${relevanceSum}, pas à 1.0`);
-    }
-    
-    // Vérifier les poids de qualité
-    const qualitySum = Object.values(this.config.qualityWeights).reduce((sum, w) => sum + w, 0);
-    if (Math.abs(qualitySum - 1.0) > 0.001) {
-      console.error(`AVERTISSEMENT: Les poids de qualité s'additionnent à ${qualitySum}, pas à 1.0`);
+    for (const category of categories) {
+      const sum = Object.values(category.weights).reduce((total, w) => total + w, 0);
+      
+      // Vérifier si la somme des poids est proche de 1.0
+      if (Math.abs(sum - 1.0) > this.THRESHOLDS.WEIGHT_TOLERANCE) {
+        console.error(`AVERTISSEMENT: Les poids de ${category.name} s'additionnent à ${sum}, pas à 1.0`);
+        
+        // Normaliser automatiquement les poids
+        const factor = 1.0 / sum;
+        for (const key in category.weights) {
+          category.weights[key] *= factor;
+        }
+        
+        console.error(`Correction automatique appliquée aux poids de ${category.name}`);
+      }
     }
   }
 
   /**
    * Calcule la métrique de confiance pour une pensée
-   * Implémente un algorithme bayésien simple pour évaluer la confiance
+   * Implémente un algorithme amélioré pour évaluer la confiance
    *
    * @param thought La pensée à évaluer
    * @returns Niveau de confiance entre 0 et 1
@@ -163,68 +191,68 @@ export class MetricsCalculator {
     const content = thought.content.toLowerCase();
     const typeWeight = this.config.typeAdjustments[thought.type].confidence;
 
-    // 1. Analyse des modalisateurs de certitude/incertitude
+    // 1. Analyse des modalisateurs de certitude/incertitude (approche continue)
     const uncertaintyCount = this.uncertaintyModifiers.filter(mod => content.includes(mod)).length;
     const certaintyCount = this.certaintyModifiers.filter(mod => content.includes(mod)).length;
 
-    // Calcul du score Bayésien simple
-    const prior = 0.5;
-    let likelihood = 0.5;
-
-    if (uncertaintyCount > 0 || certaintyCount > 0) {
-      const totalModifiers = Math.max(uncertaintyCount + certaintyCount, 1);
-      likelihood = (certaintyCount / totalModifiers) * 0.5 + 0.5;
+    // Calculer le ratio de certitude de manière continue
+    let modifierScore;
+    if (uncertaintyCount === 0 && certaintyCount === 0) {
+      modifierScore = 0.5; // Valeur neutre par défaut
+    } else {
+      const totalModifiers = uncertaintyCount + certaintyCount;
+      // Fonction sigmoïde pour une transition douce plutôt qu'un seuil discret
+      const certitudeRatio = certaintyCount / totalModifiers;
+      modifierScore = 1 / (1 + Math.exp(-5 * (certitudeRatio - 0.5))); // Sigmoïde centrée à 0.5
     }
 
-    let confidenceScore = (prior * likelihood) / ((prior * likelihood) + ((1 - prior) * (1 - likelihood)));
-
-    // 2. Analyse des indicateurs structurels
-    const hasReferences = /\(([^)]+)\)|\[[^\]]+\]/.test(content);
-    const hasNumbers = /\d+([.,]\d+)?%?/.test(content);
-
-    let structuralScore = 0.5;
-    if (hasReferences) structuralScore += 0.2;
-    if (hasNumbers) structuralScore += 0.1;
+    // 2. Analyse des indicateurs structurels (approche continue)
+    // Compter les références et les nombres plutôt que de simplement vérifier leur présence
+    const referenceMatches = content.match(/\(([^)]+)\)|\[[^\]]+\]/g) || [];
+    const numberMatches = content.match(/\d+([.,]\d+)?%?/g) || [];
     
-    // Ajuster pour que le score ne dépasse pas 0.9
-    structuralScore = Math.min(structuralScore, 0.9);
+    // Calculer le score en fonction du nombre d'occurrences, avec saturation progressive
+    const referenceScore = Math.min(0.2, referenceMatches.length * 0.05);
+    const numberScore = Math.min(0.1, numberMatches.length * 0.025);
+    const structuralScore = 0.5 + referenceScore + numberScore;
 
-    // 3. Analyse de l'équilibre des sentiments
+    // 3. Analyse de l'équilibre des sentiments (approche continue)
     const positiveCount = this.positiveWords.filter(word => content.includes(word)).length;
     const negativeCount = this.negativeWords.filter(word => content.includes(word)).length;
-    const sentimentTotal = Math.max(positiveCount + negativeCount, 1);
-    const sentimentBalance = (Math.abs(positiveCount - negativeCount) / sentimentTotal) * 0.5 + 0.5;
-
-    // 4. Score basé sur le type de pensée
-    let typeScore = 0.5; // Valeur par défaut
-
-    switch (thought.type) {
-      case 'conclusion':
-        typeScore = 0.8;
-        break;
-      case 'hypothesis':
-        typeScore = 0.6;
-        break;
-      case 'meta':
-        typeScore = 0.7;
-        break;
-      case 'revision':
-        typeScore = 0.75;
-        break;
-      default:
-        typeScore = 0.65;
+    
+    // Fonction de transfert plus nuancée pour l'équilibre des sentiments
+    let sentimentBalance;
+    if (positiveCount === 0 && negativeCount === 0) {
+      sentimentBalance = 0.5; // Neutre par défaut
+    } else {
+      const total = positiveCount + negativeCount;
+      const ratio = positiveCount / total;
+      // Utiliser une courbe en cloche qui favorise l'équilibre (max à 0.5)
+      sentimentBalance = 0.5 + 0.4 * (1 - 2 * Math.abs(ratio - 0.5));
     }
 
-    // Combinaison pondérée des facteurs avec les poids vérifiés
-    confidenceScore = (
-        confidenceScore * this.config.confidenceWeights.modifierAnalysis +
-        typeScore * this.config.confidenceWeights.thoughtType +
-        structuralScore * this.config.confidenceWeights.structuralIndicators +
-        sentimentBalance * this.config.confidenceWeights.sentimentBalance
+    // 4. Score basé sur le type de pensée (approche continue)
+    // Mapper les types de pensée à des scores sur une échelle continue
+    const typeScores = {
+      'conclusion': 0.8,
+      'hypothesis': 0.6,
+      'meta': 0.7,
+      'revision': 0.75,
+      'regular': 0.65
+    };
+    const typeScore = typeScores[thought.type] || 0.65;
+
+    // Combinaison pondérée des facteurs avec normalisation intégrée
+    const weights = this.config.confidenceWeights;
+    let confidenceScore = (
+        modifierScore * weights.modifierAnalysis +
+        typeScore * weights.thoughtType +
+        structuralScore * weights.structuralIndicators +
+        sentimentBalance * weights.sentimentBalance
     ) * typeWeight;
 
-    // Limiter entre 0.1 et 0.95 pour éviter les extrêmes absolus
-    return Math.min(Math.max(confidenceScore, 0.1), 0.95);
+    // Limiter entre MIN_CONFIDENCE et MAX_CONFIDENCE
+    return Math.min(Math.max(confidenceScore, this.THRESHOLDS.MIN_CONFIDENCE), this.THRESHOLDS.MAX_CONFIDENCE);
   }
 
   /**
@@ -402,6 +430,7 @@ export class MetricsCalculator {
 
   /**
    * Calcule un score global de fiabilité basé sur les différentes métriques et vérifications
+   * avec une normalisation automatique des poids
    *
    * @param metrics Les métriques de base
    * @param verificationStatus Statut de vérification actuel
@@ -413,115 +442,99 @@ export class MetricsCalculator {
       verificationStatus: VerificationStatus,
       calculationResults?: CalculationVerificationResult[]
   ): number {
-    // Poids des différentes composantes avec somme = 1.0
-    const weights = {
+    // Poids initiaux des différentes composantes
+    const initialWeights: Record<string, number> = {
       confidence: 0.35,
       verification: 0.35,
       quality: 0.2,
       calculationAccuracy: 0.1
     };
 
-    // Ajuster la confiance selon le statut de vérification
-    let adjustedConfidence = metrics.confidence;
-    
-    // Si l'information n'est pas vérifiée, limiter la confiance maximale
+    // Créer une copie des poids pour modifications
+    let weights: Record<string, number> = { ...initialWeights };
+
+    // Ajuster la confiance selon le statut de vérification avec une fonction continue
+    let confidenceMultiplier = 1.0;
     if (verificationStatus === 'unverified') {
-        adjustedConfidence = Math.min(adjustedConfidence, 0.6);
+      // Appliquer un facteur progressif basé sur la confiance initiale
+      // Plus la confiance est élevée, plus la réduction est importante
+      confidenceMultiplier = 0.6 + 0.4 * (1 - metrics.confidence);
     }
+    const adjustedConfidence = metrics.confidence * confidenceMultiplier;
+
+    // Déterminer si des calculs sont présents et vérifiés
+    const hasCalculations = !!(calculationResults && calculationResults.length > 0);
     
-    // Score basé sur les métriques avec pondération relative correcte
-    const confidenceRelativeWeight = weights.confidence / (weights.confidence + weights.quality);
-    const qualityRelativeWeight = weights.quality / (weights.confidence + weights.quality);
-
-    let scoreFromMetrics = (
-        adjustedConfidence * confidenceRelativeWeight +
-        metrics.quality * qualityRelativeWeight
-    );
-
-    // Score basé sur le statut de vérification
-    let verificationScore = 0.5; // Par défaut
-
-    switch (verificationStatus) {
-      case 'verified':
-        verificationScore = 0.95;
-        break;
-      case 'partially_verified':
-        verificationScore = 0.7;
-        break;
-      case 'contradicted':
-        verificationScore = 0.2;
-        break;
-      case 'inconclusive':
-        verificationScore = 0.4;
-        break;
-      case 'unverified':
-      default:
-        verificationScore = 0.3; // Réduction pour non vérifié
-    }
-
-    // Gestion des calculs vérifiés
-    let calculationScore = 0.5; // Par défaut
-    
-    // Créer une copie des poids pour redistribution si nécessaire
-    const adjustedWeights = { ...weights };
-
-    if (calculationResults && calculationResults.length > 0) {
-      const correctCalculations = calculationResults.filter(calc => calc.isCorrect).length;
-      calculationScore = correctCalculations / calculationResults.length;
-
-      // Bonus si tous les calculs sont corrects
-      if (calculationScore === 1.0 && calculationResults.length > 0) {
-        verificationScore = Math.max(verificationScore, 0.7);
-      }
-    } else {
-      // Sans calculs à vérifier, redistribuer ce poids proportionnellement
-      const calcWeight = adjustedWeights.calculationAccuracy;
-      adjustedWeights.calculationAccuracy = 0;
-
-      // Redistribution proportionnelle des poids
-      const totalRemaining = 
-        adjustedWeights.confidence + 
-        adjustedWeights.verification + 
-        adjustedWeights.quality;
+    // Si pas de calculs à vérifier, redistribuer ce poids proportionnellement
+    if (!hasCalculations) {
+      const calcWeight = weights.calculationAccuracy;
+      weights.calculationAccuracy = 0;
       
-      adjustedWeights.confidence += (adjustedWeights.confidence / totalRemaining) * calcWeight;
-      adjustedWeights.verification += (adjustedWeights.verification / totalRemaining) * calcWeight;
-      adjustedWeights.quality += (adjustedWeights.quality / totalRemaining) * calcWeight;
+      // Redistribution normalisée des poids
+      const remainingWeights = Object.keys(weights).filter(k => k !== 'calculationAccuracy');
+      const totalRemaining = remainingWeights.reduce((sum, key) => sum + weights[key], 0);
+      
+      // Appliquer la redistribution proportionnelle
+      remainingWeights.forEach(key => {
+        weights[key] += (weights[key] / totalRemaining) * calcWeight;
+      });
     }
 
-    // Vérifier que les poids ajustés s'additionnent toujours à 1.0
-    const weightsSum = 
-      adjustedWeights.confidence + 
-      adjustedWeights.verification + 
-      adjustedWeights.quality + 
-      adjustedWeights.calculationAccuracy;
+    // Normaliser les poids pour garantir qu'ils s'additionnent à 1.0
+    const weightsSum = Object.values(weights).reduce((sum, w) => sum + w, 0);
+    if (Math.abs(weightsSum - 1.0) > this.THRESHOLDS.WEIGHT_TOLERANCE) {
+      const normalizationFactor = 1.0 / weightsSum;
+      Object.keys(weights).forEach(key => {
+        weights[key] *= normalizationFactor;
+      });
+    }
+
+    // Mapper le statut de vérification à un score avec une fonction continue
+    const verificationScoreMap: Record<string, number> = {
+      'verified': 0.95,
+      'partially_verified': 0.7,
+      'contradicted': 0.2,
+      'inconclusive': 0.4,
+      'unverified': 0.3
+    };
+    let verificationScore = verificationScoreMap[verificationStatus] || 0.3;
+
+    // Calculer le score pour les calculs vérifiés
+    let calculationScore = 0.5; // Valeur par défaut
+    if (hasCalculations) {
+      const correctCalculations = calculationResults!.filter(calc => calc.isCorrect).length;
+      calculationScore = correctCalculations / calculationResults!.length;
+      
+      // Appliquer un bonus progressif pour les calculs corrects
+      if (calculationScore > 0.8) {
+        // Transition douce avec une fonction sigmoïde
+        const bonusFactor = 1 / (1 + Math.exp(-10 * (calculationScore - 0.9)));
+        verificationScore = verificationScore * (1 - bonusFactor) + 0.7 * bonusFactor;
+      }
+    }
+
+    // Calculer le score composite des métriques de base (confiance et qualité)
+    const metricsScore = adjustedConfidence * (weights.confidence / (weights.confidence + weights.quality)) + 
+                         metrics.quality * (weights.quality / (weights.confidence + weights.quality));
+
+    // Calculer le score final avec la pondération normalisée
+    let reliabilityScore = metricsScore * (weights.confidence + weights.quality) +
+                          verificationScore * weights.verification +
+                          calculationScore * weights.calculationAccuracy;
     
-    if (Math.abs(weightsSum - 1.0) > 0.001) {
-      // Normalisation si nécessaire
-      const factor = 1.0 / weightsSum;
-      adjustedWeights.confidence *= factor;
-      adjustedWeights.verification *= factor;
-      adjustedWeights.quality *= factor;
-      adjustedWeights.calculationAccuracy *= factor;
-    }
-
-    // Calcul final du score de fiabilité
-    let reliabilityScore = 
-      scoreFromMetrics * (adjustedWeights.confidence + adjustedWeights.quality) +
-      verificationScore * adjustedWeights.verification +
-      (calculationResults ? calculationScore : 0.5) * adjustedWeights.calculationAccuracy;
+    // Appliquer des contraintes basées sur le statut de vérification de manière continue
+    const statusMaxScores: Record<string, number> = {
+      'unverified': 0.5,
+      'contradicted': 0.4,
+      'inconclusive': 0.6,
+      'partially_verified': 0.85,
+      'verified': 0.95
+    };
     
-    // Appliquer des plafonds selon le statut de vérification
-    if (verificationStatus === 'unverified') {
-        reliabilityScore = Math.min(reliabilityScore, 0.5);
-    } else if (verificationStatus === 'contradicted') {
-        reliabilityScore = Math.min(reliabilityScore, 0.4);
-    } else if (verificationStatus === 'inconclusive') {
-        reliabilityScore = Math.min(reliabilityScore, 0.6);
-    }
+    reliabilityScore = Math.min(reliabilityScore, statusMaxScores[verificationStatus] || 0.5);
 
-    // Limiter entre 0.1 et 0.95
-    return Math.min(Math.max(reliabilityScore, 0.1), 0.95);
+    // Limiter entre MIN_RELIABILITY et MAX_RELIABILITY
+    return Math.min(Math.max(reliabilityScore, this.THRESHOLDS.MIN_RELIABILITY), this.THRESHOLDS.MAX_RELIABILITY);
   }
 
   /**
@@ -580,6 +593,7 @@ export class MetricsCalculator {
 
   /**
    * Détermine le statut de vérification global à partir de multiples sources
+   * avec une logique de décision plus robuste et cohérente
    *
    * @param results Résultats de vérification
    * @returns Statut de vérification global
@@ -589,47 +603,70 @@ export class MetricsCalculator {
       return 'unverified';
     }
 
-    // Compter les différents statuts
-    const statusCounts = {
+    // Accumulateurs pondérés pour les différents statuts
+    const statusWeights: Record<string, number> = {
       verified: 0,
       contradicted: 0,
-      inconclusive: 0
+      inconclusive: 0,
+      unverified: 0 // Ajout du statut 'unverified' pour une évaluation complète
     };
 
-    // Analyse plus nuancée des résultats
+    // Analyse pondérée des résultats
+    let totalWeight = 0;
     for (const result of results) {
       const confidence = result.confidence || 0.5;
+      totalWeight += confidence;
 
+      // Déterminer le statut de ce résultat particulier
       if (result.result.isValid === true) {
-        statusCounts.verified += confidence; // Pondérer par la confiance
+        statusWeights.verified += confidence;
       } else if (result.result.isValid === false) {
-        statusCounts.contradicted += confidence;
+        statusWeights.contradicted += confidence;
+      } else if (result.result.isValid === null || result.result.isValid === undefined) {
+        statusWeights.inconclusive += confidence;
       } else {
-        statusCounts.inconclusive += confidence;
+        statusWeights.unverified += confidence;
       }
     }
 
-    // Logique de décision pour le statut global
-    const totalConfidence = statusCounts.verified + statusCounts.contradicted + statusCounts.inconclusive;
+    // Si aucun poids total, rien n'est vérifié
+    if (totalWeight === 0) return 'unverified';
 
-    if (totalConfidence === 0) return 'unverified';
+    // Calculer les ratios normalisés
+    const ratios: Record<string, number> = {};
+    for (const status in statusWeights) {
+      ratios[status] = statusWeights[status] / totalWeight;
+    }
 
-    // Calcul des proportions
-    const verifiedRatio = statusCounts.verified / totalConfidence;
-    const contradictedRatio = statusCounts.contradicted / totalConfidence;
-    const inconclusiveRatio = statusCounts.inconclusive / totalConfidence;
+    // Logique de décision avec seuils référencés depuis les constantes centralisées
+    const verifiedRatio = ratios.verified || 0;
+    const contradictedRatio = ratios.contradicted || 0;
+    const inconclusiveRatio = ratios.inconclusive || 0;
 
-    // Règles de décision basées sur des seuils
-    if (contradictedRatio > 0.3) {
-      return 'contradicted'; // Contradiction significative
-    } else if (verifiedRatio > 0.7) {
-      return 'verified'; // Vérification forte
-    } else if (verifiedRatio > 0.3) {
-      return 'partially_verified'; // Vérification partielle
-    } else if (inconclusiveRatio > 0.6) {
-      return 'inconclusive'; // Principalement non concluant
-    } else {
-      return 'partially_verified'; // Cas par défaut plus nuancé
+    // Logique de décision hiérarchique avec priorités claires
+    // 1. Les contradictions significatives ont priorité
+    if (contradictedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
+      return 'contradicted';
+    }
+    // 2. Vérification forte si le ratio est suffisant
+    else if (verifiedRatio > this.THRESHOLDS.VERIFIED_THRESHOLD) {
+      return 'verified';
+    }
+    // 3. Vérification partielle pour les cas intermédiaires
+    else if (verifiedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
+      return 'partially_verified';
+    }
+    // 4. Non concluant si beaucoup de résultats indéterminés
+    else if (inconclusiveRatio > 0.6) {
+      return 'inconclusive';
+    }
+    // 5. Par défaut, vérification partielle si au moins quelques éléments positifs
+    else if (verifiedRatio > 0) {
+      return 'partially_verified';
+    }
+    // 6. Sinon, considérer comme non vérifié
+    else {
+      return 'unverified';
     }
   }
 
