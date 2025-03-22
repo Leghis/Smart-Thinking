@@ -3,6 +3,7 @@ import { ThoughtGraph } from './thought-graph';
 import { ToolIntegrator } from './tool-integrator';
 import { MetricsCalculator } from './metrics-calculator';
 import { VerificationMemory } from './verification-memory';
+import { MathEvaluator } from './utils/math-evaluator';
 
 /**
  * Classe qui évalue la qualité des pensées
@@ -25,43 +26,6 @@ export class QualityEvaluator {
   public setToolIntegrator(toolIntegrator: ToolIntegrator): void {
     this.toolIntegrator = toolIntegrator;
   }
-  
-  // Dictionnaire de mots positifs/négatifs pour une évaluation simple
-  private positiveWords: string[] = [
-    'précis', 'clair', 'cohérent', 'logique', 'détaillé', 'rigoureux', 'méthodique',
-    'analytique', 'systématique', 'fondé', 'approfondi', 'équilibré', 'objectif',
-    'exact', 'raisonnable', 'valide', 'pertinent', 'significatif'
-  ];
-  
-  private negativeWords: string[] = [
-    'vague', 'confus', 'incohérent', 'illogique', 'superficiel', 'flou', 'ambigu',
-    'subjectif', 'inexact', 'imprécis', 'douteux', 'spéculatif', 'non pertinent',
-    'biaisé', 'contradictoire', 'simpliste', 'circulaire'
-  ];
-  
-  // Indicateurs de qualité par type de pensée
-  private qualityIndicators: Record<string, {positive: string[], negative: string[]}> = {
-    'regular': {
-      positive: ['clairement formulé', 'bien structuré', 'idée développée'],
-      negative: ['incomplet', 'hors sujet', 'mal structuré']
-    },
-    'meta': {
-      positive: ['auto-critique', 'réflexif', 'évaluatif', 'conscient'],
-      negative: ['superficiel', 'non réflexif', 'auto-complaisant']
-    },
-    'hypothesis': {
-      positive: ['testable', 'falsifiable', 'précis', 'fondé sur', 'prédictif'],
-      negative: ['vague', 'non testable', 'infalsifiable', 'sans fondement']
-    },
-    'conclusion': {
-      positive: ['synthétise', 'résume', 'découle de', 'cohérent avec'],
-      negative: ['déconnecté', 'sans rapport', 'non justifié', 'contradictoire']
-    },
-    'revision': {
-      positive: ['améliore', 'corrige', 'précise', 'clarifie', 'nuance'],
-      negative: ['répétitif', 'redondant', 'contredit sans justification']
-    }
-  };
   
   /**
    * Évalue la qualité d'une pensée
@@ -97,192 +61,6 @@ export class QualityEvaluator {
   }
   
   /**
-   * Évalue le niveau de confiance d'une pensée
-   * 
-   * @param thought La pensée à évaluer
-   * @returns Le niveau de confiance entre 0 et 1
-   */
-  private evaluateConfidence(thought: ThoughtNode): number {
-    const content = thought.content.toLowerCase();
-    
-    // Détection de modalisateurs d'incertitude
-    const uncertaintyModifiers = [
-      'peut-être', 'possible', 'probablement', 'incertain', 'semble', 
-      'pourrait', 'hypothèse', 'suppose', 'doute', 'incertain'
-    ];
-    
-    const certaintyModifiers = [
-      'certainement', 'clairement', 'évidemment', 'sans doute', 'indiscutablement',
-      'nécessairement', 'doit', 'est', 'démontré', 'prouvé'
-    ];
-    
-    // Compter les occurrences
-    const uncertaintyCount = uncertaintyModifiers.filter(mod => content.includes(mod)).length;
-    const certaintyCount = certaintyModifiers.filter(mod => content.includes(mod)).length;
-    
-    // Calculer un score basé sur la présence de modalisateurs
-    let confidenceScore = 0.5; // Score par défaut
-    
-    if (uncertaintyCount > 0 || certaintyCount > 0) {
-      // Ajuster le score en fonction du rapport entre certitude et incertitude
-      confidenceScore = 0.5 + (certaintyCount - uncertaintyCount) * 0.1;
-    }
-    
-    // Ajuster en fonction du type de pensée
-    if (thought.type === 'hypothesis') {
-      confidenceScore *= 0.9; // Les hypothèses sont naturellement moins certaines
-    } else if (thought.type === 'conclusion') {
-      confidenceScore *= 1.1; // Les conclusions devraient être plus certaines
-    }
-    
-    // NOUVELLE CORRECTION: Ajouter un ajustement final pour la vérification
-    if (!thought.metadata.isVerified) {
-      // Si la pensée n'est pas vérifiée, limiter la confiance maximale
-      confidenceScore = Math.min(confidenceScore, 0.6);
-    }
-    
-    // Limiter le score entre 0.1 et 0.9
-    return Math.min(Math.max(confidenceScore, 0.1), 0.9);
-  }
-  
-  /**
-   * Évalue la pertinence d'une pensée par rapport au contexte
-   * 
-   * @param thought La pensée à évaluer
-   * @param connectedThoughts Les pensées connectées pour le contexte
-   * @returns Le niveau de pertinence entre 0 et 1
-   */
-  private evaluateRelevance(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): number {
-    // Si pas de pensées connectées, la pertinence est moyenne par défaut
-    if (connectedThoughts.length === 0) {
-      return 0.5;
-    }
-    
-    // Extraire les mots-clés de la pensée et des pensées connectées
-    const thoughtWords = this.extractKeywords(thought.content);
-    
-    const allConnectedWords = connectedThoughts.flatMap(t => 
-      this.extractKeywords(t.content)
-    );
-    
-    // Calculer le chevauchement de mots-clés
-    const uniqueThoughtWords = new Set(thoughtWords);
-    const uniqueConnectedWords = new Set(allConnectedWords);
-    
-    const intersection = [...uniqueThoughtWords].filter(word => 
-      uniqueConnectedWords.has(word)
-    );
-    
-    const overlapScore = intersection.length / Math.max(uniqueThoughtWords.size, 1);
-    
-    // Analyser les connexions
-    const strongConnections = thought.connections.filter(conn => conn.strength > 0.7).length;
-    const connectionScore = strongConnections / Math.max(thought.connections.length, 1);
-    
-    // Combiner les scores
-    let relevanceScore = 0.4 * overlapScore + 0.6 * connectionScore;
-    
-    // Ajuster en fonction du type de pensée
-    if (thought.type === 'meta') {
-      relevanceScore *= 0.9; // Les méta-pensées peuvent sembler moins directement pertinentes
-    } else if (thought.type === 'revision') {
-      relevanceScore *= 1.1; // Les révisions devraient être fortement pertinentes
-    }
-    
-    // Limiter le score entre 0.2 et 0.95
-    return Math.min(Math.max(relevanceScore, 0.2), 0.95);
-  }
-  
-  /**
-   * Évalue la qualité globale d'une pensée
-   * 
-   * @param thought La pensée à évaluer
-   * @param connectedThoughts Les pensées connectées pour le contexte
-   * @returns Le niveau de qualité entre 0 et 1
-   */
-  private evaluateQuality(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): number {
-    const content = thought.content.toLowerCase();
-    
-    // Évaluer la présence de mots positifs/négatifs
-    const positiveCount = this.positiveWords.filter(word => content.includes(word)).length;
-    const negativeCount = this.negativeWords.filter(word => content.includes(word)).length;
-    
-    // Calculer un score initial basé sur les mots positifs/négatifs
-    let qualityScore = 0.5 + (positiveCount - negativeCount) * 0.05;
-    
-    // Vérifier les indicateurs spécifiques au type de pensée
-    const typeIndicators = this.qualityIndicators[thought.type] || this.qualityIndicators['regular'];
-    
-    const positiveIndicatorsCount = typeIndicators.positive.filter(ind => 
-      content.includes(ind)
-    ).length;
-    
-    const negativeIndicatorsCount = typeIndicators.negative.filter(ind => 
-      content.includes(ind)
-    ).length;
-    
-    // Ajuster le score en fonction des indicateurs spécifiques
-    qualityScore += (positiveIndicatorsCount - negativeIndicatorsCount) * 0.1;
-    
-    // Évaluer la longueur - pénaliser les pensées trop courtes ou trop longues
-    const wordCount = content.split(/\\s+/).length;
-    let lengthScore = 1.0;
-    
-    if (wordCount < 5) {
-      lengthScore = 0.7; // Pensée trop courte
-    } else if (wordCount > 200) {
-      lengthScore = 0.8; // Pensée trop longue
-    } else if (wordCount > 30 && wordCount < 100) {
-      lengthScore = 1.1; // Longueur idéale
-    }
-    
-    qualityScore *= lengthScore;
-    
-    // Vérifier la cohérence avec les pensées connectées
-    if (connectedThoughts.length > 0) {
-      const contradictions = connectedThoughts.filter(t => 
-        thought.connections.some(conn => 
-          conn.targetId === t.id && conn.type === 'contradicts'
-        )
-      ).length;
-      
-      // Pénaliser en cas de contradictions
-      if (contradictions > 0) {
-        qualityScore *= 0.9;
-      }
-    }
-    
-    // Limiter le score entre 0.3 et 0.95
-    return Math.min(Math.max(qualityScore, 0.3), 0.95);
-  }
-  
-  /**
-   * Extrait les mots-clés d'un texte
-   * 
-   * @param text Le texte dont extraire les mots-clés
-   * @returns Un tableau de mots-clés
-   */
-  private extractKeywords(text: string): string[] {
-    // Liste de mots courants à ignorer (stop words)
-    const stopWords = [
-      'le', 'la', 'les', 'un', 'une', 'des', 'ce', 'cette', 'ces',
-      'et', 'ou', 'mais', 'donc', 'car', 'ni', 'que', 'qui',
-      'dans', 'sur', 'sous', 'avec', 'sans', 'pour', 'par',
-      'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles',
-      'est', 'sont', 'être', 'avoir', 'fait', 'faire',
-      'plus', 'moins', 'très', 'trop', 'peu', 'beaucoup'
-    ];
-    
-    // Extraction simple des mots
-    return text.toLowerCase()
-      .split(/\\W+/)
-      .filter(word => 
-        word.length > 3 && 
-        !stopWords.includes(word)
-      );
-  }
-  
-  /**
    * Vérification approfondie d'une pensée
    * 
    * @param thought La pensée à vérifier
@@ -301,7 +79,6 @@ export class QualityEvaluator {
   ): Promise<VerificationResult> {
     const content = thought.content;
     
-    // NOUVELLE APPROCHE: Utiliser la mémoire des vérifications sémantiques
     // Vérifier si l'information a déjà été vérifiée et si on ne force pas une nouvelle vérification
     if (!forceVerification) {
       try {
@@ -381,7 +158,7 @@ export class QualityEvaluator {
     let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
     
     if (containsCalculations) {
-      // Utiliser la nouvelle méthode asynchrone
+      // Utiliser la nouvelle méthode optimisée
       verifiedCalculations = await this.detectAndVerifyCalculations(content);
     }
     
@@ -401,13 +178,12 @@ export class QualityEvaluator {
       console.error(`Vérification effectuée avec ${verificationResults.length} outils, statut: ${status}`);
     }
     
-    // NOUVEAU: Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
-    // Si la confiance est trop faible, considérer comme non concluant même si des sources sont trouvées
+    // Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
     if (status === 'verified' && confidence < 0.7) {
       status = 'partially_verified';
     }
     
-    // NOUVEAU: Si plusieurs vérifications ont échoué, considérer comme non concluant
+    // Si plusieurs vérifications ont échoué, considérer comme non concluant
     if (status === 'unverified' && verificationResults.length >= 2) {
       status = 'inconclusive';
     }
@@ -438,8 +214,7 @@ export class QualityEvaluator {
       verifiedCalculations
     };
     
-    // NOUVELLE APPROCHE: Enregistrer la vérification dans la mémoire sémantique
-    // pour permettre aux futures requêtes similaires de réutiliser les résultats
+    // Enregistrer la vérification dans la mémoire sémantique
     await this.verificationMemory.addVerification(
       content,
       status,
@@ -448,7 +223,7 @@ export class QualityEvaluator {
       sessionId
     );
     
-    // IMPORTANT: Attacher explicitement le statut de vérification à la pensée elle-même
+    // Attacher explicitement le statut de vérification à la pensée elle-même
     thought.metadata.verificationResult = {
       status,
       confidence,
@@ -462,334 +237,29 @@ export class QualityEvaluator {
   }
 
   /**
-   * Vérifie un calcul complexe à l'aide de Smart-E2B
-   * 
-   * @param fullExpression L'expression complète à vérifier
-   * @param expressionStr La partie expression mathématique
-   * @param resultStr Le résultat prétendu
-   * @returns Une promesse résolvant vers un résultat de vérification
-   */
-  private async verifyComplexCalculation(
-    fullExpression: string,
-    expressionStr: string,
-    resultStr: string
-  ): Promise<CalculationVerificationResult> {
-    try {
-      // Construction du code Python pour l'évaluation
-      const pyCode = `
-        import math
-        import numpy as np
-        
-        # Expression à évaluer
-        expression = "${expressionStr.replace(/"/g, '\\"')}"
-        claimed_result = ${resultStr}
-        
-        # Évaluer l'expression (avec précaution)
-        try:
-            # Remplacer certains mots par leurs fonctions correspondantes
-            expr = expression.replace("racine carrée", "math.sqrt")
-            expr = expr.replace("puissance", "**")
-            expr = expr.replace("sin", "math.sin")
-            expr = expr.replace("cos", "math.cos")
-            
-            # Évaluer
-            actual_result = eval(expr)
-            
-            # Vérifier
-            is_correct = abs(actual_result - claimed_result) < 0.0001
-            
-            print(f"Résultat: {actual_result}")
-            print(f"Correct: {is_correct}")
-            
-            result = {
-                "verified": f"{expr} = {actual_result}",
-                "isCorrect": is_correct,
-                "confidence": 0.95
-            }
-        except Exception as e:
-            result = {
-                "verified": f"Erreur: {str(e)}",
-                "isCorrect": False,
-                "confidence": 0.5
-            }
-            
-        # Retourner le résultat au format JSON
-        import json
-        print(json.dumps(result))
-      `;
-      
-      if (!this.toolIntegrator) {
-        throw new Error("ToolIntegrator non disponible");
-      }
-      
-      // Utiliser l'outil Python pour évaluer l'expression
-      const pythonResult = await this.toolIntegrator.executeVerificationTool('executePython', pyCode);
-      
-      // Extraire et retourner le résultat
-      return {
-        original: fullExpression,
-        verified: pythonResult.result.verified || "Erreur de vérification",
-        isCorrect: pythonResult.result.isCorrect || false,
-        confidence: pythonResult.result.confidence || 0.5
-      };
-    } catch (error) {
-      console.error(`Erreur lors de la vérification du calcul complexe:`, error);
-      return {
-        original: fullExpression,
-        verified: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-        isCorrect: false,
-        confidence: 0.3
-      };
-    }
-  }
-
-  /**
-   * Détecte et vérifie les calculs dans un texte de manière asynchrone
+   * Détecte et vérifie les calculs dans un texte de manière asynchrone en utilisant
+   * le nouveau MathEvaluator optimisé
    * 
    * @param content Le texte contenant potentiellement des calculs
    * @returns Une promesse résolvant vers un tableau de résultats de vérification de calculs
    */
   public async detectAndVerifyCalculations(content: string): Promise<CalculationVerificationResult[]> {
-    const results: CalculationVerificationResult[] = [];
+    console.error('Smart-Thinking: Détection et vérification des calculs avec MathEvaluator');
     
-    // Expressions régulières enrichies pour détecter plus de formats d'expressions mathématiques
-    const calculationRegexes = [
-      // Format standard: 5 + 3 = 8
-      /(\\d+(?:\\.\\d+)?)\\s*([\\+\\-\\*\\/])\\s*(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
+    try {
+      // Utiliser le nouveau MathEvaluator pour détecter et évaluer les expressions mathématiques
+      const evaluationResults = MathEvaluator.detectAndEvaluate(content);
       
-      // Format avec parenthèses: (5 + 3) = 8
-      /\\((\\d+(?:\\.\\d+)?)\\s*([\\+\\-\\*\\/])\\s*(\\d+(?:\\.\\d+)?)\\)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
+      console.error(`Smart-Thinking: ${evaluationResults.length} calcul(s) détecté(s)`);
       
-      // Format avec mots: 5 plus 3 égale 8
-      /(\\d+(?:\\.\\d+)?)\\s*(plus|moins|fois|divisé par)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:égale|égal|est égal à|vaut|font|donne)\\s*(\\d+(?:\\.\\d+)?)/gi,
+      // Convertir les résultats au format CalculationVerificationResult
+      return MathEvaluator.convertToVerificationResults(evaluationResults);
+    } catch (error) {
+      console.error('Smart-Thinking: Erreur lors de la détection des calculs:', error);
       
-      // Format puissance: 2^3 = 8
-      /(\\d+(?:\\.\\d+)?)\\s*(?:\\^|\\*\\*)\\s*(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,
-      
-      // Format racine carrée: racine carrée de 9 = 3
-      /racine\\s+carrée\\s+(?:de)?\\s+(\\d+(?:\\.\\d+)?)\\s*=\\s*(\\d+(?:\\.\\d+)?)/gi
-    ];
-    
-    // Traiter le format standard (opérations arithmétiques de base)
-    let match;
-    while ((match = calculationRegexes[0].exec(content)) !== null) {
-      const [fullExpression, num1Str, operator, num2Str, resultStr] = match;
-      
-      try {
-        // Convertir les opérandes en nombres
-        const num1 = parseFloat(num1Str);
-        const num2 = parseFloat(num2Str);
-        const claimedResult = parseFloat(resultStr);
-        
-        // Calculer le résultat correct
-        let correctResult: number;
-        switch (operator) {
-          case '+': correctResult = num1 + num2; break;
-          case '-': correctResult = num1 - num2; break;
-          case '*': correctResult = num1 * num2; break;
-          case '/': correctResult = num1 / num2; break;
-          default: correctResult = NaN;
-        }
-        
-        // Vérifier si le résultat est correct (avec une petite marge d'erreur pour les nombres flottants)
-        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
-        
-        // Ajouter le résultat de la vérification
-        results.push({
-          original: fullExpression,
-          verified: `${num1} ${operator} ${num2} = ${correctResult}`,
-          isCorrect,
-          confidence: 0.99 // Confiance élevée pour les calculs simples
-        });
-      } catch (error) {
-        // En cas d'erreur dans le calcul
-        results.push({
-          original: fullExpression,
-          verified: "Erreur dans l'évaluation du calcul",
-          isCorrect: false,
-          confidence: 0.5
-        });
-      }
+      // En cas d'erreur, retourner un tableau vide
+      return [];
     }
-    
-    // Traiter le format avec parenthèses
-    while ((match = calculationRegexes[1].exec(content)) !== null) {
-      const [fullExpression, num1Str, operator, num2Str, resultStr] = match;
-      
-      try {
-        // Même logique que pour le format standard
-        const num1 = parseFloat(num1Str);
-        const num2 = parseFloat(num2Str);
-        const claimedResult = parseFloat(resultStr);
-        
-        let correctResult: number;
-        switch (operator) {
-          case '+': correctResult = num1 + num2; break;
-          case '-': correctResult = num1 - num2; break;
-          case '*': correctResult = num1 * num2; break;
-          case '/': correctResult = num1 / num2; break;
-          default: correctResult = NaN;
-        }
-        
-        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
-        
-        results.push({
-          original: fullExpression,
-          verified: `(${num1} ${operator} ${num2}) = ${correctResult}`,
-          isCorrect,
-          confidence: 0.99
-        });
-      } catch (error) {
-        results.push({
-          original: fullExpression,
-          verified: "Erreur dans l'évaluation du calcul avec parenthèses",
-          isCorrect: false,
-          confidence: 0.5
-        });
-      }
-    }
-    
-    // Traiter le format avec mots
-    while ((match = calculationRegexes[2].exec(content)) !== null) {
-      const [fullExpression, num1Str, operatorWord, num2Str, resultStr] = match;
-      
-      try {
-        const num1 = parseFloat(num1Str);
-        const num2 = parseFloat(num2Str);
-        const claimedResult = parseFloat(resultStr);
-        
-        // Convertir l'opérateur textuel en opérateur mathématique
-        let operator: string;
-        let correctResult: number;
-        
-        switch (operatorWord.toLowerCase()) {
-          case 'plus': 
-            operator = '+';
-            correctResult = num1 + num2; 
-            break;
-          case 'moins': 
-            operator = '-';
-            correctResult = num1 - num2; 
-            break;
-          case 'fois': 
-            operator = '*';
-            correctResult = num1 * num2; 
-            break;
-          case 'divisé par': 
-            operator = '/';
-            correctResult = num1 / num2; 
-            break;
-          default: 
-            operator = '?';
-            correctResult = NaN;
-        }
-        
-        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
-        
-        results.push({
-          original: fullExpression,
-          verified: `${num1} ${operator} ${num2} = ${correctResult}`,
-          isCorrect,
-          confidence: 0.98  // Légèrement moins de confiance due à l'ambigüïté possible du langage naturel
-        });
-      } catch (error) {
-        results.push({
-          original: fullExpression,
-          verified: "Erreur dans l'évaluation du calcul en format texte",
-          isCorrect: false,
-          confidence: 0.5
-        });
-      }
-    }
-    
-    // Traiter le format puissance
-    while ((match = calculationRegexes[3].exec(content)) !== null) {
-      const [fullExpression, baseStr, exponentStr, resultStr] = match;
-      
-      try {
-        const base = parseFloat(baseStr);
-        const exponent = parseFloat(exponentStr);
-        const claimedResult = parseFloat(resultStr);
-        
-        // Calcul de puissance
-        const correctResult = Math.pow(base, exponent);
-        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
-        
-        results.push({
-          original: fullExpression,
-          verified: `${base}^${exponent} = ${correctResult}`,
-          isCorrect,
-          confidence: 0.99
-        });
-      } catch (error) {
-        results.push({
-          original: fullExpression,
-          verified: "Erreur dans l'évaluation de la puissance",
-          isCorrect: false,
-          confidence: 0.5
-        });
-      }
-    }
-    
-    // Traiter le format racine carrée
-    while ((match = calculationRegexes[4].exec(content)) !== null) {
-      const [fullExpression, numberStr, resultStr] = match;
-      
-      try {
-        const number = parseFloat(numberStr);
-        const claimedResult = parseFloat(resultStr);
-        
-        // Calcul de racine carrée
-        const correctResult = Math.sqrt(number);
-        const isCorrect = Math.abs(correctResult - claimedResult) < 0.0001;
-        
-        results.push({
-          original: fullExpression,
-          verified: `racine carrée de ${number} = ${correctResult}`,
-          isCorrect,
-          confidence: 0.99
-        });
-      } catch (error) {
-        results.push({
-          original: fullExpression,
-          verified: "Erreur dans l'évaluation de la racine carrée",
-          isCorrect: false,
-          confidence: 0.5
-        });
-      }
-    }
-    
-    // Pour les calculs plus complexes, vérifier immédiatement via Smart-E2B
-    const complexCalculationRegex = /calcul\\s*(?:complexe|avancé)?\\s*:?\\s*([^=]+)=\\s*(\\d+(?:\\.\\d+)?)/gi;
-    
-    const complexCalculationPromises: Promise<CalculationVerificationResult>[] = [];
-    let complexMatch;
-    
-    while ((complexMatch = complexCalculationRegex.exec(content)) !== null) {
-      const [fullExpression, expressionStr, resultStr] = complexMatch;
-      
-      // Vérifier immédiatement avec le toolIntegrator si disponible
-      if (this.toolIntegrator) {
-        const verificationPromise = this.verifyComplexCalculation(fullExpression, expressionStr, resultStr);
-        complexCalculationPromises.push(verificationPromise);
-      } else {
-        // Si pas de toolIntegrator, marquer comme à vérifier
-        results.push({
-          original: fullExpression,
-          verified: "Impossible de vérifier sans ToolIntegrator",
-          isCorrect: false,
-          confidence: 0.3
-        });
-      }
-    }
-    
-    // Attendre que toutes les vérifications complexes soient terminées
-    if (complexCalculationPromises.length > 0) {
-      const complexResults = await Promise.all(complexCalculationPromises);
-      results.push(...complexResults);
-    }
-    
-    return results;
   }
   
   /**
@@ -813,7 +283,7 @@ export class QualityEvaluator {
           original, 
           `${original} [✓ Vérifié]`
         );
-      } else if (verification.verified === "\u00c0 vérifier via Smart-E2B" || verification.verified.includes("vérifier")) {
+      } else if (verification.verified.includes("vérifier") || verification.verified.includes("Vérification")) {
         annotatedThought = annotatedThought.replace(
           original, 
           `${original} [⏳ Vérification en cours...]`
@@ -822,7 +292,7 @@ export class QualityEvaluator {
         // Même si le calcul est incorrect, il a été vérifié
         annotatedThought = annotatedThought.replace(
           original, 
-          `${original} [✗ Incorrect mais vérifié: ${verification.verified}]`
+          `${original} [✗ Incorrect: ${verification.verified}]`
         );
       }
     }
@@ -865,7 +335,7 @@ export class QualityEvaluator {
         const resultA = results[i].result;
         const resultB = results[j].result;
         
-        // Logique de détection des contradictions (\u00e0 personnaliser selon le format des résultats)
+        // Logique de détection des contradictions
         if (resultA.isValid === true && resultB.isValid === false) {
           contradictions.push(`Contradiction entre ${results[i].toolName} et ${results[j].toolName}`);
         }
@@ -911,6 +381,64 @@ export class QualityEvaluator {
     const metrics = this.evaluate(thought.id, thoughtGraph);
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thought.id);
     
-    return this.metricsCalculator.suggestImprovements(thought, metrics, connectedThoughts);
+    const suggestions: string[] = [];
+
+    // Suggestions basées sur la confiance
+    if (metrics.confidence < 0.4) {
+      suggestions.push('Renforcez l\'argumentation avec des preuves ou des références précises.');
+      suggestions.push('Évitez les modalisateurs d\'incertitude excessive ("peut-être", "probablement").');
+    }
+
+    // Suggestions basées sur la pertinence
+    if (metrics.relevance < 0.4) {
+      suggestions.push('Clarifiez le lien avec le contexte ou le sujet principal.');
+
+      if (connectedThoughts.length > 0) {
+        suggestions.push('Utilisez plus de termes ou concepts présents dans les pensées connectées.');
+      }
+    }
+
+    // Suggestions basées sur la qualité
+    if (metrics.quality < 0.4) {
+      suggestions.push('Améliorez la structure et la clarté de cette pensée.');
+
+      // Analyser le contenu pour des suggestions spécifiques
+      const content = thought.content.toLowerCase();
+      const wordCount = content.split(/\s+/).length;
+
+      if (wordCount < 10) {
+        suggestions.push('Développez davantage cette pensée, elle est trop courte pour être complète.');
+      } else if (wordCount > 200) {
+        suggestions.push('Considérez diviser cette pensée en plusieurs parties plus ciblées.');
+      }
+    }
+
+    // Vérifier la présence de biais
+    const biases = this.detectBiases(thought);
+    if (biases.length > 0) {
+      suggestions.push(`Attention aux biais potentiels: ${biases.join(', ')}.`);
+    }
+
+    // Suggestions spécifiques au type de pensée
+    if (thought.type === 'hypothesis' && !thought.content.toLowerCase().includes('si')) {
+      suggestions.push('Formulez l\'hypothèse sous forme conditionnelle (si... alors...).');
+    }
+
+    if (thought.type === 'conclusion' && thought.connections.length < 2) {
+      suggestions.push('Une conclusion devrait synthétiser plusieurs pensées précédentes.');
+    }
+
+    // Vérifier les contradictions
+    const contradictions = connectedThoughts.filter(t =>
+        thought.connections.some(conn =>
+            conn.targetId === t.id && conn.type === 'contradicts'
+        )
+    );
+
+    if (contradictions.length > 0) {
+      suggestions.push('Résolvez ou clarifiez les contradictions avec d\'autres pensées.');
+    }
+
+    return suggestions;
   }
 }

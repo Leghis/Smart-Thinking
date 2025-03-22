@@ -56,7 +56,7 @@ export class MetricsCalculator {
   private uncertaintyModifiers: string[] = [
     'peut-être', 'possible', 'probablement', 'incertain', 'semble',
     'pourrait', 'hypothèse', 'suppose', 'doute', 'incertain',
-    'éventuellement', 'potentiellement', 'aparemment', 'suggère'
+    'éventuellement', 'potentiellement', 'apparemment', 'suggère'
   ];
 
   private certaintyModifiers: string[] = [
@@ -87,8 +87,8 @@ export class MetricsCalculator {
 
     // Poids des différentes composantes dans le calcul de la pertinence
     relevanceWeights: {
-      keywordOverlap: 0.5,     // Chevauchement de mots-clés - CORRIGÉ: de 0.3 à 0.5
-      connectionStrength: 0.5  // Force des connexions dans le graphe - CORRIGÉ: de 0.3 à 0.5
+      keywordOverlap: 0.5,     // Chevauchement de mots-clés
+      connectionStrength: 0.5  // Force des connexions dans le graphe
     },
 
     // Poids des différentes composantes dans le calcul de la qualité
@@ -123,6 +123,33 @@ export class MetricsCalculator {
     if (customConfig) {
       this.config = { ...this.config, ...customConfig };
     }
+    
+    // Vérifier que les poids s'additionnent à 1.0
+    this.validateWeights();
+  }
+  
+  /**
+   * Valide que tous les poids dans les configurations s'additionnent à 1.0
+   * Affiche un avertissement si ce n'est pas le cas
+   */
+  private validateWeights(): void {
+    // Vérifier les poids de confiance
+    const confidenceSum = Object.values(this.config.confidenceWeights).reduce((sum, w) => sum + w, 0);
+    if (Math.abs(confidenceSum - 1.0) > 0.001) {
+      console.error(`AVERTISSEMENT: Les poids de confiance s'additionnent à ${confidenceSum}, pas à 1.0`);
+    }
+    
+    // Vérifier les poids de pertinence
+    const relevanceSum = Object.values(this.config.relevanceWeights).reduce((sum, w) => sum + w, 0);
+    if (Math.abs(relevanceSum - 1.0) > 0.001) {
+      console.error(`AVERTISSEMENT: Les poids de pertinence s'additionnent à ${relevanceSum}, pas à 1.0`);
+    }
+    
+    // Vérifier les poids de qualité
+    const qualitySum = Object.values(this.config.qualityWeights).reduce((sum, w) => sum + w, 0);
+    if (Math.abs(qualitySum - 1.0) > 0.001) {
+      console.error(`AVERTISSEMENT: Les poids de qualité s'additionnent à ${qualitySum}, pas à 1.0`);
+    }
   }
 
   /**
@@ -141,8 +168,6 @@ export class MetricsCalculator {
     const certaintyCount = this.certaintyModifiers.filter(mod => content.includes(mod)).length;
 
     // Calcul du score Bayésien simple
-    // La probabilité a priori est de 0.5 (neutre)
-    // On ajuste en fonction des indices de certitude et d'incertitude
     const prior = 0.5;
     let likelihood = 0.5;
 
@@ -151,16 +176,18 @@ export class MetricsCalculator {
       likelihood = (certaintyCount / totalModifiers) * 0.5 + 0.5;
     }
 
-    // Calcul Bayésien simplifié: P(confiance|modalisateurs) ∝ P(modalisateurs|confiance) * P(confiance)
     let confidenceScore = (prior * likelihood) / ((prior * likelihood) + ((1 - prior) * (1 - likelihood)));
 
-    // 2. Analyse des indicateurs structurels (citations, références, données)
-    const hasReferences = /\(([^)]+)\)|\[[^\]]+\]/.test(content); // Recherche de parenthèses ou crochets
-    const hasNumbers = /\d+([.,]\d+)?%?/.test(content); // Recherche de chiffres ou pourcentages
+    // 2. Analyse des indicateurs structurels
+    const hasReferences = /\(([^)]+)\)|\[[^\]]+\]/.test(content);
+    const hasNumbers = /\d+([.,]\d+)?%?/.test(content);
 
     let structuralScore = 0.5;
     if (hasReferences) structuralScore += 0.2;
     if (hasNumbers) structuralScore += 0.1;
+    
+    // Ajuster pour que le score ne dépasse pas 0.9
+    structuralScore = Math.min(structuralScore, 0.9);
 
     // 3. Analyse de l'équilibre des sentiments
     const positiveCount = this.positiveWords.filter(word => content.includes(word)).length;
@@ -168,28 +195,27 @@ export class MetricsCalculator {
     const sentimentTotal = Math.max(positiveCount + negativeCount, 1);
     const sentimentBalance = (Math.abs(positiveCount - negativeCount) / sentimentTotal) * 0.5 + 0.5;
 
-    // 4. Score basé sur le type de pensée (CORRIGÉ: ajout de cette composante manquante)
+    // 4. Score basé sur le type de pensée
     let typeScore = 0.5; // Valeur par défaut
 
     switch (thought.type) {
       case 'conclusion':
-        typeScore = 0.8; // Les conclusions doivent montrer plus de confiance
+        typeScore = 0.8;
         break;
       case 'hypothesis':
-        typeScore = 0.6; // Les hypothèses sont par nature plus incertaines
+        typeScore = 0.6;
         break;
       case 'meta':
-        typeScore = 0.7; // Les méta-pensées reflètent une certaine confiance
+        typeScore = 0.7;
         break;
       case 'revision':
-        typeScore = 0.75; // Les révisions montrent une confiance modérée à élevée
+        typeScore = 0.75;
         break;
       default:
-        typeScore = 0.65; // Pour les pensées régulières
+        typeScore = 0.65;
     }
 
-    // Combinaison pondérée des facteurs
-    // CORRIGÉ: inclure toutes les composantes selon leurs poids respectifs
+    // Combinaison pondérée des facteurs avec les poids vérifiés
     confidenceScore = (
         confidenceScore * this.config.confidenceWeights.modifierAnalysis +
         typeScore * this.config.confidenceWeights.thoughtType +
@@ -243,7 +269,7 @@ export class MetricsCalculator {
         ? connectionScores.reduce((sum, score) => sum + score, 0) / connectionScores.length
         : 0.5;
 
-    // 3. Calcul de l'ancrage contextuel (connections entrantes)
+    // 3. Calcul de l'ancrage contextuel (connexions entrantes)
     const incomingConnections = connectedThoughts.flatMap(t =>
         t.connections.filter(conn => conn.targetId === thought.id)
     );
@@ -252,12 +278,10 @@ export class MetricsCalculator {
         ? incomingConnections.reduce((sum, conn) => sum + conn.strength, 0) / incomingConnections.length
         : 0.5;
 
-    // CORRIGÉ: Combinaison pondérée pour le score final, sans la similarité sémantique
-    // qui n'est pas implémentée, en redistribuant son poids
+    // Combinaison pondérée avec distribution uniforme entre les composantes de connexion
     const relevanceScore = (
         keywordOverlapScore * this.config.relevanceWeights.keywordOverlap +
-        connectionScore * (this.config.relevanceWeights.connectionStrength / 2) +
-        incomingScore * (this.config.relevanceWeights.connectionStrength / 2)
+        ((connectionScore + incomingScore) / 2) * this.config.relevanceWeights.connectionStrength
     );
 
     // Ajustement par type de pensée
@@ -284,7 +308,7 @@ export class MetricsCalculator {
     const positiveCount = this.positiveWords.filter(word => content.includes(word)).length;
     const negativeCount = this.negativeWords.filter(word => content.includes(word)).length;
 
-    // Score basé sur le ratio positif/négatif (plus de positifs = meilleure qualité)
+    // Score basé sur le ratio positif/négatif
     let wordIndicatorScore = 0.5;
     if (positiveCount > 0 || negativeCount > 0) {
       const total = Math.max(positiveCount + negativeCount, 1);
@@ -305,13 +329,12 @@ export class MetricsCalculator {
     }
 
     // 3. Analyse structurelle (longueur, complexité, etc.)
-    // CORRIGÉ: Utilisez la bonne expression régulière pour diviser le texte
     const words = content.split(/\s+/);
     const wordCount = words.length;
     const sentenceCount = content.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
     const avgSentenceLength = wordCount / Math.max(sentenceCount, 1);
 
-    // CORRIGÉ: Plages non chevauchantes pour le score structurel
+    // Plages non chevauchantes pour le score structurel
     let structuralScore = 0.5;
 
     // Pénaliser les pensées trop courtes ou trop longues
@@ -360,6 +383,9 @@ export class MetricsCalculator {
       if (connectionRatio > 0.5) {
         coherenceScore += 0.1;
       }
+      
+      // S'assurer que coherenceScore ne dépasse pas 0.9
+      coherenceScore = Math.min(coherenceScore, 0.9);
     }
 
     // Combiner les scores avec pondération
@@ -387,7 +413,7 @@ export class MetricsCalculator {
       verificationStatus: VerificationStatus,
       calculationResults?: CalculationVerificationResult[]
   ): number {
-    // Poids des différentes composantes
+    // Poids des différentes composantes avec somme = 1.0
     const weights = {
       confidence: 0.35,
       verification: 0.35,
@@ -395,15 +421,15 @@ export class MetricsCalculator {
       calculationAccuracy: 0.1
     };
 
-    // NOUVELLE CORRECTION: Ajuster la confiance selon le statut de vérification
+    // Ajuster la confiance selon le statut de vérification
     let adjustedConfidence = metrics.confidence;
     
-    // Si l'information n'est pas vérifiée, limiter la confiance maximale à 0.6
+    // Si l'information n'est pas vérifiée, limiter la confiance maximale
     if (verificationStatus === 'unverified') {
         adjustedConfidence = Math.min(adjustedConfidence, 0.6);
     }
     
-    // CORRIGÉ: Score basé sur les métriques avec pondération relative correcte
+    // Score basé sur les métriques avec pondération relative correcte
     const confidenceRelativeWeight = weights.confidence / (weights.confidence + weights.quality);
     const qualityRelativeWeight = weights.quality / (weights.confidence + weights.quality);
 
@@ -430,50 +456,68 @@ export class MetricsCalculator {
         break;
       case 'unverified':
       default:
-        // NOUVELLE CORRECTION: Réduire le score de vérification pour les informations non vérifiées
-        verificationScore = 0.3; // Au lieu de 0.5
+        verificationScore = 0.3; // Réduction pour non vérifié
     }
 
-    // Score basé sur l'exactitude des calculs (si présents)
+    // Gestion des calculs vérifiés
     let calculationScore = 0.5; // Par défaut
-
-    // CORRIGÉ: Créer une copie locale des poids pour éviter de modifier l'original
+    
+    // Créer une copie des poids pour redistribution si nécessaire
     const adjustedWeights = { ...weights };
 
     if (calculationResults && calculationResults.length > 0) {
       const correctCalculations = calculationResults.filter(calc => calc.isCorrect).length;
       calculationScore = correctCalculations / calculationResults.length;
 
-      // Renforcer l'influence des calculs correctement vérifiés
-      if (calculationScore === 1.0) {
-        verificationScore = Math.max(verificationScore, 0.7); // Bonus minimum si tous les calculs sont corrects
+      // Bonus si tous les calculs sont corrects
+      if (calculationScore === 1.0 && calculationResults.length > 0) {
+        verificationScore = Math.max(verificationScore, 0.7);
       }
     } else {
       // Sans calculs à vérifier, redistribuer ce poids proportionnellement
       const calcWeight = adjustedWeights.calculationAccuracy;
       adjustedWeights.calculationAccuracy = 0;
 
-      // CORRIGÉ: Redistribution proportionnelle des poids
-      const totalRemaining = adjustedWeights.confidence + adjustedWeights.verification + adjustedWeights.quality;
+      // Redistribution proportionnelle des poids
+      const totalRemaining = 
+        adjustedWeights.confidence + 
+        adjustedWeights.verification + 
+        adjustedWeights.quality;
+      
       adjustedWeights.confidence += (adjustedWeights.confidence / totalRemaining) * calcWeight;
       adjustedWeights.verification += (adjustedWeights.verification / totalRemaining) * calcWeight;
       adjustedWeights.quality += (adjustedWeights.quality / totalRemaining) * calcWeight;
     }
 
-    // Combiner tous les scores avec pondération
-    let reliabilityScore = (
-        scoreFromMetrics * (adjustedWeights.confidence + adjustedWeights.quality) +
-        verificationScore * adjustedWeights.verification +
-        (calculationScore || 0.5) * adjustedWeights.calculationAccuracy
-    );
+    // Vérifier que les poids ajustés s'additionnent toujours à 1.0
+    const weightsSum = 
+      adjustedWeights.confidence + 
+      adjustedWeights.verification + 
+      adjustedWeights.quality + 
+      adjustedWeights.calculationAccuracy;
     
-    // NOUVELLE CORRECTION: Appliquer un plafond de fiabilité global selon le statut de vérification
+    if (Math.abs(weightsSum - 1.0) > 0.001) {
+      // Normalisation si nécessaire
+      const factor = 1.0 / weightsSum;
+      adjustedWeights.confidence *= factor;
+      adjustedWeights.verification *= factor;
+      adjustedWeights.quality *= factor;
+      adjustedWeights.calculationAccuracy *= factor;
+    }
+
+    // Calcul final du score de fiabilité
+    let reliabilityScore = 
+      scoreFromMetrics * (adjustedWeights.confidence + adjustedWeights.quality) +
+      verificationScore * adjustedWeights.verification +
+      (calculationResults ? calculationScore : 0.5) * adjustedWeights.calculationAccuracy;
+    
+    // Appliquer des plafonds selon le statut de vérification
     if (verificationStatus === 'unverified') {
-        reliabilityScore = Math.min(reliabilityScore, 0.5); // Plafonner à 50% pour non vérifié
+        reliabilityScore = Math.min(reliabilityScore, 0.5);
     } else if (verificationStatus === 'contradicted') {
-        reliabilityScore = Math.min(reliabilityScore, 0.4); // Plafonner à 40% pour contredit
+        reliabilityScore = Math.min(reliabilityScore, 0.4);
     } else if (verificationStatus === 'inconclusive') {
-        reliabilityScore = Math.min(reliabilityScore, 0.6); // Plafonner à 60% pour inconclusif
+        reliabilityScore = Math.min(reliabilityScore, 0.6);
     }
 
     // Limiter entre 0.1 et 0.95
@@ -726,142 +770,6 @@ export class MetricsCalculator {
   }
 
   /**
-   * Calcule un score de PageRank simplifié pour évaluer l'importance des pensées dans le graphe
-   *
-   * @param thoughtId ID de la pensée à évaluer
-   * @param allThoughts Toutes les pensées du graphe
-   * @param dampingFactor Facteur d'amortissement (typiquement 0.85)
-   * @param iterations Nombre d'itérations pour la convergence
-   * @returns Score PageRank entre 0 et 1
-   */
-  calculatePageRankScore(
-      thoughtId: string,
-      allThoughts: ThoughtNode[],
-      dampingFactor: number = 0.85,
-      iterations: number = 10
-  ): number {
-    // Créer un graphe de connexions
-    const graph: Record<string, string[]> = {};
-    const ranks: Record<string, number> = {};
-
-    // Initialiser le graphe et les rangs
-    for (const thought of allThoughts) {
-      graph[thought.id] = [];
-      ranks[thought.id] = 1 / allThoughts.length;
-    }
-
-    // Construire le graphe des connexions
-    for (const thought of allThoughts) {
-      for (const conn of thought.connections) {
-        if (graph[conn.targetId]) {
-          graph[conn.targetId].push(thought.id);
-        }
-      }
-    }
-
-    // Algorithme PageRank simplifié
-    for (let i = 0; i < iterations; i++) {
-      const newRanks: Record<string, number> = {};
-
-      // Initialiser avec la composante de téléportation
-      for (const id in graph) {
-        newRanks[id] = (1 - dampingFactor) / allThoughts.length;
-      }
-
-      // Calculer la contribution des connexions entrantes
-      for (const [id, inLinks] of Object.entries(graph)) {
-        for (const sourceId of inLinks) {
-          const outLinkCount = allThoughts.find(t => t.id === sourceId)?.connections.length || 1;
-          newRanks[id] += dampingFactor * (ranks[sourceId] / outLinkCount);
-        }
-      }
-
-      // Mettre à jour les rangs
-      Object.assign(ranks, newRanks);
-    }
-
-    // Normaliser le résultat pour obtenir un score entre 0 et 1
-    const maxRank = Math.max(...Object.values(ranks));
-    const normalizedScore = ranks[thoughtId] / maxRank;
-
-    return normalizedScore;
-  }
-
-  /**
-   * Suggère des améliorations pour une pensée en fonction de ses métriques
-   *
-   * @param thought La pensée à analyser
-   * @param metrics Les métriques calculées pour la pensée
-   * @param connectedThoughts Les pensées connectées (contexte)
-   * @returns Un tableau de suggestions d'amélioration
-   */
-  suggestImprovements(
-      thought: ThoughtNode,
-      metrics: ThoughtMetrics,
-      connectedThoughts: ThoughtNode[]
-  ): string[] {
-    const suggestions: string[] = [];
-
-    // Suggestions basées sur la confiance
-    if (metrics.confidence < 0.4) {
-      suggestions.push('Renforcez l\'argumentation avec des preuves ou des références précises.');
-      suggestions.push('Évitez les modalisateurs d\'incertitude excessive ("peut-être", "probablement").');
-    }
-
-    // Suggestions basées sur la pertinence
-    if (metrics.relevance < 0.4) {
-      suggestions.push('Clarifiez le lien avec le contexte ou le sujet principal.');
-
-      if (connectedThoughts.length > 0) {
-        suggestions.push('Utilisez plus de termes ou concepts présents dans les pensées connectées.');
-      }
-    }
-
-    // Suggestions basées sur la qualité
-    if (metrics.quality < 0.4) {
-      suggestions.push('Améliorez la structure et la clarté de cette pensée.');
-
-      // Analyser le contenu pour des suggestions spécifiques
-      const content = thought.content.toLowerCase();
-      const wordCount = content.split(/\s+/).length;
-
-      if (wordCount < 10) {
-        suggestions.push('Développez davantage cette pensée, elle est trop courte pour être complète.');
-      } else if (wordCount > 200) {
-        suggestions.push('Considérez diviser cette pensée en plusieurs parties plus ciblées.');
-      }
-    }
-
-    // Vérifier la présence de biais
-    const biases = this.detectBiases(thought);
-    if (biases.length > 0) {
-      suggestions.push(`Attention aux biais potentiels: ${biases.join(', ')}.`);
-    }
-
-    // Suggestions spécifiques au type de pensée
-    if (thought.type === 'hypothesis' && !thought.content.toLowerCase().includes('si')) {
-      suggestions.push('Formulez l\'hypothèse sous forme conditionnelle (si... alors...).');
-    }
-
-    if (thought.type === 'conclusion' && thought.connections.length < 2) {
-      suggestions.push('Une conclusion devrait synthétiser plusieurs pensées précédentes.');
-    }
-
-    // Vérifier les contradictions
-    const contradictions = connectedThoughts.filter(t =>
-        thought.connections.some(conn =>
-            conn.targetId === t.id && conn.type === 'contradicts'
-        )
-    );
-
-    if (contradictions.length > 0) {
-      suggestions.push('Résolvez ou clarifiez les contradictions avec d\'autres pensées.');
-    }
-
-    return suggestions;
-  }
-
-  /**
    * Génère un résumé du niveau de certitude en langage naturel
    *
    * @param status Statut de vérification
@@ -879,12 +787,12 @@ export class MetricsCalculator {
     // Déterminer d'abord si des calculs ont été vérifiés
     const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
 
-    // Si des calculs ont été vérifiés, toujours considérer l'information comme au moins partiellement vérifiée
+    // Si des calculs ont été vérifiés, considérer comme partiellement vérifié au minimum
     if (hasVerifiedCalculations && status === 'unverified') {
       status = 'partially_verified';
     }
     
-    // NOUVELLE CORRECTION: Ajouter des avertissements explicites pour les scores élevés d'informations non vérifiées
+    // Avertissement pour scores élevés d'informations non vérifiées
     let confidenceStatement = "";
     if (status === 'unverified' && percentage > 40) {
         confidenceStatement = ` Ce niveau de confiance reflète uniquement l'évaluation interne du modèle et NON une vérification factuelle.`;
@@ -909,7 +817,6 @@ export class MetricsCalculator {
         summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%. Je vous suggère de reformuler la question ou de consulter d'autres sources d'information.`;
         break;
       default:
-        // CORRIGÉ: Message plus précis pour les informations non vérifiées
         summary = `Information non vérifiée. Niveau de confiance interne: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
     }
 
