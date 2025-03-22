@@ -20,10 +20,10 @@ export const VerificationConfig = {
   // Seuils de similarité pour la comparaison vectorielle
   SIMILARITY: {
     EXACT_MATCH: 0.95,              // Seuil pour considérer deux informations comme identiques
-    HIGH_SIMILARITY: 0.85,          // Seuil pour considérer deux informations comme très similaires
-    MEDIUM_SIMILARITY: 0.75,        // Seuil pour considérer deux informations comme significativement similaires
-    LOW_SIMILARITY: 0.6,            // Seuil pour considérer deux informations comme faiblement similaires
-    TEXT_MATCH: 0.7                 // Seuil pour la correspondance textuelle (sans embeddings)
+    HIGH_SIMILARITY: 0.80,          // Seuil pour considérer deux informations comme très similaires (réduit de 0.85 à 0.80)
+    MEDIUM_SIMILARITY: 0.65,        // Seuil pour considérer deux informations comme significativement similaires (réduit de 0.75 à 0.65)
+    LOW_SIMILARITY: 0.55,           // Seuil pour considérer deux informations comme faiblement similaires (réduit de 0.6 à 0.55)
+    TEXT_MATCH: 0.65                // Seuil pour la correspondance textuelle (sans embeddings) (réduit de 0.7 à 0.65)
   },
   
   // Paramètres pour la mémoire de vérification

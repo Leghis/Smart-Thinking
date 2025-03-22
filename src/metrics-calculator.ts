@@ -330,7 +330,16 @@ export class MetricsCalculator {
    */
   calculateQuality(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): number {
     const content = thought.content.toLowerCase();
-    const typeAdjustment = this.config.typeAdjustments[thought.type].quality;
+    
+    // MODIFICATION: Ajustement par type plus équilibré pour les conclusions et révisions
+    let typeAdjustment;
+    if (thought.type === 'conclusion') {
+        typeAdjustment = 1.05; // Réduit de 1.2 à 1.05 pour éviter la survalorisation
+    } else if (thought.type === 'revision') {
+        typeAdjustment = 1.0; // Réduit de 1.1 à 1.0 pour éviter les fluctuations
+    } else {
+        typeAdjustment = this.config.typeAdjustments[thought.type].quality;
+    }
 
     // 1. Analyse des indicateurs lexicaux (mots positifs/négatifs)
     const positiveCount = this.positiveWords.filter(word => content.includes(word)).length;
@@ -362,18 +371,29 @@ export class MetricsCalculator {
     const sentenceCount = content.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
     const avgSentenceLength = wordCount / Math.max(sentenceCount, 1);
 
-    // Plages non chevauchantes pour le score structurel
+    // MODIFICATION: Analyse structurelle révisée pour ne pas pénaliser les conclusions concises
     let structuralScore = 0.5;
-
-    // Pénaliser les pensées trop courtes ou trop longues
-    if (wordCount < 5) {
-      structuralScore = 0.3; // Trop court
-    } else if (wordCount > 300) {
-      structuralScore = 0.4; // Trop long
-    } else if (wordCount >= 150 && wordCount <= 300) {
-      structuralScore = 0.6; // Longueur acceptable mais non idéale
-    } else if (wordCount >= 30 && wordCount < 150) {
-      structuralScore = 0.8; // Longueur idéale
+    
+    if (thought.type === 'conclusion' || thought.type === 'revision') {
+        // Pour les conclusions et révisions, une plage de longueur plus large est acceptable
+        if (wordCount < 5) {
+            structuralScore = 0.4; // Pénalité réduite pour les textes courts
+        } else if (wordCount > 300) {
+            structuralScore = 0.5; // Pénalité réduite pour les textes longs
+        } else {
+            structuralScore = 0.8; // Valeur élevée pour une plage large
+        }
+    } else {
+        // Garder la logique existante pour les autres types
+        if (wordCount < 5) {
+            structuralScore = 0.3;
+        } else if (wordCount > 300) {
+            structuralScore = 0.4;
+        } else if (wordCount >= 150 && wordCount <= 300) {
+            structuralScore = 0.6;
+        } else if (wordCount >= 30 && wordCount < 150) {
+            structuralScore = 0.8;
+        }
     }
 
     // Pénaliser les phrases trop longues ou trop courtes
@@ -396,14 +416,22 @@ export class MetricsCalculator {
       const supports = connectedThoughts.filter(t =>
           thought.connections.some(conn => conn.targetId === t.id && conn.type === 'supports')
       ).length;
+      
+      // NOUVEAU: Valoriser les révisions qui synthétisent plusieurs pensées
+      if (thought.type === 'revision' || thought.type === 'conclusion') {
+          const synthesizesMultiple = thought.connections.length >= 2;
+          if (synthesizesMultiple) {
+              coherenceScore = 0.7; // Valoriser la synthèse dans les révisions/conclusions
+          }
+      }
 
-      // Ajuster le score en fonction des contradictions et soutiens
+      // MODIFICATION: Logique de cohérence améliorée
       if (contradictions > 0 && supports === 0) {
-        coherenceScore = 0.4; // Contradiction sans soutien
+        coherenceScore = Math.max(coherenceScore, 0.45); // Légèrement augmenté
       } else if (contradictions > 0 && supports > 0) {
-        coherenceScore = 0.5; // Équilibré
+        coherenceScore = Math.max(coherenceScore, 0.6); // Valoriser la résolution des contradictions
       } else if (supports > 0) {
-        coherenceScore = 0.7; // Soutenu sans contradiction
+        coherenceScore = Math.max(coherenceScore, 0.7); // Soutenu sans contradiction
       }
 
       // Bonus pour les pensées bien connectées
@@ -820,41 +848,47 @@ export class MetricsCalculator {
       verifiedCalculations?: CalculationVerificationResult[]
   ): string {
     const percentage = Math.round(score * 100);
-
-    // Déterminer d'abord si des calculs ont été vérifiés
+    
+    // MODIFICATION: Détection améliorée des informations partiellement vérifiées
     const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
-
-    // Si des calculs ont été vérifiés, considérer comme partiellement vérifié au minimum
-    if (hasVerifiedCalculations && status === 'unverified') {
-      status = 'partially_verified';
+    const correctCalculationsPercentage = hasVerifiedCalculations 
+        ? Math.round((verifiedCalculations!.filter(calc => calc.isCorrect).length / verifiedCalculations!.length) * 100)
+        : 0;
+    
+    // MODIFICATION: Toujours traiter comme partiellement vérifié si des calculs sont vérifiés
+    let effectiveStatus = status;
+    if (hasVerifiedCalculations && (status === 'unverified' || status === 'inconclusive')) {
+        effectiveStatus = 'partially_verified';
     }
     
-    // Avertissement pour scores élevés d'informations non vérifiées
+    // MODIFICATION: Message d'avertissement plus clair pour les scores élevés non vérifiés
     let confidenceStatement = "";
-    if (status === 'unverified' && percentage > 40) {
-        confidenceStatement = ` Ce niveau de confiance reflète uniquement l'évaluation interne du modèle et NON une vérification factuelle.`;
+    if (effectiveStatus === 'unverified' && percentage > 40) {
+        confidenceStatement = ` Ce niveau de confiance reflète uniquement l'analyse interne du système et NON une vérification factuelle.`;
     }
-
+    
+    // MODIFICATION: Formulations plus cohérentes
     let summary = "";
-
-    switch (status) {
-      case 'verified':
-        summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
-        break;
-      case 'partially_verified':
-        summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%.`;
-        if (!hasVerifiedCalculations) {
-          summary += ` Certains aspects n'ont pas pu être confirmés.`;
-        }
-        break;
-      case 'contradicted':
-        summary = `Des contradictions ont été détectées dans l'information. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
-        break;
-      case 'inconclusive':
-        summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%. Je vous suggère de reformuler la question ou de consulter d'autres sources d'information.`;
-        break;
-      default:
-        summary = `Information non vérifiée. Niveau de confiance interne: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+    
+    switch (effectiveStatus) {
+        case 'verified':
+            summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
+            break;
+        case 'partially_verified':
+            if (hasVerifiedCalculations) {
+                summary = `Information partiellement vérifiée (${correctCalculationsPercentage}% des calculs sont corrects). Niveau de confiance global: ${percentage}%.`;
+            } else {
+                summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
+            }
+            break;
+        case 'contradicted':
+            summary = `Des contradictions ont été détectées. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
+            break;
+        case 'inconclusive':
+            summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%.`;
+            break;
+        default:
+            summary = `Information non vérifiée. Niveau de confiance: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
     }
 
     // Ajouter des détails sur les calculs si disponibles

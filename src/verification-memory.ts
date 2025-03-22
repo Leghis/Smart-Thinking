@@ -270,7 +270,7 @@ export class VerificationMemory {
   public async findVerification(
     text: string,
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    similarityThreshold: number = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY
+    similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY
   ): Promise<VerificationSearchResult | null> {
     console.error(`VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
     
@@ -399,28 +399,37 @@ export class VerificationMemory {
     // AMÉLIORÉ: Normaliser les textes pour une meilleure correspondance
     const normalizedText = this.normalizeText(text);
     
-    // AMÉLIORÉ: Recherche par inclusion de mots-clés
+    // AMÉLIORÉ: Recherche par inclusion de mots-clés significatifs
     const keywordsMatches = sessionEntries.map(entry => {
       const normalizedEntry = this.normalizeText(entry.text);
       
-      // Calculer le nombre de mots en commun
+      // Extraire les mots significatifs (plus de 3 caractères)
       const textWords = new Set(normalizedText.split(/\s+/).filter(w => w.length > 3));
       const entryWords = new Set(normalizedEntry.split(/\s+/).filter(w => w.length > 3));
       
-      let commonWords = 0;
-      for (const word of textWords) {
-        if (entryWords.has(word)) {
-          commonWords++;
+      // Compter les mots en commun et les mots uniques
+      const commonWords = Array.from(textWords).filter(word => entryWords.has(word)).length;
+      const totalUniqueWords = new Set([...textWords, ...entryWords]).size;
+      
+      // Calculer similitude Jaccard (intersection/union)
+      const similarity = totalUniqueWords > 0 ? commonWords / totalUniqueWords : 0;
+      
+      // NOUVEAU: Bonus pour séquences communes
+      let sequenceBonus = 0;
+      // Chercher des séquences de 3+ mots consécutifs identiques
+      const textChunks = normalizedText.split(/[.!?;]/).filter(s => s.trim().length > 0);
+      const entryChunks = normalizedEntry.split(/[.!?;]/).filter(s => s.trim().length > 0);
+      
+      for (const chunk of textChunks) {
+        if (entryChunks.some(ec => ec.includes(chunk) && chunk.split(/\s+/).length >= 3)) {
+          sequenceBonus = 0.2; // Bonus pour séquences communes significatives
+          break;
         }
       }
       
-      // Calculer un score de similarité basé sur les mots en commun
-      const totalUniqueWords = new Set([...textWords, ...entryWords]).size;
-      const similarity = totalUniqueWords > 0 ? commonWords / totalUniqueWords : 0;
-      
       return {
         entry,
-        similarity
+        similarity: Math.min(similarity + sequenceBonus, 0.95) // Plafond à 0.95
       };
     });
     
@@ -428,7 +437,7 @@ export class VerificationMemory {
     keywordsMatches.sort((a, b) => b.similarity - a.similarity);
     
     // AMÉLIORÉ: Seuil de similarité pour les correspondances textuelles
-    const textSimilarityThreshold = VerificationConfig.SIMILARITY.TEXT_MATCH;
+    const textSimilarityThreshold = VerificationConfig.SIMILARITY.TEXT_MATCH * 0.9; // Seuil légèrement réduit
     
     if (keywordsMatches.length > 0 && keywordsMatches[0].similarity >= textSimilarityThreshold) {
       const bestMatch = keywordsMatches[0].entry;
@@ -458,8 +467,9 @@ export class VerificationMemory {
   private normalizeText(text: string): string {
     return text
       .toLowerCase()
-      .replace(/[^\w\s]/g, ' ')  // Remplacer la ponctuation par des espaces
-      .replace(/\s+/g, ' ')      // Normaliser les espaces
+      .replace(/[^\w\s]|_/g, ' ')  // Remplacer ponctuation et underscore par espaces
+      .replace(/\s+/g, ' ')        // Normaliser les espaces
+      .replace(/\d+/g, 'NUM')      // Normaliser les nombres
       .trim();
   }
   

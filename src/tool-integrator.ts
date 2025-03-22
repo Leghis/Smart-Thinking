@@ -258,13 +258,20 @@ export class ToolIntegrator {
     
     // Calculer un score pour chaque outil
     const toolScores = relevantTools.map(tool => {
-      // Score basé sur la correspondance de mots-clés
+      // Score de correspondance des mots-clés avec pondération progressive
       const matchingKeywords = tool.keywords.filter(keyword => 
         contentWords.includes(keyword) || content.toLowerCase().includes(keyword)
       );
       
-      // Score de base - démarre plus bas qu'avant
-      let score = (matchingKeywords.length / Math.max(tool.keywords.length, 1)) * 0.6;
+      // Pondération progressive: les correspondances supplémentaires ont moins d'impact
+      let keywordScore = 0;
+      for (let i = 0; i < matchingKeywords.length; i++) {
+        keywordScore += 1 / (i + 1); // 1, 1/2, 1/3, etc.
+      }
+      keywordScore = Math.min(keywordScore / 2, 0.6); // Plafonner à 0.6
+      
+      // Score de base simplifié
+      let score = keywordScore;
       
       // Ajustements basés sur les besoins détectés
       if (needsWebSearch) {
@@ -368,18 +375,20 @@ export class ToolIntegrator {
       // Ajustement progressif en fonction de l'étape de raisonnement
       score *= stageFactor;
       
-      // Ajustement basé sur les suggestions précédentes (favoriser la diversité des outils)
+      // MODIFICATION: Facteur de diversité amélioré pour éviter les répétitions d'outils similaires
       const toolWasSuggestedBefore = previousSuggestions.some(s => s.name === tool.name);
       if (toolWasSuggestedBefore) {
-        // Réduire le score des outils déjà suggérés, sauf si le contenu actuel les mentionne spécifiquement
-        if (!content.toLowerCase().includes(tool.name.toLowerCase())) {
-          score *= 0.7; // Réduction de 30% pour encourager la diversité
+        const prevSuggestion = previousSuggestions.find(s => s.name === tool.name);
+        if (prevSuggestion && prevSuggestion.confidence > 0.7) {
+          // Réduire davantage si l'outil a déjà été suggéré avec grande confiance
+          score *= 0.5;
+        } else {
+          score *= 0.7;
         }
       }
       
-      // Conversion du score: fonction non linéaire pour accentuer les différences
-      // Un score bas reste bas, mais un score élevé devient plus élevé
-      const adjustedScore = score < 0.5 ? score * 0.8 : score + Math.pow(score - 0.5, 2);
+      // MODIFICATION: Transition plus douce des scores
+      const adjustedScore = score;
       
       return { tool, score: adjustedScore };
     });
