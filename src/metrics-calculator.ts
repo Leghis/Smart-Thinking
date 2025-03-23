@@ -61,8 +61,8 @@ export class MetricsCalculator {
 
   // Modalisateurs de certitude/incertitude pour l'analyse linguistique
   private uncertaintyModifiers: string[] = [
-    'peut-être', 'possible', 'probablement', 'incertain', 'semble',
-    'pourrait', 'hypothèse', 'suppose', 'doute', 'incertain',
+    'peut-être', 'possible', 'probablement', 'semble',
+    'pourrait', 'hypothèse', 'suppose', 'doute', 
     'éventuellement', 'potentiellement', 'apparemment', 'suggère'
   ];
 
@@ -105,11 +105,11 @@ export class MetricsCalculator {
     MEDIUM_RELIABILITY_THRESHOLD: 0.45,
     LOW_RELIABILITY_THRESHOLD: 0.25,
     // Vérification
-    VERIFIED_THRESHOLD: 0.75, // Optimisé: de 0.7 à 0.75 pour plus de rigueur
-    PARTIALLY_VERIFIED_THRESHOLD: 0.4, // Optimisé: de 0.3 à 0.4 pour mieux différencier
-    ABSENCE_THRESHOLD: 0.5,
-    UNCERTAIN_THRESHOLD: 0.5,
-    CONTRADICTION_THRESHOLD: 0.3,
+    VERIFIED_THRESHOLD: 0.8,
+    PARTIALLY_VERIFIED_THRESHOLD: 0.45,
+    ABSENCE_THRESHOLD: 0.65,        
+    UNCERTAIN_THRESHOLD: 0.5,      
+    CONTRADICTION_THRESHOLD: 0.3,  
     // Similarité
     HIGH_SIMILARITY: 0.85,
     // Erreur numérique
@@ -497,13 +497,15 @@ export class MetricsCalculator {
       previousScore?: number
   ): number {
     // Mapping des statuts de vérification vers un score
-    const verificationScoreMap: Record<string, number> = {
+    const verificationScoreMap: Record<VerificationStatus, number> = {
       'verified': 0.95,
-      'partially_verified': 0.7,
-      'contradictory': 0.2,
-      'uncertain': 0.35,
-      'absence_of_information': 0.6,
-      'unverified': 0.4
+      'partially_verified': 0.75,    // Augmenté de 0.7 à 0.75
+      'contradicted': 0.3,           // Augmenté de 0.25 à 0.3
+      'contradictory': 0.2,          
+      'uncertain': 0.4,              // Augmenté de 0.35 à 0.4
+      'absence_of_information': 0.65, // Augmenté de 0.6 à 0.65
+      'unverified': 0.45,            // Augmenté de 0.4 à 0.45
+      'inconclusive': 0.55           // Augmenté de 0.5 à 0.55
     };
 
     // Poids pour chaque métrique
@@ -876,6 +878,9 @@ export class MetricsCalculator {
       case 'unverified':
         summary = `Information non vérifiée. Niveau de confiance: ${percentage}%. Aucune source ne confirme ou n'infirme cette information.`;
         break;
+      case 'contradicted':
+        summary = `Information contredite. Niveau de confiance: ${percentage}%. Des sources fiables contredisent cette information.`;
+        break;
       case 'contradictory':
         summary = `Information contradictoire. Niveau de confiance: ${percentage}%. Des sources crédibles se contredisent sur ce sujet.`;
         break;
@@ -884,6 +889,9 @@ export class MetricsCalculator {
         break;
       case 'uncertain':
         summary = `Information incertaine. Niveau de confiance: ${percentage}%. Les sources disponibles ne permettent pas de conclure avec certitude.`;
+        break;
+      case 'inconclusive':
+        summary = `Résultat non concluant. Niveau de confiance: ${percentage}%. Les données sont insuffisantes ou ambiguës pour tirer une conclusion définitive.`;
         break;
       default:
         summary = `Niveau de confiance: ${percentage}%.`;

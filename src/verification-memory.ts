@@ -70,7 +70,7 @@ export class VerificationMemory {
     // NOUVEAU: Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
     setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION);
     
-    console.error('VerificationMemory: Système de mémoire de vérification initialisé');
+    console.log('VerificationMemory: Système de mémoire de vérification initialisé');
   }
   
   /**
@@ -80,7 +80,7 @@ export class VerificationMemory {
    */
   public setEmbeddingService(embeddingService: EmbeddingService): void {
     this.embeddingService = embeddingService;
-    console.error('VerificationMemory: Service d\'embedding configuré');
+    console.log('VerificationMemory: Service d\'embedding configuré');
   }
   
   /**
@@ -715,20 +715,23 @@ export class VerificationMemory {
     cacheSize: number;
     entriesByStatus: Record<VerificationStatus, number>;
   } {
-    const entriesByStatus: Record<VerificationStatus, number> = {
-      verified: 0,
-      partially_verified: 0,
-      unverified: 0,
-      contradicted: 0,
-      inconclusive: 0,
-      absence_of_information: 0,
-      uncertain: 0,
-      contradictory: 0
-    };
+    // Initialiser le compteur avec tous les statuts possibles
+    const entriesByStatus = {} as Record<VerificationStatus, number>;
+    
+    // Définir tous les types de statut possibles avec une valeur initiale de 0
+    const allStatuses: VerificationStatus[] = [
+      'verified', 'partially_verified', 'unverified', 'contradicted', 
+      'inconclusive', 'absence_of_information', 'uncertain', 'contradictory'
+    ];
+    
+    // Initialiser tous les compteurs à 0
+    allStatuses.forEach(status => {
+      entriesByStatus[status] = 0;
+    });
     
     // Compter les entrées par statut
     for (const entry of this.verifications.values()) {
-      entriesByStatus[entry.status] = (entriesByStatus[entry.status] || 0) + 1;
+      entriesByStatus[entry.status]++;
     }
     
     // Calculer la taille du cache
