@@ -1,8 +1,8 @@
 /**
  * math-evaluator.ts
  * 
- * Module amélioré pour la détection et l'évaluation robuste d'expressions mathématiques dans un texte.
- * Ajout du support pour les notations de fonctions mathématiques et les expressions d'équations séquentielles.
+ * Module optimisé pour la détection et l'évaluation performante d'expressions mathématiques dans un texte.
+ * Utilise l'algorithme Shunting-Yard, une mise en cache des résultats, et des tables de lookup pour les opérateurs.
  */
 
 import { CalculationVerificationResult } from '../types';
@@ -21,12 +21,18 @@ export interface MathEvaluationResult {
 }
 
 /**
- * Classe utilitaire pour la détection et l'évaluation d'expressions mathématiques
+ * Classe utilitaire optimisée pour la détection et l'évaluation d'expressions mathématiques
  */
 export class MathEvaluator {
+  /**
+   * Cache pour les expressions évaluées
+   * @private
+   */
+  private static readonly expressionCache = new Map<string, number>();
   
   /**
-   * Types d'expressions mathématiques supportées
+   * Types d'expressions mathématiques supportées (précompilées)
+   * @private
    */
   private static readonly EXPRESSION_TYPES = {
     // Expressions arithmétiques standard (ex: 2 + 3 = 5)
@@ -41,30 +47,74 @@ export class MathEvaluator {
     // Fonctions mathématiques (ex: racine carrée de 9 = 3, ou 2 au carré = 4)
     FUNCTIONS: /(?:(?:racine\s+carrée\s+(?:de)?\s*(\d+(?:\.\d+)?))|(?:(?:\d+(?:\.\d+)?)\s+au\s+(?:carré|cube)))\s*(?:=|égale?|est égal à|vaut|font|donne)\s*(\d+(?:\.\d+)?)/i,
     
-    // NOUVEAU: Expressions séquentielles avec plusieurs étapes (ex: 2³ - 2×2 - 5 = 8 - 4 - 5 = -1)
+    // Expressions séquentielles avec plusieurs étapes (ex: 2³ - 2×2 - 5 = 8 - 4 - 5 = -1)
     SEQUENTIAL: /(?:\d+(?:\.\d+)?(?:[\³\²\¹])?(?:\s*[\+\-\*×\/\^]\s*\d+(?:\.\d+)?(?:[\³\²\¹])?)+)\s*=\s*(?:\d+(?:\.\d+)?(?:\s*[\+\-\*×\/\^]\s*\d+(?:\.\d+)?)*)\s*(?:=\s*(?:\d+(?:\.\d+)?))+/i
   };
 
   /**
-   * Expression régulière pour détecter les notations de fonctions
-   * NOUVEAU: Détecte les patterns comme f(x₀) = f(2) = ...
+   * Expression régulière pour détecter les notations de fonctions (précompilée)
+   * @private
    */
   private static readonly FUNCTION_NOTATION_REGEX = /[a-zA-Z]['\(\)\d₀₁₂₃₄₅₆₇₈₉]*\s*=\s*[a-zA-Z]['\(\)\d\.]+\s*=\s*[^=]+\s*=\s*[\d\.\-+]+/i;
 
   /**
-   * Expression régulière pour extraire les revendications de résultat
+   * Expression régulière pour extraire les revendications de résultat (précompilée)
+   * @private
    */
   private static readonly CLAIMED_RESULT_REGEX = /(?:=|égale?|est égal à|vaut|font|donne)\s*([\-\+]?\d+(?:\.\d+)?)/i;
 
   /**
    * Seuil de tolérance relatif pour comparer les nombres
+   * @private
    */
   private static readonly RELATIVE_EPSILON = 1e-10;
   
   /**
    * Seuil de tolérance absolu minimal pour les petits nombres
+   * @private
    */
   private static readonly ABSOLUTE_EPSILON = 1e-12;
+  
+  /**
+   * Table de lookup pour la précédence des opérateurs dans l'algorithme Shunting-Yard
+   * @private
+   */
+  private static readonly OPERATOR_PRECEDENCE: Record<string, number> = {
+    '+': 1,
+    '-': 1,
+    '*': 2,
+    '/': 2,
+    '^': 3
+  };
+  
+  /**
+   * Table de lookup pour l'associativité des opérateurs dans l'algorithme Shunting-Yard
+   * @private
+   */
+  private static readonly OPERATOR_ASSOCIATIVITY: Record<string, string> = {
+    '+': 'left',
+    '-': 'left',
+    '*': 'left',
+    '/': 'left',
+    '^': 'right'
+  };
+  
+  /**
+   * Table de lookup pour les fonctions d'opération dans l'algorithme Shunting-Yard
+   * @private
+   */
+  private static readonly OPERATOR_FUNCTIONS: Record<string, (a: number, b: number) => number> = {
+    '+': (a, b) => a + b,
+    '-': (a, b) => a - b,
+    '*': (a, b) => a * b,
+    '/': (a, b) => {
+      if (Math.abs(b) < MathEvaluator.ABSOLUTE_EPSILON) {
+        throw new Error("Division par zéro");
+      }
+      return a / b;
+    },
+    '^': (a, b) => Math.pow(a, b)
+  };
 
   /**
    * Détecte et évalue toutes les expressions mathématiques dans un texte
@@ -75,12 +125,9 @@ export class MathEvaluator {
   public static detectAndEvaluate(text: string): MathEvaluationResult[] {
     const results: MathEvaluationResult[] = [];
     
-    // NOUVEAU: Filtrer les notations de fonctions mathématiques
-    // pour éviter les faux positifs dans l'évaluation
+    // Filtrer les notations de fonctions mathématiques
     const functionNotations = this.detectFunctionNotations(text);
     for (const notation of functionNotations) {
-      // Ces notations ne sont pas des calculs à vérifier, les ignorer
-      // mais les ajouter au résultat pour la documentation
       results.push({
         original: notation,
         expressionText: "Notation de fonction",
@@ -95,7 +142,6 @@ export class MathEvaluator {
     // Exclure les parties détectées comme notations de fonctions
     let analysisText = text;
     for (const notation of functionNotations) {
-      // Remplacer la notation par des espaces pour préserver la structure du texte
       analysisText = analysisText.replace(notation, ' '.repeat(notation.length));
     }
     
@@ -105,18 +151,19 @@ export class MathEvaluator {
     this.detectExpressionsOfType(analysisText, 'TEXTUAL', results);
     this.detectExpressionsOfType(analysisText, 'FUNCTIONS', results);
     
-    // NOUVEAU: Détecter et évaluer les expressions séquentielles
+    // Détecter et évaluer les expressions séquentielles
     this.detectSequentialExpressions(analysisText, results);
     
     return results;
   }
   
   /**
-   * NOUVEAU: Détecte les notations de fonctions mathématiques
+   * Détecte les notations de fonctions mathématiques
    * qui ne doivent pas être évaluées comme des calculs
    * 
    * @param text Texte à analyser
    * @returns Tableau des notations de fonctions trouvées
+   * @private
    */
   private static detectFunctionNotations(text: string): string[] {
     const notations: string[] = [];
@@ -133,11 +180,12 @@ export class MathEvaluator {
   }
   
   /**
-   * NOUVEAU: Détecte et évalue les expressions séquentielles
+   * Détecte et évalue les expressions séquentielles
    * (expressions avec plusieurs égalités en chaîne)
    * 
    * @param text Texte à analyser
    * @param results Tableau des résultats à compléter
+   * @private
    */
   private static detectSequentialExpressions(text: string, results: MathEvaluationResult[]): void {
     // Regex pour trouver des expressions comme "2³ - 2×2 - 5 = 8 - 4 - 5 = -1"
@@ -162,7 +210,6 @@ export class MathEvaluator {
         const firstExpression = this.convertSequentialExpression(parts[0]);
         const firstResult = this.safeEvaluate(firstExpression);
         
-        // Transformer les expressions cubiques et carrées
         let isCorrect = true;
         let failedStep = "";
         
@@ -205,10 +252,11 @@ export class MathEvaluator {
   }
   
   /**
-   * NOUVEAU: Convertit une expression séquentielle en expression évaluable
+   * Convertit une expression séquentielle en expression évaluable
    * 
    * @param expr Expression à convertir
    * @returns Expression prête pour l'évaluation
+   * @private
    */
   private static convertSequentialExpression(expr: string): string {
     // Remplacer les puissances Unicode
@@ -227,16 +275,17 @@ export class MathEvaluator {
    * @param text Texte à analyser
    * @param type Type d'expression à rechercher
    * @param results Tableau des résultats à compléter
+   * @private
    */
   private static detectExpressionsOfType(text: string, type: keyof typeof MathEvaluator.EXPRESSION_TYPES, results: MathEvaluationResult[]): void {
     const regex = this.EXPRESSION_TYPES[type];
-    let match;
     
     // Utiliser exec de manière répétée pour trouver toutes les occurrences
     const matches: RegExpExecArray[] = [];
     const textCopy = text.slice();
     const regexWithGlobal = new RegExp(regex.source, regex.flags + (regex.flags.includes('g') ? '' : 'g'));
 
+    let match;
     while ((match = regexWithGlobal.exec(textCopy)) !== null) {
       matches.push(match);
       
@@ -249,7 +298,7 @@ export class MathEvaluator {
       try {
         const fullMatch = match[0];
         
-        // NOUVEAU: Vérifier si cette expression est une notation de fonction
+        // Vérifier si cette expression est une notation de fonction
         if (this.isFunctionNotation(fullMatch)) {
           continue; // Ignorer les notations de fonctions
         }
@@ -284,7 +333,7 @@ export class MathEvaluator {
         
         if (!expressionToEvaluate) continue;
         
-        // Évaluer l'expression de manière sécurisée
+        // Évaluer l'expression de manière sécurisée avec l'algorithme Shunting-Yard optimisé
         const actualResult = this.safeEvaluate(expressionToEvaluate);
         
         // Vérifier si le résultat correspond à celui revendiqué
@@ -318,10 +367,11 @@ export class MathEvaluator {
   }
   
   /**
-   * NOUVEAU: Vérifie si une expression est une notation de fonction mathématique
+   * Vérifie si une expression est une notation de fonction mathématique
    * 
    * @param expr Expression à vérifier
    * @returns Vrai si c'est une notation de fonction
+   * @private
    */
   private static isFunctionNotation(expr: string): boolean {
     // Vérifier les motifs comme "f(x)" ou "f'(x)"
@@ -335,6 +385,7 @@ export class MathEvaluator {
    * @param a Premier nombre
    * @param b Deuxième nombre
    * @returns Vrai si les nombres sont considérés égaux
+   * @private
    */
   private static areNumbersEqual(a: number, b: number): boolean {
     const diff = Math.abs(a - b);
@@ -349,7 +400,7 @@ export class MathEvaluator {
   
   /**
    * Convertit les résultats d'évaluation au format CalculationVerificationResult
-   * utilisé par le système de vérification, avec amélioration des messages
+   * utilisé par le système de vérification
    * 
    * @param evaluationResults Résultats d'évaluation à convertir
    * @returns Liste des résultats de vérification de calculs
@@ -358,7 +409,7 @@ export class MathEvaluator {
     evaluationResults: MathEvaluationResult[]
   ): CalculationVerificationResult[] {
     return evaluationResults.map(result => {
-      // NOUVEAU: Traitement spécial pour les notations de fonctions
+      // Traitement spécial pour les notations de fonctions
       if (result.context === "notation_fonction") {
         return {
           original: result.original,
@@ -368,7 +419,7 @@ export class MathEvaluator {
         };
       }
       
-      // NOUVEAU: Message amélioré pour les erreurs d'étapes dans les expressions séquentielles
+      // Message amélioré pour les erreurs d'étapes dans les expressions séquentielles
       if (result.context && result.context.startsWith("Étape")) {
         return {
           original: result.original,
@@ -389,8 +440,13 @@ export class MathEvaluator {
     });
   }
   
-  // Les méthodes suivantes restent globalement inchangées
-  
+  /**
+   * Extrait l'expression standard à partir d'une expression complète
+   * 
+   * @param expr Expression complète
+   * @returns Expression standard
+   * @private
+   */
   private static extractStandardExpression(expr: string): string {
     const parts = expr.split(/(?:=|égale?|est égal à|vaut|font|donne)/i);
     if (parts.length < 1) return '';
@@ -398,6 +454,13 @@ export class MathEvaluator {
     return this.sanitizeExpression(parts[0]);
   }
   
+  /**
+   * Extrait l'expression avec parenthèses à partir d'une expression complète
+   * 
+   * @param expr Expression complète
+   * @returns Expression avec parenthèses
+   * @private
+   */
   private static extractParenthesesExpression(expr: string): string {
     const parts = expr.split(/(?:=|égale?|est égal à|vaut|font|donne)/i);
     if (parts.length < 1) return '';
@@ -405,6 +468,13 @@ export class MathEvaluator {
     return this.sanitizeExpression(parts[0]);
   }
   
+  /**
+   * Extrait l'expression de fonction à partir d'une expression complète
+   * 
+   * @param expr Expression complète
+   * @returns Expression de fonction
+   * @private
+   */
   private static extractFunctionExpression(expr: string): string {
     const sqrtMatch = expr.match(/racine\s+carrée\s+(?:de)?\s*(\d+(?:\.\d+)?)/i);
     if (sqrtMatch) {
@@ -424,12 +494,26 @@ export class MathEvaluator {
     return '';
   }
   
+  /**
+   * Nettoie une expression mathématique pour l'évaluation
+   * 
+   * @param expr Expression à nettoyer
+   * @returns Expression nettoyée
+   * @private
+   */
   private static sanitizeExpression(expr: string): string {
     return expr.replace(/[^\d\s().+\-*/^]/g, '')
               .trim()
               .replace(/\^/g, '**');
   }
   
+  /**
+   * Convertit une expression textuelle en expression mathématique
+   * 
+   * @param textExpr Expression textuelle
+   * @returns Expression mathématique
+   * @private
+   */
   private static convertTextToMathExpression(textExpr: string): string {
     const parts = textExpr.split(/(?:=|égale?|est égal à|vaut|font|donne)/i);
     if (parts.length < 1) return '';
@@ -444,18 +528,47 @@ export class MathEvaluator {
       .replace(/\s+au\s+cube/gi, ' ** 3 ');
   }
   
+  /**
+   * Évalue une expression de manière sécurisée
+   * Utilise la mise en cache et l'algorithme Shunting-Yard pour les expressions normales
+   * 
+   * @param expr Expression à évaluer
+   * @returns Résultat de l'évaluation
+   * @private
+   */
   private static safeEvaluate(expr: string): number {
     if (expr.includes('Math.')) {
       return this.evaluateMathExpression(expr);
     }
     
+    // Normaliser l'expression pour le cache
+    const cleanExpr = expr.replace(/\s+/g, '').replace(/\*\*/g, '^');
+    
+    // Vérifier si l'expression est dans le cache
+    if (this.expressionCache.has(cleanExpr)) {
+      return this.expressionCache.get(cleanExpr)!;
+    }
+    
     try {
-      return this.parseMathExpression(expr);
+      // Évaluer avec l'algorithme Shunting-Yard
+      const result = this.evaluateWithShuntingYard(cleanExpr);
+      
+      // Mettre en cache le résultat
+      this.expressionCache.set(cleanExpr, result);
+      
+      return result;
     } catch (error) {
       throw new Error(`Impossible d'évaluer l'expression: ${expr}`);
     }
   }
   
+  /**
+   * Évalue une expression Math.* de manière sécurisée
+   * 
+   * @param expr Expression Math.* à évaluer
+   * @returns Résultat de l'évaluation
+   * @private
+   */
   private static evaluateMathExpression(expr: string): number {
     if (!/^Math\.(sqrt|pow|abs|round|floor|ceil|max|min|sin|cos|tan)\([\d\s,\.]+\)$/.test(expr)) {
       throw new Error("Expression Math non autorisée");
@@ -471,97 +584,122 @@ export class MathEvaluator {
     return result;
   }
   
-  private static parseMathExpression(expr: string): number {
+  /**
+   * Implémentation de l'algorithme Shunting-Yard pour l'évaluation d'expressions
+   * 
+   * @param expr Expression à évaluer
+   * @returns Résultat de l'évaluation
+   * @private
+   */
+  private static evaluateWithShuntingYard(expr: string): number {
+    // Vérifier que l'expression ne contient que des caractères autorisés
     if (!/^[\d\s().+\-*/^]+$/.test(expr)) {
       throw new Error("Expression contient des caractères non autorisés");
     }
     
-    expr = expr.replace(/\s+/g, '').replace(/\*\*/g, '^');
-    
-    return this.parseExpression(expr);
-  }
-  
-  private static parseExpression(expr: string): number {
-    const addSubTerms = expr.split(/(?<!\d[eE])([+\-])/).filter(term => term.trim() !== '');
-    
-    if (addSubTerms.length > 1) {
-      let result = this.parseTerm(addSubTerms[0]);
-      
-      for (let i = 1; i < addSubTerms.length; i += 2) {
-        const operator = addSubTerms[i];
-        const term = addSubTerms[i + 1];
-        
-        if (operator === '+') {
-          result += this.parseTerm(term);
-        } else if (operator === '-') {
-          result -= this.parseTerm(term);
-        }
-      }
-      
-      return result;
+    // Structure pour représenter un token dans l'expression
+    interface Token {
+      type: 'number' | 'operator' | 'left_paren' | 'right_paren';
+      value: number | string;
     }
     
-    return this.parseTerm(expr);
-  }
-  
-  private static parseTerm(term: string): number {
-    const mulDivFactors = term.split(/([*/])/).filter(factor => factor.trim() !== '');
+    // Tokenizer pour l'expression
+    const tokens: Token[] = [];
+    let i = 0;
     
-    if (mulDivFactors.length > 1) {
-      let result = this.parseFactor(mulDivFactors[0]);
-      
-      for (let i = 1; i < mulDivFactors.length; i += 2) {
-        const operator = mulDivFactors[i];
-        const factor = mulDivFactors[i + 1];
+    while (i < expr.length) {
+      if (/[0-9.]/.test(expr[i])) {
+        // Extraire un nombre
+        let number = '';
+        while (i < expr.length && /[0-9.]/.test(expr[i])) {
+          number += expr[i++];
+        }
+        tokens.push({ type: 'number', value: parseFloat(number) });
+      } else if (/[+\-*/^]/.test(expr[i])) {
+        // Opérateur
+        tokens.push({ type: 'operator', value: expr[i++] });
+      } else if (expr[i] === '(') {
+        tokens.push({ type: 'left_paren', value: expr[i++] });
+      } else if (expr[i] === ')') {
+        tokens.push({ type: 'right_paren', value: expr[i++] });
+      } else {
+        // Ignorer les espaces et autres caractères non reconnus
+        i++;
+      }
+    }
+    
+    // Piles pour l'algorithme Shunting-Yard
+    const outputQueue: (number | ((a: number, b: number) => number))[] = [];
+    const operatorStack: string[] = [];
+    
+    // Algorithme Shunting-Yard pour convertir en notation polonaise inversée (RPN)
+    for (const token of tokens) {
+      if (token.type === 'number') {
+        outputQueue.push(token.value as number);
+      } else if (token.type === 'operator') {
+        const o1 = token.value as string;
         
-        if (operator === '*') {
-          result *= this.parseFactor(factor);
-        } else if (operator === '/') {
-          const divisor = this.parseFactor(factor);
-          if (Math.abs(divisor) < this.ABSOLUTE_EPSILON) {
-            throw new Error("Division par zéro");
+        while (operatorStack.length > 0) {
+          const o2 = operatorStack[operatorStack.length - 1];
+          
+          if (o2 === '(' || o2 === ')') break;
+          
+          if ((this.OPERATOR_ASSOCIATIVITY[o1] === 'left' && this.OPERATOR_PRECEDENCE[o1] <= this.OPERATOR_PRECEDENCE[o2]) ||
+              (this.OPERATOR_ASSOCIATIVITY[o1] === 'right' && this.OPERATOR_PRECEDENCE[o1] < this.OPERATOR_PRECEDENCE[o2])) {
+            outputQueue.push(this.OPERATOR_FUNCTIONS[operatorStack.pop()!]);
+          } else {
+            break;
           }
-          result /= divisor;
+        }
+        
+        operatorStack.push(o1);
+      } else if (token.type === 'left_paren') {
+        operatorStack.push(token.value as string);
+      } else if (token.type === 'right_paren') {
+        while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] !== '(') {
+          outputQueue.push(this.OPERATOR_FUNCTIONS[operatorStack.pop()!]);
+        }
+        
+        if (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] === '(') {
+          operatorStack.pop(); // Retirer la parenthèse gauche
+        } else {
+          throw new Error("Parenthèses déséquilibrées");
         }
       }
-      
-      return result;
     }
     
-    return this.parseFactor(term);
-  }
-  
-  private static parseFactor(factor: string): number {
-    if (factor.startsWith('(') && factor.endsWith(')')) {
-      return this.parseExpression(factor.substring(1, factor.length - 1));
-    }
-    
-    const powerParts = factor.split('^');
-    
-    if (powerParts.length > 1) {
-      let result = this.parseNumber(powerParts[0]);
-      
-      for (let i = 1; i < powerParts.length; i++) {
-        result = Math.pow(result, this.parseNumber(powerParts[i]));
+    while (operatorStack.length > 0) {
+      const op = operatorStack.pop()!;
+      if (op === '(' || op === ')') {
+        throw new Error("Parenthèses déséquilibrées");
       }
-      
-      return result;
+      outputQueue.push(this.OPERATOR_FUNCTIONS[op]);
     }
     
-    return this.parseNumber(factor);
-  }
-  
-  private static parseNumber(num: string): number {
-    if (num.startsWith('-')) {
-      return -this.parseNumber(num.substring(1));
+    // Évaluer l'expression en notation polonaise inversée (RPN)
+    const evaluationStack: number[] = [];
+    
+    for (const token of outputQueue) {
+      if (typeof token === 'number') {
+        evaluationStack.push(token);
+      } else if (typeof token === 'function') {
+        if (evaluationStack.length < 2) {
+          throw new Error("Expression invalide: pas assez d'opérandes");
+        }
+        const b = evaluationStack.pop()!;
+        const a = evaluationStack.pop()!;
+        try {
+          evaluationStack.push(token(a, b));
+        } catch (error) {
+          throw new Error(`Erreur lors de l'évaluation: ${error}`);
+        }
+      }
     }
     
-    const parsed = parseFloat(num);
-    
-    if (isNaN(parsed)) {
-      throw new Error(`Format de nombre invalide: ${num}`);
+    if (evaluationStack.length !== 1) {
+      throw new Error("Expression invalide: trop d'opérandes");
     }
     
-    return parsed;
+    return evaluationStack[0];
   }
 }
