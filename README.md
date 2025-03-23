@@ -30,19 +30,6 @@ Smart-Thinking est un serveur MCP (Model Context Protocol) sophistiqué qui four
 - Collaboration multi-agents pour le travail d'équipe
 - Intégration transparente avec l'écosystème d'outils MCP
 
-## Installation
-
-```bash
-# Installation depuis npm
-npm install -g smart-thinking-mcp
-
-# Ou via GitHub
-git clone https://github.com/Leghis/Smart-Thinking.git
-cd Smart-Thinking
-npm install
-npm run build
-```
-
 ## Configuration avec Claude Desktop
 
 Ajoutez cette configuration à votre fichier `claude_desktop_config.json` :
@@ -138,29 +125,6 @@ Les visualisations peuvent être filtrées selon :
 - Seuils de métriques
 - Recherche textuelle
 - Plages de dates
-
-## Architecture technique
-
-```
-smart-thinking-mcp/
-├── src/
-│   ├── index.ts              # Point d'entrée du serveur MCP
-│   ├── thought-graph.ts      # Implémentation du graphe de pensée
-│   ├── verification-memory.ts # Gestion de la mémoire de vérification
-│   ├── metrics-calculator.ts  # Calcul des métriques et scores
-│   ├── memory-manager.ts     # Gestionnaire de mémoire persistante
-│   ├── tool-integrator.ts    # Intégration avec d'autres outils MCP
-│   ├── quality-evaluator.ts  # Évaluation de la qualité des pensées
-│   ├── visualizer.ts         # Générateur de visualisations
-│   ├── embedding-service.ts  # Service d'embeddings vectoriels
-│   ├── types.ts              # Définitions des types TypeScript
-│   └── services/             # Services modulaires
-├── data/                     # Répertoire de stockage des données
-│   ├── memories/             # Mémoires persistantes
-│   └── knowledge.json        # Base de connaissances
-├── package.json
-└── tsconfig.json
-```
 
 ## Persistance des données
 
