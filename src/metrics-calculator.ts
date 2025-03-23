@@ -1,3 +1,12 @@
+import { 
+  ThoughtNode, 
+  ThoughtMetrics, 
+  Connection, 
+  ConnectionType, 
+  VerificationStatus,
+  CalculationVerificationResult 
+} from './types';
+
 /**
  * metrics-calculator.ts
  *
@@ -5,8 +14,6 @@
  * Implémente des algorithmes avancés pour calculer la confiance, la pertinence,
  * la qualité et autres métriques utilisées par le système.
  */
-
-import { ThoughtNode, ThoughtMetrics, Connection, ConnectionType, VerificationStatus, CalculationVerificationResult } from './types';
 
 /**
  * Classe qui centralise tous les calculs de métriques dans Smart-Thinking.
@@ -76,27 +83,40 @@ export class MetricsCalculator {
   ];
 
   // Constantes centralisées pour les seuils utilisés dans les calculs
-  private readonly THRESHOLDS = {
+  private THRESHOLDS = {
     // Confiance
     MIN_CONFIDENCE: 0.1,
     MAX_CONFIDENCE: 0.95,
     // Pertinence
-    MIN_RELEVANCE: 0.2,
+    MIN_RELEVANCE: 0.1,
     MAX_RELEVANCE: 0.95,
     // Qualité
-    MIN_QUALITY: 0.3,
+    MIN_QUALITY: 0.1,
     MAX_QUALITY: 0.95,
     // Fiabilité
     MIN_RELIABILITY: 0.1,
     MAX_RELIABILITY: 0.95,
+    // Confiance
+    HIGH_CONFIDENCE_THRESHOLD: 0.80,
+    MEDIUM_CONFIDENCE_THRESHOLD: 0.50,
+    LOW_CONFIDENCE_THRESHOLD: 0.30,
+    // Fiabilité
+    HIGH_RELIABILITY_THRESHOLD: 0.75,
+    MEDIUM_RELIABILITY_THRESHOLD: 0.45,
+    LOW_RELIABILITY_THRESHOLD: 0.25,
+    // Vérification
+    VERIFIED_THRESHOLD: 0.75, // Optimisé: de 0.7 à 0.75 pour plus de rigueur
+    PARTIALLY_VERIFIED_THRESHOLD: 0.4, // Optimisé: de 0.3 à 0.4 pour mieux différencier
+    ABSENCE_THRESHOLD: 0.5,
+    UNCERTAIN_THRESHOLD: 0.5,
+    CONTRADICTION_THRESHOLD: 0.3,
     // Similarité
     HIGH_SIMILARITY: 0.85,
-    // Vérification
-    VERIFIED_THRESHOLD: 0.7,
-    PARTIALLY_VERIFIED_THRESHOLD: 0.4,
-    CONTRADICTION_THRESHOLD: 0.3,
     // Erreur numérique
-    WEIGHT_TOLERANCE: 0.001
+    WEIGHT_TOLERANCE: 0.001,
+    // Nouveaux seuils pour les calculs mathématiques
+    MATH_HIGH_CONFIDENCE: 0.8, 
+    MATH_MEDIUM_CONFIDENCE: 0.65
   };
 
   // Paramètres configurables pour ajuster les calculs
@@ -226,7 +246,7 @@ export class MetricsCalculator {
     if (positiveCount === 0 && negativeCount === 0) {
       sentimentBalance = 0.5; // Neutre par défaut
     } else {
-      const total = positiveCount + negativeCount;
+      const total = Math.max(positiveCount + negativeCount, 1);
       const ratio = positiveCount / total;
       // Utiliser une courbe en cloche qui favorise l'équilibre (max à 0.5)
       sentimentBalance = 0.5 + 0.4 * (1 - 2 * Math.abs(ratio - 0.5));
@@ -272,7 +292,7 @@ export class MetricsCalculator {
 
     // 1. Chevauchement de mots-clés avec TF-IDF
     const thoughtKeywords = this.extractKeywords(thought.content);
-    const contextKeywords = this.extractAndWeightContextKeywords(connectedThoughts);
+    const contextKeywords = this.extractAndWeightContextKeywords(connectedThoughts.map(t => t.content).join(' '));
 
     // Calculer la pertinence par chevauchement pondéré
     let keywordScore = 0;
@@ -318,7 +338,10 @@ export class MetricsCalculator {
         thought.type === 'revision' ? 1.1 : 1.0;
 
     // Limiter entre 0.2 et 0.95
-    return Math.min(Math.max(relevanceScore * typeAdjustment, 0.2), 0.95);
+    return Math.max(
+      this.THRESHOLDS.MIN_RELEVANCE,
+      Math.min(this.THRESHOLDS.MAX_RELEVANCE, relevanceScore * typeAdjustment)
+    );
   }
 
   /**
@@ -458,7 +481,7 @@ export class MetricsCalculator {
   }
 
   /**
-   * Calcule un score global de fiabilité basé sur les différentes métriques et vérifications
+   * Calcule un score global de fiabilité basé sur différentes métriques et vérifications
    * avec une normalisation automatique des poids
    *
    * @param metrics Les métriques de base
@@ -468,135 +491,337 @@ export class MetricsCalculator {
    * @returns Score de fiabilité entre 0 et 1
    */
   calculateReliabilityScore(
-      metrics: any, // MODIFICATION: Utiliser 'any' pour éviter l'erreur de lint
+      metrics: ThoughtMetrics, 
       verificationStatus: VerificationStatus,
       calculationResults?: CalculationVerificationResult[],
       previousScore?: number
   ): number {
-    // CORRECTION: Mise à jour des poids pour chaque statut de vérification
+    // Mapping des statuts de vérification vers un score
     const verificationScoreMap: Record<string, number> = {
       'verified': 0.95,
       'partially_verified': 0.7,
       'contradictory': 0.2,
       'uncertain': 0.35,
-      'absence_of_information': 0.45,
-      'unverified': 0.35  // Augmenté légèrement pour refléter que non vérifié ne signifie pas nécessairement faux
+      'absence_of_information': 0.6,
+      'unverified': 0.4
     };
 
     // Poids pour chaque métrique
-    const metricWeights = {
-      confidence: 0.5,
-      quality: 0.3,     // Remplacé 'coherence' par 'quality' qui existe dans ThoughtMetrics
-      relevance: 0.2,
-      verification: 0.3  // Ajusté pour tenir compte des poids des autres métriques
+    let weights = {
+      confidence: 0.35,
+      relevance: 0.15,
+      quality: 0.15,
+      verification: 0.35
     };
 
-    // Valeur de base de vérification
-    const baseVerificationScore = verificationStatus in verificationScoreMap 
-      ? verificationScoreMap[verificationStatus] 
-      : 0.35; // Valeur par défaut pour les statuts inconnus
-    
-    // CORRECTION: Ajustement pour les pensées avec forte confiance interne mais non vérifiées
-    // Échelle mobile basée sur la confiance interne
-    let verificationScore = baseVerificationScore;
-    const confidenceMetric = metrics.confidence || 0.5;
-    
-    // Ajustement pour les pensées à haute confiance qui sont unverified
-    // Plus la confiance est élevée, plus on augmente proportionnellement le score
-    if (verificationStatus === 'unverified' && confidenceMetric > 0.5) {
-      const confidenceBonus = (confidenceMetric - 0.5) * 0.3; // Bonus progressif, max +0.15
-      verificationScore = Math.min(0.5, verificationScore + confidenceBonus);
-    }
-    
-    // Cas particulier d'absence d'information: poids ajusté en fonction de la confiance
-    if (verificationStatus === 'absence_of_information') {
-      // Si on est vraiment sûr de l'absence d'information, c'est une information valide
-      verificationScore = Math.min(0.45 + (confidenceMetric * 0.1), 0.6);
+    // Adapter les poids si nous avons des calculs vérifiés
+    if (calculationResults && calculationResults.length > 0) {
+      // Si nous avons des calculs, augmenter le poids de la vérification
+      weights = {
+        confidence: 0.25,
+        relevance: 0.10,
+        quality: 0.10,
+        verification: 0.55  // Plus de poids pour la vérification des calculs
+      };
     }
 
-    // Calculer le score de fiabilité en tenant compte des métriques et du statut de vérification
-    const reliabilityScore = 
-      (metrics.confidence || 0.5) * metricWeights.confidence +
-      (metrics.quality || 0.5) * metricWeights.quality +           // Utilise 'quality' au lieu de 'coherence'
-      (metrics.relevance || 0.5) * metricWeights.relevance +
-      verificationScore * metricWeights.verification;
-
-    // Normaliser le score pour tenir compte de la somme des poids (1.3 au lieu de 1.0)
-    return reliabilityScore / 1.3;
+    // Calcul du score brut pondéré
+    let rawScore = 
+      weights.confidence * metrics.confidence +
+      weights.relevance * metrics.relevance +
+      weights.quality * metrics.quality;
+    
+    // Ajout du score de vérification
+    const verificationScore = verificationScoreMap[verificationStatus] || 0.35;
+    rawScore += weights.verification * verificationScore;
+    
+    // Bonus pour les calculs corrects
+    if (calculationResults && calculationResults.length > 0) {
+      const correctCalculations = calculationResults.filter(result => result.isCorrect).length;
+      const correctRatio = correctCalculations / calculationResults.length;
+      
+      // Bonus pour les calculs corrects (jusqu'à +10%)
+      rawScore += correctRatio * 0.1;
+    }
+    
+    // Ajustement selon le statut spécifique (bonus/malus)
+    if (verificationStatus === 'verified' && metrics.confidence > this.THRESHOLDS.HIGH_CONFIDENCE_THRESHOLD) {
+      // Bonus pour information vérifiée avec haute confiance
+      rawScore *= 1.1;
+    } else if (verificationStatus === 'absence_of_information') {
+      // Absence d'info n'est pas nécessairement négatif, mais limite la fiabilité max
+      rawScore = Math.min(rawScore, 0.75);
+    }
+    
+    // Lissage temporel si score précédent disponible (évite les oscillations trop rapides)
+    if (previousScore !== undefined) {
+      rawScore = 0.7 * rawScore + 0.3 * previousScore;
+    }
+    
+    // Normalisation finale
+    return Math.max(
+      this.THRESHOLDS.MIN_RELIABILITY,
+      Math.min(this.THRESHOLDS.MAX_RELIABILITY, rawScore)
+    );
   }
 
   /**
-   * Détermine le statut de vérification global à partir de multiples sources
-   * avec une logique de décision plus robuste et cohérente
-   *
-   * @param results Résultats de vérification
-   * @returns Statut de vérification global
+   * Calcule un score de pertinence basé sur la correspondance avec le contexte
+   * 
+   * @param thought La pensée à évaluer
+   * @param context Le contexte actuel
+   * @returns Score de pertinence (0-1)
    */
-  determineVerificationStatus(results: any[]): VerificationStatus {
-    if (results.length === 0) {
-      return 'unverified';
-    }
-
-    // Accumulateurs pondérés pour les différents statuts
-    const statusWeights: Record<string, number> = {
-      verified: 0,
-      contradicted: 0,
-      inconclusive: 0,
-      unverified: 0, // Ajout du statut 'unverified' pour une évaluation complète
-      absence_of_information: 0, // Nouvel accumulateur pour l'absence d'information
-      uncertain: 0 // Nouvel accumulateur pour l'incertitude
-    };
-
-    // Analyse pondérée des résultats
-    let totalWeight = 0;
-    for (const result of results) {
-      const confidence = result.confidence || 0.5;
-      totalWeight += confidence;
-
-      // Déterminer le statut de ce résultat particulier
-      if (result.result.isValid === true) {
-        statusWeights.verified += confidence;
-      } else if (result.result.isValid === false) {
-        statusWeights.contradicted += confidence;
-      } else if (result.result.isValid === null || result.result.isValid === undefined) {
-        statusWeights.inconclusive += confidence;
-      } else if (result.result.isValid === 'absence_of_information') {
-        // Gestion spécifique pour l'absence d'information
-        statusWeights.absence_of_information += confidence;
-      } else if (result.result.isValid === 'uncertain') {
-        // Gestion spécifique pour l'incertitude
-        statusWeights.uncertain += confidence;
-      } else {
-        statusWeights.unverified += confidence;
-      }
-    }
-
-    // Si aucun poids total, rien n'est vérifié
-    if (totalWeight === 0) return 'unverified';
-
-    // Calculer les ratios normalisés
-    const ratios: Record<string, number> = {};
-    for (const status in statusWeights) {
-      ratios[status] = statusWeights[status] / totalWeight;
-    }
-
-    // Logique de décision avec seuils référencés depuis les constantes centralisées
-    const verifiedRatio = ratios.verified || 0;
-    const contradictedRatio = ratios.contradicted || 0;
-    const inconclusiveRatio = ratios.inconclusive || 0;
-    const absenceRatio = ratios.absence_of_information || 0;
-    const uncertainRatio = ratios.uncertain || 0;
-
-    // Logique de décision hiérarchique avec priorités claires
+  calculateRelevanceScore(thought: ThoughtNode, context: string): number {
+    const thoughtKeywords = this.extractKeywords(thought.content);
+    const contextKeywordWeights = this.extractAndWeightContextKeywords(context);
     
-    // 1. Vérifier si toutes les sources indiquent une absence d'information
-    if (absenceRatio > 0.7) {
+    let relevanceScore = 0;
+    let totalWeight = 0;
+    
+    // Calculer le score en fonction des correspondances pondérées
+    thoughtKeywords.forEach(keyword => {
+      if (contextKeywordWeights[keyword]) {
+        const weight = contextKeywordWeights[keyword];
+        relevanceScore += weight;
+        totalWeight += weight;
+      }
+    });
+    
+    // Normaliser le score
+    if (totalWeight > 0) {
+      relevanceScore = relevanceScore / totalWeight;
+    } else {
+      // Aucune correspondance, score minimal
+      relevanceScore = this.THRESHOLDS.MIN_RELEVANCE;
+    }
+    
+    // Pondérer en fonction des connexions et du type de pensée
+    let connectionFactor = 1.0;
+    
+    // Bonus pour les connexions fortes avec d'autres pensées pertinentes
+    if (thought.connections && thought.connections.length > 0) {
+      let connectionScore = 0;
+      thought.connections.forEach((connection: Connection) => {
+        const typeWeight = this.getConnectionTypeWeight(connection.type);
+        connectionScore += typeWeight * connection.strength;
+      });
+      connectionFactor += (connectionScore / thought.connections.length) * 0.5;
+    }
+    
+    relevanceScore *= connectionFactor;
+    
+    // Normaliser entre MIN et MAX
+    return Math.max(
+      this.THRESHOLDS.MIN_RELEVANCE,
+      Math.min(this.THRESHOLDS.MAX_RELEVANCE, relevanceScore)
+    );
+  }
+
+  /**
+   * Extrait les mots-clés d'un texte donné
+   * 
+   * @param text Le texte à analyser
+   * @returns Un tableau de mots-clés
+   */
+  extractKeywords(text: string): string[] {
+    // Convertir en minuscules et supprimer la ponctuation
+    const processedText = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+    
+    // Liste de mots vides (stop words) en français et anglais
+    const stopWords = new Set([
+      // Français
+      'le', 'la', 'les', 'un', 'une', 'des', 'et', 'ou', 'de', 'du', 'au', 'aux',
+      'ce', 'cette', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
+      'notre', 'nos', 'votre', 'vos', 'leur', 'leurs', 'est', 'sont', 'être', 'avoir',
+      'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'que', 'qui', 'quoi',
+      'comment', 'pourquoi', 'quand', 'où', 'car', 'mais', 'donc', 'or', 'ni', 'si',
+      'dans', 'sur', 'sous', 'avec', 'sans', 'pour', 'contre', 'par', 'vers',
+      // Anglais
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with',
+      'without', 'by', 'from', 'of', 'as', 'is', 'are', 'was', 'were', 'be', 'been',
+      'having', 'have', 'had', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
+      'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'its', 'our', 'their',
+      'what', 'which', 'who', 'whom', 'whose', 'when', 'where', 'why', 'how'
+    ]);
+    
+    // Diviser en mots et filtrer les mots vides
+    const words = processedText.split(/\s+/).filter(word => 
+      word.length > 2 && !stopWords.has(word)
+    );
+    
+    // Compter la fréquence des mots
+    const wordCounts: Record<string, number> = {};
+    words.forEach(word => {
+      wordCounts[word] = (wordCounts[word] || 0) + 1;
+    });
+    
+    // Trier par fréquence décroissante et renvoyer les N premiers
+    return Object.entries(wordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(entry => entry[0]);
+  }
+
+  /**
+   * Extrait et pondère les mots-clés du contexte
+   * 
+   * @param text Le texte du contexte
+   * @returns Un objet avec les mots-clés et leurs poids
+   */
+  extractAndWeightContextKeywords(text: string): Record<string, number> {
+    const keywords = this.extractKeywords(text);
+    const weightedKeywords: Record<string, number> = {};
+    
+    // Assigner des poids en fonction de l'ordre (les premiers mots-clés sont plus importants)
+    keywords.forEach((keyword, index) => {
+      // Formule simple qui donne plus de poids aux premiers mots-clés
+      weightedKeywords[keyword] = 1 - (index / (keywords.length * 2)); 
+    });
+    
+    return weightedKeywords;
+  }
+
+  /**
+   * Obtient le poids associé à un type de connexion
+   * 
+   * @param type Le type de connexion
+   * @returns Le poids de ce type de connexion
+   */
+  getConnectionTypeWeight(type: ConnectionType): number {
+    const weights: Record<ConnectionType, number> = {
+      'supports': 0.9,
+      'contradicts': 0.7, // Même si contradictoire, c'est une relation forte
+      'refines': 0.8,
+      'branches': 0.6,
+      'derives': 0.75,
+      'associates': 0.5,
+      'exemplifies': 0.7,
+      'generalizes': 0.75,
+      'compares': 0.6,
+      'contrasts': 0.65,
+      'questions': 0.5,
+      'extends': 0.7,
+      'analyzes': 0.8,
+      'synthesizes': 0.85,
+      'applies': 0.7,
+      'evaluates': 0.8,
+      'cites': 0.9,
+      'extended-by': 0.7,
+      'analyzed-by': 0.8,
+      'component-of': 0.7,
+      'applied-by': 0.7,
+      'evaluated-by': 0.8,
+      'cited-by': 0.9
+    };
+    
+    return weights[type] || 0.5; // Valeur par défaut si type inconnu
+  }
+
+  /**
+   * Détermine le statut de vérification en fonction du score de confiance
+   * et d'autres facteurs
+   * 
+   * @param confidenceOrResults Niveau de confiance dans la vérification (0-1) ou résultats de vérification
+   * @param hasContradictions Indique s'il y a des contradictions
+   * @param hasInformation Indique s'il y a des informations disponibles
+   * @returns Le statut de vérification
+   */
+  determineVerificationStatus(
+    confidenceOrResults: number | any[], 
+    hasContradictions: boolean = false, 
+    hasInformation: boolean = true
+  ): VerificationStatus {
+    // Si le premier paramètre est un tableau, on est dans le cas d'un appel depuis verification-service
+    if (Array.isArray(confidenceOrResults)) {
+      return this.determineVerificationStatusFromResults(confidenceOrResults);
+    }
+    
+    // Sinon, c'est l'implémentation originale avec confidence, hasContradictions et hasInformation
+    const confidence = confidenceOrResults as number;
+    
+    // Absence d'information: aucune source pour vérifier
+    if (!hasInformation) {
       return 'absence_of_information';
     }
     
-    // 2. Les contradictions significatives ont priorité
-    if (contradictedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
+    // Contradictions: les sources se contredisent
+    if (hasContradictions) {
+      // Si beaucoup de contradictions et peu de confiance
+      if (confidence < this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
+        return 'contradictory';
+      }
+      // Contradictions mais avec un niveau de confiance moyen
+      return 'uncertain';
+    }
+    
+    // Vérification normale basée sur le niveau de confiance
+    if (confidence >= this.THRESHOLDS.VERIFIED_THRESHOLD) {
+      return 'verified';
+    } else if (confidence >= this.THRESHOLDS.PARTIALLY_VERIFIED_THRESHOLD) {
+      return 'partially_verified';
+    }
+    
+    // Par défaut: non vérifié
+    return 'unverified';
+  }
+  
+  /**
+   * Détermine le statut de vérification à partir des résultats de multiples sources
+   * Algorithme amélioré pour gérer les cas ambigus
+   *
+   * @param results Résultats de vérification provenant de différentes sources
+   * @returns Statut de vérification (VerificationStatus)
+   */
+  private determineVerificationStatusFromResults(results: any[]): VerificationStatus {
+    if (!results || results.length === 0) {
+      return 'unverified';
+    }
+    
+    // Compter les différents types de résultats avec pondération par confiance
+    const counts = {
+      verified: 0,
+      contradicted: 0,
+      uncertain: 0,
+      absence: 0,
+      inconclusive: 0
+    };
+    
+    // Comptage pondéré par la confiance de la source
+    results.forEach(result => {
+      const confidence = result.confidence || 0.5;
+      const isValid = result.result?.isValid;
+      
+      if (isValid === true) {
+        counts.verified += confidence;
+      } else if (isValid === false) {
+        counts.contradicted += confidence;
+      } else if (isValid === 'uncertain') {
+        counts.uncertain += confidence;
+      } else if (isValid === 'absence_of_information') {
+        counts.absence += confidence;
+      } else {
+        counts.inconclusive += confidence;
+      }
+    });
+    
+    // Calcul des ratios par rapport au total
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const verifiedRatio = counts.verified / total;
+    const contradictedRatio = counts.contradicted / total;
+    const uncertainRatio = counts.uncertain / total;
+    const absenceRatio = counts.absence / total;
+    
+    // Logique de décision optimisée
+    
+    // 1. Contradiction forte prend priorité
+    if (contradictedRatio > 0.5) {
       return 'contradictory';
+    }
+    
+    // 2. Désaccord franc entre vérifié et contredit
+    if (verifiedRatio > 0.3 && contradictedRatio > 0.3) {
+      return 'uncertain';
     }
     
     // 3. Vérification forte si le ratio est suffisant
@@ -610,12 +835,12 @@ export class MetricsCalculator {
     }
     
     // 5. Cas d'incertitude forte
-    if (uncertainRatio > 0.5 || inconclusiveRatio > 0.5) {
+    if (uncertainRatio > this.THRESHOLDS.UNCERTAIN_THRESHOLD) {
       return 'uncertain';
     }
     
-    // 6. Absence d'information comme cas particulier avec priorité modérée
-    if (absenceRatio > 0.5) {
+    // 6. Absence d'information comme cas particulier
+    if (absenceRatio > this.THRESHOLDS.ABSENCE_THRESHOLD) {
       return 'absence_of_information';
     }
     
@@ -629,399 +854,298 @@ export class MetricsCalculator {
   }
 
   /**
-   * Calcule un score de confiance pour la vérification à partir de multiples sources
-   * Utilise un modèle de consensus pondéré
-   *
-   * @param verificationResults Résultats de vérification provenant de différentes sources
-   * @returns Score de confiance entre 0 et 1
-   */
-  calculateVerificationConfidence(verificationResults: any[]): number {
-    if (verificationResults.length === 0) {
-      return 0.5; // Valeur par défaut
-    }
-
-    // Calculer une moyenne pondérée des confiances
-    const totalWeight = verificationResults.reduce((sum, r) => sum + r.confidence, 0);
-    const weightedConfidence = verificationResults.reduce((sum, r) => {
-      const resultConfidence = r.result.confidence || 0.5;
-      return sum + (resultConfidence * r.confidence);
-    }, 0);
-
-    // Ajouter un facteur de consensus
-    const validities = verificationResults.map(r => {
-      if (r.result.isValid === true) return 1;
-      if (r.result.isValid === false) return -1;
-      if (r.result.isValid === 'absence_of_information') return 0.5;
-      if (r.result.isValid === 'uncertain') return 0;
-      return 0; // Cas par défaut pour null, undefined ou autres
-    });
-
-    // Mesure d'accord: 1.0 si toutes les sources sont d'accord, 0.5 si divisées
-    let agreementFactor = 0.5;
-
-    if (validities.length > 1) {
-      const trueCount = validities.filter(v => v === 1).length;
-      const falseCount = validities.filter(v => v === -1).length;
-      const absenceCount = validities.filter(v => v === 0.5).length;
-      const uncertainCount = validities.filter(v => v === 0).length;
-
-      // Calcul inspiré de l'indice de Fleiss Kappa pour l'accord inter-évaluateurs
-      if (trueCount === validities.length || falseCount === validities.length) {
-        agreementFactor = 1.0; // Accord parfait
-      } else if (absenceCount === validities.length) {
-        agreementFactor = 0.8; // Toutes indiquent absence d'information
-      } else if (uncertainCount === validities.length) {
-        agreementFactor = 0.5; // Toutes indiquent incertitude
-      } else if (trueCount > 0 && falseCount > 0) {
-        // Désaccord franc
-        const ratio = Math.abs(trueCount - falseCount) / (trueCount + falseCount);
-        agreementFactor = 0.5 - (0.3 * (1 - ratio)); // Entre 0.2 et 0.5
-      } else {
-        // Cas mixtes avec absence d'information ou incertitude
-        agreementFactor = 0.6; // Accord modéré
-      }
-    }
-
-    // Score final: combinaison de la moyenne pondérée et du facteur d'accord
-    const confidence = totalWeight > 0
-        ? (weightedConfidence / totalWeight) * 0.7 + agreementFactor * 0.3
-        : 0.5;
-
-    return Math.min(Math.max(confidence, 0.1), 0.95);
-  }
-
-  /**
-   * Génère un résumé du niveau de certitude en langage naturel
-   *
+   * Génère un résumé explicatif du niveau de certitude
+   * 
    * @param status Statut de vérification
-   * @param score Score de fiabilité
-   * @param verifiedCalculations Calculs vérifiés (optionnel)
-   * @param thoughtType Type de pensée (optionnel)
-   * @returns Un résumé en langage naturel
+   * @param confidence Niveau de confiance (0-1)
+   * @returns Résumé textuel du niveau de certitude
    */
-  generateCertaintySummary(
-      status: VerificationStatus,
-      score: number,
-      verifiedCalculations?: CalculationVerificationResult[],
-      thoughtType?: string
-  ): string {
-    // CORRECTION: Utiliser directement le score pour éviter les incohérences
-    const percentage = Math.round(score * 100);
+  generateCertaintySummary(status: VerificationStatus, confidence: number = 0.5): string {
+    // Formater le pourcentage pour l'affichage
+    const percentage = Math.round(confidence * 100);
     
-    // MODIFICATION: Détection améliorée des informations partiellement vérifiées
-    const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
-    const correctCalculationsPercentage = hasVerifiedCalculations 
-        ? Math.round((verifiedCalculations!.filter(calc => calc.isCorrect).length / verifiedCalculations!.length) * 100)
-        : 0;
+    let summary = '';
     
-    // MODIFICATION: Toujours traiter comme partiellement vérifié si des calculs sont vérifiés
-    let effectiveStatus = status;
-    if (hasVerifiedCalculations && (status === 'unverified' || status === 'inconclusive')) {
-        effectiveStatus = 'partially_verified';
-    }
-
-    // CORRECTION: Pour les conclusions, s'assurer que le statut reflète correctement les recherches précédentes
-    if (thoughtType === 'conclusion' && effectiveStatus === 'unverified' && score > 0.5) {
-        // Si on a un score élevé malgré un statut non vérifié, c'est probablement
-        // que cette conclusion s'appuie sur des recherches précédentes qui ont été vérifiées
-        effectiveStatus = 'partially_verified';
-    }
-    
-    // MODIFICATION: Message d'avertissement plus clair pour les scores élevés non vérifiés
-    let confidenceStatement = "";
-    if (effectiveStatus === 'unverified' && percentage > 40) {
-        confidenceStatement = ` Ce niveau de confiance reflète uniquement l'analyse interne du système et NON une vérification factuelle.`;
+    switch (status) {
+      case 'verified':
+        summary = `Information vérifiée avec un niveau de confiance de ${percentage}%. Plusieurs sources fiables confirment cette information.`;
+        break;
+      case 'partially_verified':
+        summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains éléments sont confirmés par des sources fiables.`;
+        break;
+      case 'unverified':
+        summary = `Information non vérifiée. Niveau de confiance: ${percentage}%. Aucune source ne confirme ou n'infirme cette information.`;
+        break;
+      case 'contradictory':
+        summary = `Information contradictoire. Niveau de confiance: ${percentage}%. Des sources crédibles se contredisent sur ce sujet.`;
+        break;
+      case 'absence_of_information':
+        summary = `Aucune information trouvée sur ce sujet. Niveau de confiance: ${percentage}%. Cette absence d'information est elle-même une information pertinente.`;
+        break;
+      case 'uncertain':
+        summary = `Information incertaine. Niveau de confiance: ${percentage}%. Les sources disponibles ne permettent pas de conclure avec certitude.`;
+        break;
+      default:
+        summary = `Niveau de confiance: ${percentage}%.`;
     }
     
-    // MODIFICATION: Formulations plus cohérentes
-    let summary = "";
-    
-    switch (effectiveStatus) {
-        case 'verified':
-            // CORRECTION: Vérifier que le score est cohérent avec un statut "vérifié"
-            if (score < 0.5) {
-                summary = `Information vérifiée avec un niveau de confiance modéré de ${percentage}%.`;
-            } else {
-                summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
-            }
-            break;
-        case 'partially_verified':
-            if (hasVerifiedCalculations) {
-                summary = `Information partiellement vérifiée (${correctCalculationsPercentage}% des calculs sont corrects). Niveau de confiance global: ${percentage}%.`;
-            } else {
-                summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
-            }
-            break;
-        case 'contradicted':
-        case 'contradictory':
-            summary = `Des contradictions ont été détectées. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
-            break;
-        case 'inconclusive':
-            summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%.`;
-            break;
-        case 'uncertain':
-            summary = `Information incertaine. Les sources consultées présentent des ambiguïtés ou des informations contradictoires. Niveau de confiance: ${percentage}%. Le niveau de certitude est limité.`;
-            break;
-        case 'absence_of_information':
-            summary = `Aucune information trouvée sur ce sujet après recherche. Niveau de confiance: ${percentage}%. Cette absence d'information signifie que le sujet n'a pas pu être vérifié avec les sources disponibles.`;
-            break;
-        default:
-            summary = `Information non vérifiée. Niveau de confiance: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+    // Ajouter des conseils supplémentaires selon le niveau de confiance
+    if (confidence < 0.3) {
+      summary += ' Cette information doit être considérée comme hautement spéculative.';
+    } else if (confidence > 0.85) {
+      summary += ' Cette information peut être considérée comme fiable.';
     }
     
-    // Ajustement pour les conclusions
-    if (thoughtType === 'conclusion') {
-      if (effectiveStatus === 'unverified' && score > 0.7) {
-        summary = `Conclusion fondée sur une analyse structurée avec un niveau de confiance de ${percentage}%.`;
-      } else if (effectiveStatus === 'partially_verified') {
-        summary = `Conclusion partiellement vérifiée avec un niveau de confiance de ${percentage}%. Elle s'appuie sur des éléments vérifiés.`;
-      } else if (effectiveStatus === 'absence_of_information') {
-        summary = `Conclusion basée sur l'absence d'information contraire. Niveau de confiance: ${percentage}%. Aucune source n'a confirmé ni contredit cette conclusion.`;
-      } else if (effectiveStatus === 'uncertain') {
-        summary = `Conclusion incertaine en raison d'informations contradictoires ou ambiguës. Niveau de confiance: ${percentage}%. Une analyse plus approfondie serait nécessaire.`;
-      }
-    }
-    
-    // Ajustement pour les hypothèses
-    if (thoughtType === 'hypothesis') {
-      if (effectiveStatus === 'unverified') {
-        summary = `Hypothèse non testée. Niveau de confiance théorique: ${percentage}%.`;
-      } else if (effectiveStatus === 'absence_of_information') {
-        summary = `Hypothèse pour laquelle aucune donnée de test n'est disponible. Niveau de confiance théorique: ${percentage}%. Impossible de confirmer ou d'infirmer.`;
-      } else if (effectiveStatus === 'uncertain') {
-        summary = `Hypothèse testée avec des résultats ambigus ou contradictoires. Niveau de confiance: ${percentage}%. Les données disponibles ne permettent pas de trancher.`;
-      }
-    }
-
-    // Ajouter des détails sur les calculs si disponibles
-    if (hasVerifiedCalculations) {
-      const totalCalculations = verifiedCalculations!.length;
-      const incorrectCalculations = verifiedCalculations!.filter(calc => !calc.isCorrect);
-      const inProgressCalculations = verifiedCalculations!.filter(calc =>
-          calc.verified.includes("vérifier") || calc.verified.includes("Vérification")
-      );
-
-      if (inProgressCalculations.length > 0) {
-        summary += ` ${inProgressCalculations.length} calcul(s) encore en cours de vérification.`;
-      } else if (incorrectCalculations.length > 0) {
-        summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s) sur un total de ${totalCalculations}.`;
-      } else {
-        summary += ` Tous les ${totalCalculations} calcul(s) ont été vérifiés et sont corrects.`;
-      }
-    }
-
     return summary;
   }
 
   /**
-   * Extrait les mots-clés d'un texte en filtrant les mots courants
-   *
-   * @param text Texte à analyser
-   * @returns Tableau de mots-clés
-   */
-  extractKeywords(text: string): string[] {
-    return text.toLowerCase()
-        .split(/\W+/)
-        .filter(word =>
-            word.length > 3 &&
-            !this.stopWords.includes(word)
-        );
-  }
-
-  /**
-   * Extrait et pondère les mots-clés du contexte en utilisant TF-IDF
-   *
-   * @param connectedThoughts Pensées connectées formant le contexte
-   * @returns Dictionnaire de mots-clés pondérés
-   */
-  private extractAndWeightContextKeywords(connectedThoughts: ThoughtNode[]): Record<string, number> {
-    // Si pas de pensées connectées, retourner un objet vide
-    if (connectedThoughts.length === 0) {
-      return {};
-    }
-
-    // Extraire tous les mots-clés de chaque pensée
-    const thoughtKeywords = connectedThoughts.map(thought =>
-        this.extractKeywords(thought.content)
-    );
-
-    // Calculer la fréquence des termes (TF)
-    const termFrequency: Record<string, number> = {};
-
-    for (const keywords of thoughtKeywords) {
-      // Compter chaque mot une seule fois par document
-      const uniqueKeywords = [...new Set(keywords)];
-
-      for (const keyword of uniqueKeywords) {
-        termFrequency[keyword] = (termFrequency[keyword] || 0) + 1;
-      }
-    }
-
-    // Calculer le score TF-IDF pour chaque mot
-    const documentCount = thoughtKeywords.length;
-    const weightedKeywords: Record<string, number> = {};
-
-    for (const [term, frequency] of Object.entries(termFrequency)) {
-      // Ignorer les termes trop peu fréquents
-      if (frequency < this.config.tfIdf.minFrequency) {
-        continue;
-      }
-
-      // Ignorer les termes trop courants
-      if (frequency / documentCount > this.config.tfIdf.maxDocumentPercentage) {
-        continue;
-      }
-
-      // Calculer l'IDF: ln(N/df)
-      const idf = Math.log(documentCount / frequency);
-
-      // TF-IDF = fréquence * idf
-      weightedKeywords[term] = frequency * idf;
-    }
-
-    return weightedKeywords;
-  }
-
-  /**
-   * Calcule le poids d'un type de connexion pour l'analyse de pertinence
-   *
-   * @param type Type de connexion
-   * @returns Poids entre 0 et 1
-   */
-  private getConnectionTypeWeight(type: ConnectionType): number {
-    // Poids pour chaque type de connexion dans l'analyse de pertinence
-    const weights: Record<ConnectionType, number> = {
-      'supports': 0.9,
-      'contradicts': 0.7,
-      'refines': 0.95,
-      'derives': 0.85,
-      'branches': 0.7,
-      'associates': 0.6,
-      'exemplifies': 0.8,
-      'generalizes': 0.8,
-      'compares': 0.7,
-      'contrasts': 0.7,
-      'questions': 0.6,
-      'extends': 0.85,
-      'analyzes': 0.9,
-      'synthesizes': 0.9,
-      'applies': 0.8,
-      'evaluates': 0.85,
-      'cites': 0.9,
-      'extended-by': 0.8,
-      'analyzed-by': 0.8,
-      'component-of': 0.8,
-      'applied-by': 0.7,
-      'evaluated-by': 0.8,
-      'cited-by': 0.85
-    };
-
-    return weights[type] || 0.7; // Valeur par défaut si type inconnu
-  }
-
-  /**
    * Détecte les biais potentiels dans une pensée
-   *
-   * @param thought La pensée à analyser
-   * @returns Un tableau de biais détectés, vide si aucun
-   */
-  detectBiases(thought: ThoughtNode): string[] {
-    const content = thought.content.toLowerCase();
-    const detectedBiases: string[] = [];
-
-    // Dictionnaire de marqueurs linguistiques de biais cognitifs courants
-    const biasMarkers: Record<string, string[]> = {
-      'confirmation': ['toujours', 'jamais', 'tous', 'aucun', 'évidemment', 'clairement', 'sans aucun doute'],
-      'ancrage': ['initialement', 'au début', 'comme dit précédemment', 'revenons à'],
-      'disponibilité': ['récemment', 'dernièrement', 'exemple frappant', 'cas célèbre'],
-      'autorité': ['expert', 'autorité', 'scientifique', 'étude montre', 'recherche prouve'],
-      'faux consensus': ['tout le monde', 'majorité', 'consensus', 'généralement accepté', 'communément'],
-      'corrélation/causalité': ['parce que', 'donc', 'cause', 'effet', 'entraîne', 'provoque']
-    };
-
-    // Vérifier chaque type de biais
-    for (const [bias, markers] of Object.entries(biasMarkers)) {
-      if (markers.some(marker => content.includes(marker))) {
-        detectedBiases.push(bias);
-      }
-    }
-
-    return detectedBiases;
-  }
-
-  /**
-   * Détermine si une information nécessite plusieurs vérifications
-   * en fonction de sa complexité et de son importance
    * 
-   * @param content Le contenu à analyser
-   * @param initialConfidence La confiance initiale
-   * @returns Un objet indiquant si plusieurs vérifications sont nécessaires et combien
+   * @param thought La pensée à analyser
+   * @returns Un tableau des biais détectés avec leur score (0-1)
    */
-  determineVerificationRequirements(content: string, initialConfidence: number): {
-    requiresMultipleVerifications: boolean,
-    recommendedVerificationsCount: number,
-    reasons: string[]
-  } {
-    const reasons: string[] = [];
-    let recommendedCount = 1;
+  detectBiases(thought: ThoughtNode): Array<{type: string, score: number, description: string}> {
+    const content = thought.content.toLowerCase();
+    const biases = [];
     
-    // 1. Analyser la complexité de l'information
-    const wordCount = content.split(/\s+/).length;
-    const hasNumbers = /\d+([.,]\d+)?%?/.test(content);
-    const hasNames = /[A-Z][a-z]+ [A-Z][a-z]+/.test(content); // Noms propres
-    const hasDates = /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2} [a-z]+ \d{2,4}/i.test(content);
-    const hasComplexClaims = /(affirmation|déclare|selon|d'après|prétend|allègue)/i.test(content);
-    
-    // 2. Facteur d'importance de l'information
-    const criticalTopics = [
-      'santé', 'médecine', 'légal', 'juridique', 'financier', 'sécurité',
-      'scientifique', 'recherche', 'historique', 'politique'
+    // Liste des patterns de biais cognitifs courants
+    const biasPatterns = [
+      {
+        type: 'confirmation_bias',
+        patterns: ['je savais déjà', 'comme prévu', 'confirme que', 'toujours été', 'évidemment'],
+        description: 'Tendance à favoriser les informations qui confirment des croyances préexistantes'
+      },
+      {
+        type: 'recency_bias',
+        patterns: ['récemment', 'dernièrement', 'ces jours-ci', 'tendance actuelle', 'de nos jours'],
+        description: 'Tendance à donner plus d\'importance aux événements récents'
+      },
+      {
+        type: 'availability_heuristic',
+        patterns: ['souvent', 'fréquemment', 'généralement', 'habituellement', 'couramment'],
+        description: 'Jugement basé sur des exemples qui viennent facilement à l\'esprit'
+      },
+      {
+        type: 'black_white_thinking',
+        patterns: ['toujours', 'jamais', 'impossible', 'absolument', 'parfaitement', 'totalement'],
+        description: 'Tendance à voir les choses en termes absolus sans nuances'
+      },
+      {
+        type: 'authority_bias',
+        patterns: ['expert dit', 'selon les experts', 'études montrent', 'scientifiquement prouvé'],
+        description: 'Tendance à attribuer plus de poids aux opinions des figures d\'autorité'
+      }
     ];
     
-    const hasCriticalTopic = criticalTopics.some(topic => 
-      content.toLowerCase().includes(topic)
-    );
+    // Détecter les biais
+    biasPatterns.forEach(bias => {
+      let matchCount = 0;
+      bias.patterns.forEach(pattern => {
+        if (content.includes(pattern)) {
+          matchCount++;
+        }
+      });
+      
+      if (matchCount > 0) {
+        // Calculer un score basé sur le nombre de correspondances
+        const score = Math.min(matchCount / bias.patterns.length * 1.5, 1);
+        if (score > 0.2) { // Seuil minimum pour considérer un biais
+          biases.push({
+            type: bias.type,
+            score,
+            description: bias.description
+          });
+        }
+      }
+    });
     
-    // 3. Facteur de confiance initiale
-    const lowConfidence = initialConfidence < 0.6;
-    
-    // 4. Autres indicateurs de besoin de vérification approfondie
-    const hasMixedConcepts = content.split('.').length > 2;
-    const hasQualifiers = /(certains|parfois|peut-être|dans certains cas)/i.test(content);
-    
-    // Logique de décision
-    if (hasComplexClaims) {
-      recommendedCount++;
-      reasons.push("Contient des affirmations complexes");
+    // Analyse de sentiment pour détecter le biais émotionnel
+    if (this.REGEX.STRONG_EMOTION.test(content)) {
+      biases.push({
+        type: 'emotional_bias',
+        score: 0.7,
+        description: 'Jugement influencé par une forte charge émotionnelle'
+      });
     }
     
-    if (hasNames && (hasDates || hasNumbers)) {
-      recommendedCount++;
-      reasons.push("Contient des noms propres avec dates ou chiffres");
-    }
-    
-    if (hasCriticalTopic) {
-      recommendedCount++;
-      reasons.push("Aborde un sujet critique nécessitant une vérification approfondie");
-    }
-    
-    if (lowConfidence) {
-      recommendedCount++;
-      reasons.push("Faible niveau de confiance initial");
-    }
-    
-    if (hasMixedConcepts && hasQualifiers) {
-      recommendedCount++;
-      reasons.push("Contient des concepts mixtes avec qualificateurs");
-    }
-    
-    // Limiter à un maximum raisonnable
-    recommendedCount = Math.min(recommendedCount, 4);
-    
-    return {
-      requiresMultipleVerifications: recommendedCount > 1,
-      recommendedVerificationsCount: recommendedCount,
-      reasons
-    };
+    return biases;
   }
+
+  /**
+   * Détermine les besoins de vérification pour un contenu donné
+   * 
+   * @param content Le contenu textuel à analyser
+   * @returns Configuration recommandée pour la vérification
+   */
+  determineVerificationRequirements(content: string): {
+    needsFactCheck: boolean;
+    needsMathCheck: boolean;
+    needsSourceCheck: boolean;
+    priority: 'low' | 'medium' | 'high';
+    suggestedTools: string[];
+    requiresMultipleVerifications: boolean;
+    reasons: string[];
+    recommendedVerificationsCount: number;
+  } {
+    const lowercaseContent = content.toLowerCase();
+    
+    // Initialiser les résultats
+    const result = {
+      needsFactCheck: false,
+      needsMathCheck: false,
+      needsSourceCheck: false,
+      priority: 'low' as 'low' | 'medium' | 'high',
+      suggestedTools: [] as string[],
+      requiresMultipleVerifications: false,
+      reasons: [] as string[],
+      recommendedVerificationsCount: 1
+    };
+    
+    // Détection des affirmations factuelles
+    if (this.REGEX.FACTUAL_CLAIM.test(content)) {
+      result.needsFactCheck = true;
+      result.suggestedTools.push('web_search');
+      result.reasons.push('Contient des affirmations factuelles');
+    }
+    
+    // Détection des calculs mathématiques
+    if (this.REGEX.MATH_CALCULATION.test(content) || 
+        this.REGEX.MATHEMATICAL_PROOF.test(content)) {
+      result.needsMathCheck = true;
+      result.suggestedTools.push('math_evaluator');
+      result.reasons.push('Contient des calculs ou preuves mathématiques');
+    }
+    
+    // Détection des références à des sources
+    if (/selon|d'après|source|cité|référence|étude|recherche|publication/i.test(content)) {
+      result.needsSourceCheck = true;
+      result.suggestedTools.push('citation_checker');
+      result.reasons.push('Contient des références à des sources');
+    }
+    
+    // Détermination de la priorité
+    let score = 0;
+    
+    // Augmenter le score si contient des affirmations fortes
+    if (/certainement|absolument|sans aucun doute|clairement|évidemment|forcément/i.test(lowercaseContent)) {
+      score += 2;
+      result.reasons.push('Contient des affirmations fortes');
+    }
+    
+    // Augmenter le score si contient des statistiques ou chiffres précis
+    if (/\d+%|\d+\.\d+|millions?|milliards?/i.test(lowercaseContent)) {
+      score += 2;
+      result.reasons.push('Contient des statistiques ou chiffres précis');
+    }
+    
+    // Augmenter le score si contient des références temporelles récentes
+    if (/récemment|cette année|ce mois|cette semaine|aujourd'hui|actuellement/i.test(lowercaseContent)) {
+      score += 1;
+      result.reasons.push('Contient des références temporelles récentes');
+    }
+    
+    // Définir la priorité en fonction du score
+    if (score >= 3) {
+      result.priority = 'high';
+    } else if (score >= 1) {
+      result.priority = 'medium';
+    }
+    
+    // Déterminer si plusieurs vérifications sont nécessaires
+    // Basé sur la complexité et l'importance du contenu
+    if (result.needsFactCheck && (result.needsMathCheck || result.needsSourceCheck)) {
+      result.requiresMultipleVerifications = true;
+      result.recommendedVerificationsCount = 2;
+      
+      // Si les trois types de vérification sont nécessaires, recommander 3 vérifications
+      if (result.needsFactCheck && result.needsMathCheck && result.needsSourceCheck) {
+        result.recommendedVerificationsCount = 3;
+      }
+    }
+    
+    // Si la priorité est élevée, recommander toujours au moins 2 vérifications
+    if (result.priority === 'high' && result.recommendedVerificationsCount < 2) {
+      result.requiresMultipleVerifications = true;
+      result.recommendedVerificationsCount = 2;
+    }
+    
+    return result;
+  }
+
+  /**
+   * Calcule un niveau de confiance pour un ensemble de résultats de vérification
+   * en utilisant une approche bayésienne
+   * 
+   * @param results Résultats de vérification
+   * @returns Score de confiance entre 0 et 1
+   */
+  calculateVerificationConfidence(results: any[]): number {
+    if (!results || results.length === 0) {
+      return 0.5; // Confiance neutre par défaut
+    }
+    
+    // Approche bayésienne pour agréger les résultats
+    // Partir d'une probabilité a priori de 0.5 (neutre)
+    let posteriorOdds = 1.0; // Odds de 1:1 équivaut à une probabilité de 0.5
+    
+    // Facteurs de pondération pour différentes sources
+    const sourceTypeWeights: Record<string, number> = {
+      'search': 0.8,
+      'database': 0.9,
+      'calculation': 0.95,
+      'external_api': 0.85,
+      'default': 0.7
+    };
+    
+    // Nombre total de résultats positifs et négatifs pondérés
+    let positiveWeight = 0;
+    let negativeWeight = 0;
+    
+    // Analyser chaque résultat
+    results.forEach(result => {
+      // Déterminer le poids de cette source
+      const sourceWeight = sourceTypeWeights[result.toolType] || sourceTypeWeights.default;
+      
+      // Ajuster la confiance en fonction de la validité
+      if (result.result?.isValid === true) {
+        positiveWeight += sourceWeight * (result.confidence || 0.5);
+      } else if (result.result?.isValid === false) {
+        negativeWeight += sourceWeight * (result.confidence || 0.5);
+      }
+      // Les autres cas (incertain, absence d'info) ne modifient pas les odds
+    });
+    
+    // Si aucun résultat positif ou négatif clair, retourner une confiance neutre
+    if (positiveWeight === 0 && negativeWeight === 0) {
+      return 0.5;
+    }
+    
+    // Calculer le ratio de vraisemblance bayésien
+    const likelihoodRatio = (positiveWeight + 0.5) / (negativeWeight + 0.5);
+    
+    // Mettre à jour les odds postérieures
+    posteriorOdds *= likelihoodRatio;
+    
+    // Convertir les odds en probabilité
+    let confidence = posteriorOdds / (1 + posteriorOdds);
+    
+    // Bonus pour le nombre de sources consultées (plus de sources = plus fiable)
+    const sourceCountBonus = Math.min(results.length * 0.05, 0.2);
+    confidence = Math.min(confidence + sourceCountBonus, 0.95);
+    
+    // Limite inférieure pour éviter une confiance trop basse
+    confidence = Math.max(confidence, 0.2);
+    
+    return confidence;
+  }
+
+  // Expressions régulières pour l'analyse de contenu
+  private REGEX = {
+    MATH_CALCULATION: /(?:\d+(?:\.\d+)?)\s*(?:[+\-*/^]|plus|moins|divisé|fois|multiplié)\s*(?:\d+(?:\.\d+)?)/i,
+    MATHEMATICAL_PROOF: /(?:prouvons|démontrons|supposons|soit|démonstration|preuve|CQFD|théorème|lemme|corollaire)/i,
+    LOGICAL_DEDUCTION: /(?:donc|par conséquent|ainsi|il s'ensuit que|cela implique|on en déduit|cela prouve)/i,
+    FACTUAL_CLAIM: /(?:est|sont|était|étaient|a été|ont été|sera|seront)\s+(?:un|une|des|le|la|les|du|de la)/i,
+    STRONG_EMOTION: /(?:!{2,}|incroyable|fantastique|horrible|déteste|adore|absolument|totalement|complètement|extrêmement)/i
+  };
 }

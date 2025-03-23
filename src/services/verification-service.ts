@@ -294,8 +294,7 @@ export class VerificationService implements IVerificationService {
     
     // Déterminer si plusieurs vérifications sont nécessaires
     const verificationRequirements = this.metricsCalculator.determineVerificationRequirements(
-      content, 
-      thought.metrics?.confidence || 0.5
+      content
     );
     
     thought.metadata.requiresMultipleVerifications = verificationRequirements.requiresMultipleVerifications;

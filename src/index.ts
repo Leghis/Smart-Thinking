@@ -454,9 +454,7 @@ generateVisualization: true
             );
             response.certaintySummary = metricsCalculator.generateCertaintySummary(
               verification.status as VerificationStatus,
-              response.reliabilityScore,
-              verification.verifiedCalculations,
-              params.thoughtType // Ajouter le type de pensée pour adapter le message
+              response.reliabilityScore
             );
             
             if (verification.verifiedCalculations && verification.verifiedCalculations.length > 0) {

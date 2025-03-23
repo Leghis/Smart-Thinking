@@ -122,7 +122,7 @@ export class QualityEvaluator {
    * @param thought La pensée à analyser
    * @returns Un tableau de biais détectés, vide si aucun
    */
-  detectBiases(thought: ThoughtNode): string[] {
+  detectBiases(thought: ThoughtNode): Array<{type: string, score: number, description: string}> {
     return this.metricsCalculator.detectBiases(thought);
   }
   
@@ -172,7 +172,7 @@ export class QualityEvaluator {
     // Vérifier la présence de biais
     const biases = this.detectBiases(thought);
     if (biases.length > 0) {
-      suggestions.push(`Attention aux biais potentiels: ${biases.join(', ')}.`);
+      suggestions.push(`Attention aux biais potentiels: ${biases.map(bias => bias.type).join(', ')}.`);
     }
 
     // Suggestions spécifiques au type de pensée
