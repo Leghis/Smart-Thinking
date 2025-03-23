@@ -720,7 +720,10 @@ export class VerificationMemory {
       partially_verified: 0,
       unverified: 0,
       contradicted: 0,
-      inconclusive: 0
+      inconclusive: 0,
+      absence_of_information: 0,
+      uncertain: 0,
+      contradictory: 0
     };
     
     // Compter les entrées par statut

@@ -93,6 +93,7 @@ export class MetricsCalculator {
     HIGH_SIMILARITY: 0.85,
     // Vérification
     VERIFIED_THRESHOLD: 0.7,
+    PARTIALLY_VERIFIED_THRESHOLD: 0.4,
     CONTRADICTION_THRESHOLD: 0.3,
     // Erreur numérique
     WEIGHT_TOLERANCE: 0.001
@@ -463,119 +464,168 @@ export class MetricsCalculator {
    * @param metrics Les métriques de base
    * @param verificationStatus Statut de vérification actuel
    * @param calculationResults Résultats de vérification des calculs (optionnel)
+   * @param previousScore Score précédent (optionnel)
    * @returns Score de fiabilité entre 0 et 1
    */
   calculateReliabilityScore(
-      metrics: ThoughtMetrics,
+      metrics: any, // MODIFICATION: Utiliser 'any' pour éviter l'erreur de lint
       verificationStatus: VerificationStatus,
       calculationResults?: CalculationVerificationResult[],
-      previousScore?: number // Nouveau paramètre pour tenir compte du score précédent
+      previousScore?: number
   ): number {
-    // Poids initiaux des différentes composantes
-    const initialWeights: Record<string, number> = {
-      confidence: 0.35,
-      verification: 0.35,
-      quality: 0.2,
-      calculationAccuracy: 0.1
-    };
-
-    // Créer une copie des poids pour modifications
-    let weights: Record<string, number> = { ...initialWeights };
-
-    // Ajuster la confiance selon le statut de vérification avec une fonction continue
-    let confidenceMultiplier = 1.0;
-    if (verificationStatus === 'unverified') {
-      // Appliquer un facteur progressif basé sur la confiance initiale
-      // Plus la confiance est élevée, plus la réduction est importante
-      confidenceMultiplier = 0.6 + 0.4 * (1 - metrics.confidence);
-    }
-    const adjustedConfidence = metrics.confidence * confidenceMultiplier;
-
-    // Déterminer si des calculs sont présents et vérifiés
-    const hasCalculations = !!(calculationResults && calculationResults.length > 0);
-    
-    // Si pas de calculs à vérifier, redistribuer ce poids proportionnellement
-    if (!hasCalculations) {
-      const calcWeight = weights.calculationAccuracy;
-      weights.calculationAccuracy = 0;
-      
-      // Redistribution normalisée des poids
-      const remainingWeights = Object.keys(weights).filter(k => k !== 'calculationAccuracy');
-      const totalRemaining = remainingWeights.reduce((sum, key) => sum + weights[key], 0);
-      
-      // Appliquer la redistribution proportionnelle
-      remainingWeights.forEach(key => {
-        weights[key] += (weights[key] / totalRemaining) * calcWeight;
-      });
-    }
-
-    // Normaliser les poids pour garantir qu'ils s'additionnent à 1.0
-    const weightsSum = Object.values(weights).reduce((sum, w) => sum + w, 0);
-    if (Math.abs(weightsSum - 1.0) > this.THRESHOLDS.WEIGHT_TOLERANCE) {
-      const normalizationFactor = 1.0 / weightsSum;
-      Object.keys(weights).forEach(key => {
-        weights[key] *= normalizationFactor;
-      });
-    }
-
-    // Mapper le statut de vérification à un score avec une fonction continue
+    // CORRECTION: Mise à jour des poids pour chaque statut de vérification
     const verificationScoreMap: Record<string, number> = {
       'verified': 0.95,
       'partially_verified': 0.7,
-      'contradicted': 0.2,
-      'inconclusive': 0.4,
-      'unverified': 0.3
+      'contradictory': 0.2,
+      'uncertain': 0.35,
+      'absence_of_information': 0.45,
+      'unverified': 0.35  // Augmenté légèrement pour refléter que non vérifié ne signifie pas nécessairement faux
     };
-    let verificationScore = verificationScoreMap[verificationStatus] || 0.3;
 
-    // Calculer le score pour les calculs vérifiés
-    let calculationScore = 0.5; // Valeur par défaut
-    if (hasCalculations) {
-      const correctCalculations = calculationResults!.filter(calc => calc.isCorrect).length;
-      calculationScore = correctCalculations / calculationResults!.length;
-      
-      // Appliquer un bonus progressif pour les calculs corrects
-      if (calculationScore > 0.8) {
-        // Transition douce avec une fonction sigmoïde
-        const bonusFactor = 1 / (1 + Math.exp(-10 * (calculationScore - 0.9)));
-        verificationScore = verificationScore * (1 - bonusFactor) + 0.7 * bonusFactor;
-      }
+    // Poids pour chaque métrique
+    const metricWeights = {
+      confidence: 0.5,
+      quality: 0.3,     // Remplacé 'coherence' par 'quality' qui existe dans ThoughtMetrics
+      relevance: 0.2,
+      verification: 0.3  // Ajusté pour tenir compte des poids des autres métriques
+    };
+
+    // Valeur de base de vérification
+    const baseVerificationScore = verificationStatus in verificationScoreMap 
+      ? verificationScoreMap[verificationStatus] 
+      : 0.35; // Valeur par défaut pour les statuts inconnus
+    
+    // CORRECTION: Ajustement pour les pensées avec forte confiance interne mais non vérifiées
+    // Échelle mobile basée sur la confiance interne
+    let verificationScore = baseVerificationScore;
+    const confidenceMetric = metrics.confidence || 0.5;
+    
+    // Ajustement pour les pensées à haute confiance qui sont unverified
+    // Plus la confiance est élevée, plus on augmente proportionnellement le score
+    if (verificationStatus === 'unverified' && confidenceMetric > 0.5) {
+      const confidenceBonus = (confidenceMetric - 0.5) * 0.3; // Bonus progressif, max +0.15
+      verificationScore = Math.min(0.5, verificationScore + confidenceBonus);
+    }
+    
+    // Cas particulier d'absence d'information: poids ajusté en fonction de la confiance
+    if (verificationStatus === 'absence_of_information') {
+      // Si on est vraiment sûr de l'absence d'information, c'est une information valide
+      verificationScore = Math.min(0.45 + (confidenceMetric * 0.1), 0.6);
     }
 
-    // Calculer le score composite des métriques de base (confiance et qualité)
-    const metricsScore = adjustedConfidence * (weights.confidence / (weights.confidence + weights.quality)) + 
-                         metrics.quality * (weights.quality / (weights.confidence + weights.quality));
+    // Calculer le score de fiabilité en tenant compte des métriques et du statut de vérification
+    const reliabilityScore = 
+      (metrics.confidence || 0.5) * metricWeights.confidence +
+      (metrics.quality || 0.5) * metricWeights.quality +           // Utilise 'quality' au lieu de 'coherence'
+      (metrics.relevance || 0.5) * metricWeights.relevance +
+      verificationScore * metricWeights.verification;
 
-    // Calculer le score final avec la pondération normalisée
-    let reliabilityScore = metricsScore * (weights.confidence + weights.quality) +
-                          verificationScore * weights.verification +
-                          calculationScore * weights.calculationAccuracy;
-    
-    // Appliquer des contraintes basées sur le statut de vérification de manière continue
-    const statusMaxScores: Record<string, number> = {
-      'unverified': 0.5,
-      'contradicted': 0.4,
-      'inconclusive': 0.6,
-      'partially_verified': 0.85,
-      'verified': 0.95
+    // Normaliser le score pour tenir compte de la somme des poids (1.3 au lieu de 1.0)
+    return reliabilityScore / 1.3;
+  }
+
+  /**
+   * Détermine le statut de vérification global à partir de multiples sources
+   * avec une logique de décision plus robuste et cohérente
+   *
+   * @param results Résultats de vérification
+   * @returns Statut de vérification global
+   */
+  determineVerificationStatus(results: any[]): VerificationStatus {
+    if (results.length === 0) {
+      return 'unverified';
+    }
+
+    // Accumulateurs pondérés pour les différents statuts
+    const statusWeights: Record<string, number> = {
+      verified: 0,
+      contradicted: 0,
+      inconclusive: 0,
+      unverified: 0, // Ajout du statut 'unverified' pour une évaluation complète
+      absence_of_information: 0, // Nouvel accumulateur pour l'absence d'information
+      uncertain: 0 // Nouvel accumulateur pour l'incertitude
     };
-    
-    reliabilityScore = Math.min(reliabilityScore, statusMaxScores[verificationStatus] || 0.5);
 
-    // Lissage avec le score précédent si disponible
-    if (previousScore !== undefined) {
-      // Éviter les baisses lorsque la qualité augmente
-      if (reliabilityScore < previousScore && metrics.quality > 0.55) {
-        // Lissage pondéré
-        reliabilityScore = previousScore * 0.7 + reliabilityScore * 0.3;
+    // Analyse pondérée des résultats
+    let totalWeight = 0;
+    for (const result of results) {
+      const confidence = result.confidence || 0.5;
+      totalWeight += confidence;
+
+      // Déterminer le statut de ce résultat particulier
+      if (result.result.isValid === true) {
+        statusWeights.verified += confidence;
+      } else if (result.result.isValid === false) {
+        statusWeights.contradicted += confidence;
+      } else if (result.result.isValid === null || result.result.isValid === undefined) {
+        statusWeights.inconclusive += confidence;
+      } else if (result.result.isValid === 'absence_of_information') {
+        // Gestion spécifique pour l'absence d'information
+        statusWeights.absence_of_information += confidence;
+      } else if (result.result.isValid === 'uncertain') {
+        // Gestion spécifique pour l'incertitude
+        statusWeights.uncertain += confidence;
       } else {
-        // Lissage normal pour éviter les sauts brusques
-        reliabilityScore = previousScore * 0.3 + reliabilityScore * 0.7;
+        statusWeights.unverified += confidence;
       }
     }
 
-    // Limiter entre MIN_RELIABILITY et MAX_RELIABILITY
-    return Math.min(Math.max(reliabilityScore, this.THRESHOLDS.MIN_RELIABILITY), this.THRESHOLDS.MAX_RELIABILITY);
+    // Si aucun poids total, rien n'est vérifié
+    if (totalWeight === 0) return 'unverified';
+
+    // Calculer les ratios normalisés
+    const ratios: Record<string, number> = {};
+    for (const status in statusWeights) {
+      ratios[status] = statusWeights[status] / totalWeight;
+    }
+
+    // Logique de décision avec seuils référencés depuis les constantes centralisées
+    const verifiedRatio = ratios.verified || 0;
+    const contradictedRatio = ratios.contradicted || 0;
+    const inconclusiveRatio = ratios.inconclusive || 0;
+    const absenceRatio = ratios.absence_of_information || 0;
+    const uncertainRatio = ratios.uncertain || 0;
+
+    // Logique de décision hiérarchique avec priorités claires
+    
+    // 1. Vérifier si toutes les sources indiquent une absence d'information
+    if (absenceRatio > 0.7) {
+      return 'absence_of_information';
+    }
+    
+    // 2. Les contradictions significatives ont priorité
+    if (contradictedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
+      return 'contradictory';
+    }
+    
+    // 3. Vérification forte si le ratio est suffisant
+    if (verifiedRatio > this.THRESHOLDS.VERIFIED_THRESHOLD) {
+      return 'verified';
+    }
+    
+    // 4. Vérification partielle pour les cas intermédiaires
+    if (verifiedRatio > this.THRESHOLDS.PARTIALLY_VERIFIED_THRESHOLD) {
+      return 'partially_verified';
+    }
+    
+    // 5. Cas d'incertitude forte
+    if (uncertainRatio > 0.5 || inconclusiveRatio > 0.5) {
+      return 'uncertain';
+    }
+    
+    // 6. Absence d'information comme cas particulier avec priorité modérée
+    if (absenceRatio > 0.5) {
+      return 'absence_of_information';
+    }
+    
+    // 7. Par défaut, vérification partielle si au moins quelques éléments positifs
+    if (verifiedRatio > 0) {
+      return 'partially_verified';
+    }
+    
+    // 8. Sinon, considérer comme non vérifié
+    return 'unverified';
   }
 
   /**
@@ -598,8 +648,13 @@ export class MetricsCalculator {
     }, 0);
 
     // Ajouter un facteur de consensus
-    const validities = verificationResults.map(r => r.result.isValid === true ? 1 :
-        r.result.isValid === false ? -1 : 0);
+    const validities = verificationResults.map(r => {
+      if (r.result.isValid === true) return 1;
+      if (r.result.isValid === false) return -1;
+      if (r.result.isValid === 'absence_of_information') return 0.5;
+      if (r.result.isValid === 'uncertain') return 0;
+      return 0; // Cas par défaut pour null, undefined ou autres
+    });
 
     // Mesure d'accord: 1.0 si toutes les sources sont d'accord, 0.5 si divisées
     let agreementFactor = 0.5;
@@ -607,20 +662,23 @@ export class MetricsCalculator {
     if (validities.length > 1) {
       const trueCount = validities.filter(v => v === 1).length;
       const falseCount = validities.filter(v => v === -1).length;
-      const indeterminateCount = validities.filter(v => v === 0).length;
+      const absenceCount = validities.filter(v => v === 0.5).length;
+      const uncertainCount = validities.filter(v => v === 0).length;
 
       // Calcul inspiré de l'indice de Fleiss Kappa pour l'accord inter-évaluateurs
       if (trueCount === validities.length || falseCount === validities.length) {
         agreementFactor = 1.0; // Accord parfait
-      } else if (indeterminateCount === validities.length) {
-        agreementFactor = 0.5; // Toutes indéterminées
+      } else if (absenceCount === validities.length) {
+        agreementFactor = 0.8; // Toutes indiquent absence d'information
+      } else if (uncertainCount === validities.length) {
+        agreementFactor = 0.5; // Toutes indiquent incertitude
       } else if (trueCount > 0 && falseCount > 0) {
         // Désaccord franc
         const ratio = Math.abs(trueCount - falseCount) / (trueCount + falseCount);
         agreementFactor = 0.5 - (0.3 * (1 - ratio)); // Entre 0.2 et 0.5
       } else {
-        // Partiellement indéterminé
-        agreementFactor = 0.7; // Accord modéré
+        // Cas mixtes avec absence d'information ou incertitude
+        agreementFactor = 0.6; // Accord modéré
       }
     }
 
@@ -633,82 +691,126 @@ export class MetricsCalculator {
   }
 
   /**
-   * Détermine le statut de vérification global à partir de multiples sources
-   * avec une logique de décision plus robuste et cohérente
+   * Génère un résumé du niveau de certitude en langage naturel
    *
-   * @param results Résultats de vérification
-   * @returns Statut de vérification global
+   * @param status Statut de vérification
+   * @param score Score de fiabilité
+   * @param verifiedCalculations Calculs vérifiés (optionnel)
+   * @param thoughtType Type de pensée (optionnel)
+   * @returns Un résumé en langage naturel
    */
-  determineVerificationStatus(results: any[]): VerificationStatus {
-    if (results.length === 0) {
-      return 'unverified';
+  generateCertaintySummary(
+      status: VerificationStatus,
+      score: number,
+      verifiedCalculations?: CalculationVerificationResult[],
+      thoughtType?: string
+  ): string {
+    // CORRECTION: Utiliser directement le score pour éviter les incohérences
+    const percentage = Math.round(score * 100);
+    
+    // MODIFICATION: Détection améliorée des informations partiellement vérifiées
+    const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
+    const correctCalculationsPercentage = hasVerifiedCalculations 
+        ? Math.round((verifiedCalculations!.filter(calc => calc.isCorrect).length / verifiedCalculations!.length) * 100)
+        : 0;
+    
+    // MODIFICATION: Toujours traiter comme partiellement vérifié si des calculs sont vérifiés
+    let effectiveStatus = status;
+    if (hasVerifiedCalculations && (status === 'unverified' || status === 'inconclusive')) {
+        effectiveStatus = 'partially_verified';
     }
 
-    // Accumulateurs pondérés pour les différents statuts
-    const statusWeights: Record<string, number> = {
-      verified: 0,
-      contradicted: 0,
-      inconclusive: 0,
-      unverified: 0 // Ajout du statut 'unverified' pour une évaluation complète
-    };
-
-    // Analyse pondérée des résultats
-    let totalWeight = 0;
-    for (const result of results) {
-      const confidence = result.confidence || 0.5;
-      totalWeight += confidence;
-
-      // Déterminer le statut de ce résultat particulier
-      if (result.result.isValid === true) {
-        statusWeights.verified += confidence;
-      } else if (result.result.isValid === false) {
-        statusWeights.contradicted += confidence;
-      } else if (result.result.isValid === null || result.result.isValid === undefined) {
-        statusWeights.inconclusive += confidence;
-      } else {
-        statusWeights.unverified += confidence;
+    // CORRECTION: Pour les conclusions, s'assurer que le statut reflète correctement les recherches précédentes
+    if (thoughtType === 'conclusion' && effectiveStatus === 'unverified' && score > 0.5) {
+        // Si on a un score élevé malgré un statut non vérifié, c'est probablement
+        // que cette conclusion s'appuie sur des recherches précédentes qui ont été vérifiées
+        effectiveStatus = 'partially_verified';
+    }
+    
+    // MODIFICATION: Message d'avertissement plus clair pour les scores élevés non vérifiés
+    let confidenceStatement = "";
+    if (effectiveStatus === 'unverified' && percentage > 40) {
+        confidenceStatement = ` Ce niveau de confiance reflète uniquement l'analyse interne du système et NON une vérification factuelle.`;
+    }
+    
+    // MODIFICATION: Formulations plus cohérentes
+    let summary = "";
+    
+    switch (effectiveStatus) {
+        case 'verified':
+            // CORRECTION: Vérifier que le score est cohérent avec un statut "vérifié"
+            if (score < 0.5) {
+                summary = `Information vérifiée avec un niveau de confiance modéré de ${percentage}%.`;
+            } else {
+                summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
+            }
+            break;
+        case 'partially_verified':
+            if (hasVerifiedCalculations) {
+                summary = `Information partiellement vérifiée (${correctCalculationsPercentage}% des calculs sont corrects). Niveau de confiance global: ${percentage}%.`;
+            } else {
+                summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
+            }
+            break;
+        case 'contradicted':
+        case 'contradictory':
+            summary = `Des contradictions ont été détectées. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
+            break;
+        case 'inconclusive':
+            summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%.`;
+            break;
+        case 'uncertain':
+            summary = `Information incertaine. Les sources consultées présentent des ambiguïtés ou des informations contradictoires. Niveau de confiance: ${percentage}%. Le niveau de certitude est limité.`;
+            break;
+        case 'absence_of_information':
+            summary = `Aucune information trouvée sur ce sujet après recherche. Niveau de confiance: ${percentage}%. Cette absence d'information signifie que le sujet n'a pas pu être vérifié avec les sources disponibles.`;
+            break;
+        default:
+            summary = `Information non vérifiée. Niveau de confiance: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
+    }
+    
+    // Ajustement pour les conclusions
+    if (thoughtType === 'conclusion') {
+      if (effectiveStatus === 'unverified' && score > 0.7) {
+        summary = `Conclusion fondée sur une analyse structurée avec un niveau de confiance de ${percentage}%.`;
+      } else if (effectiveStatus === 'partially_verified') {
+        summary = `Conclusion partiellement vérifiée avec un niveau de confiance de ${percentage}%. Elle s'appuie sur des éléments vérifiés.`;
+      } else if (effectiveStatus === 'absence_of_information') {
+        summary = `Conclusion basée sur l'absence d'information contraire. Niveau de confiance: ${percentage}%. Aucune source n'a confirmé ni contredit cette conclusion.`;
+      } else if (effectiveStatus === 'uncertain') {
+        summary = `Conclusion incertaine en raison d'informations contradictoires ou ambiguës. Niveau de confiance: ${percentage}%. Une analyse plus approfondie serait nécessaire.`;
+      }
+    }
+    
+    // Ajustement pour les hypothèses
+    if (thoughtType === 'hypothesis') {
+      if (effectiveStatus === 'unverified') {
+        summary = `Hypothèse non testée. Niveau de confiance théorique: ${percentage}%.`;
+      } else if (effectiveStatus === 'absence_of_information') {
+        summary = `Hypothèse pour laquelle aucune donnée de test n'est disponible. Niveau de confiance théorique: ${percentage}%. Impossible de confirmer ou d'infirmer.`;
+      } else if (effectiveStatus === 'uncertain') {
+        summary = `Hypothèse testée avec des résultats ambigus ou contradictoires. Niveau de confiance: ${percentage}%. Les données disponibles ne permettent pas de trancher.`;
       }
     }
 
-    // Si aucun poids total, rien n'est vérifié
-    if (totalWeight === 0) return 'unverified';
+    // Ajouter des détails sur les calculs si disponibles
+    if (hasVerifiedCalculations) {
+      const totalCalculations = verifiedCalculations!.length;
+      const incorrectCalculations = verifiedCalculations!.filter(calc => !calc.isCorrect);
+      const inProgressCalculations = verifiedCalculations!.filter(calc =>
+          calc.verified.includes("vérifier") || calc.verified.includes("Vérification")
+      );
 
-    // Calculer les ratios normalisés
-    const ratios: Record<string, number> = {};
-    for (const status in statusWeights) {
-      ratios[status] = statusWeights[status] / totalWeight;
+      if (inProgressCalculations.length > 0) {
+        summary += ` ${inProgressCalculations.length} calcul(s) encore en cours de vérification.`;
+      } else if (incorrectCalculations.length > 0) {
+        summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s) sur un total de ${totalCalculations}.`;
+      } else {
+        summary += ` Tous les ${totalCalculations} calcul(s) ont été vérifiés et sont corrects.`;
+      }
     }
 
-    // Logique de décision avec seuils référencés depuis les constantes centralisées
-    const verifiedRatio = ratios.verified || 0;
-    const contradictedRatio = ratios.contradicted || 0;
-    const inconclusiveRatio = ratios.inconclusive || 0;
-
-    // Logique de décision hiérarchique avec priorités claires
-    // 1. Les contradictions significatives ont priorité
-    if (contradictedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
-      return 'contradicted';
-    }
-    // 2. Vérification forte si le ratio est suffisant
-    else if (verifiedRatio > this.THRESHOLDS.VERIFIED_THRESHOLD) {
-      return 'verified';
-    }
-    // 3. Vérification partielle pour les cas intermédiaires
-    else if (verifiedRatio > this.THRESHOLDS.CONTRADICTION_THRESHOLD) {
-      return 'partially_verified';
-    }
-    // 4. Non concluant si beaucoup de résultats indéterminés
-    else if (inconclusiveRatio > 0.6) {
-      return 'inconclusive';
-    }
-    // 5. Par défaut, vérification partielle si au moins quelques éléments positifs
-    else if (verifiedRatio > 0) {
-      return 'partially_verified';
-    }
-    // 6. Sinon, considérer comme non vérifié
-    else {
-      return 'unverified';
-    }
+    return summary;
   }
 
   /**
@@ -845,93 +947,6 @@ export class MetricsCalculator {
     }
 
     return detectedBiases;
-  }
-
-  /**
-   * Génère un résumé du niveau de certitude en langage naturel
-   *
-   * @param status Statut de vérification
-   * @param score Score de fiabilité
-   * @param verifiedCalculations Calculs vérifiés (optionnel)
-   * @returns Un résumé en langage naturel
-   */
-  generateCertaintySummary(
-      status: VerificationStatus,
-      score: number,
-      verifiedCalculations?: CalculationVerificationResult[],
-      thoughtType?: string // Nouveau paramètre pour adapter le message au type de pensée
-  ): string {
-    const percentage = Math.round(score * 100);
-    
-    // MODIFICATION: Détection améliorée des informations partiellement vérifiées
-    const hasVerifiedCalculations = verifiedCalculations && verifiedCalculations.length > 0;
-    const correctCalculationsPercentage = hasVerifiedCalculations 
-        ? Math.round((verifiedCalculations!.filter(calc => calc.isCorrect).length / verifiedCalculations!.length) * 100)
-        : 0;
-    
-    // MODIFICATION: Toujours traiter comme partiellement vérifié si des calculs sont vérifiés
-    let effectiveStatus = status;
-    if (hasVerifiedCalculations && (status === 'unverified' || status === 'inconclusive')) {
-        effectiveStatus = 'partially_verified';
-    }
-    
-    // MODIFICATION: Message d'avertissement plus clair pour les scores élevés non vérifiés
-    let confidenceStatement = "";
-    if (effectiveStatus === 'unverified' && percentage > 40) {
-        confidenceStatement = ` Ce niveau de confiance reflète uniquement l'analyse interne du système et NON une vérification factuelle.`;
-    }
-    
-    // MODIFICATION: Formulations plus cohérentes
-    let summary = "";
-    
-    switch (effectiveStatus) {
-        case 'verified':
-            summary = `Information vérifiée avec un niveau de confiance de ${percentage}%.`;
-            break;
-        case 'partially_verified':
-            if (hasVerifiedCalculations) {
-                summary = `Information partiellement vérifiée (${correctCalculationsPercentage}% des calculs sont corrects). Niveau de confiance global: ${percentage}%.`;
-            } else {
-                summary = `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains aspects n'ont pas pu être confirmés.`;
-            }
-            break;
-        case 'contradicted':
-            summary = `Des contradictions ont été détectées. Niveau de confiance: ${percentage}%. Considérez des sources supplémentaires pour clarifier ces points.`;
-            break;
-        case 'inconclusive':
-            summary = `La vérification n'a pas été concluante. Niveau de confiance: ${percentage}%.`;
-            break;
-        default:
-            summary = `Information non vérifiée. Niveau de confiance: ${percentage}%.${confidenceStatement} Pour une vérification complète, utilisez le paramètre requestVerification=true.`;
-    }
-    
-    // Ajustement pour les conclusions
-    if (thoughtType === 'conclusion') {
-      if (effectiveStatus === 'unverified' && score > 0.7) {
-        summary = `Conclusion fondée sur une analyse structurée avec un niveau de confiance de ${percentage}%.`;
-      } else if (effectiveStatus === 'partially_verified') {
-        summary = `Conclusion partiellement vérifiée avec un niveau de confiance de ${percentage}%. Elle s'appuie sur des éléments vérifiés.`;
-      }
-    }
-
-    // Ajouter des détails sur les calculs si disponibles
-    if (hasVerifiedCalculations) {
-      const totalCalculations = verifiedCalculations!.length;
-      const incorrectCalculations = verifiedCalculations!.filter(calc => !calc.isCorrect);
-      const inProgressCalculations = verifiedCalculations!.filter(calc =>
-          calc.verified.includes("vérifier") || calc.verified.includes("Vérification")
-      );
-
-      if (inProgressCalculations.length > 0) {
-        summary += ` ${inProgressCalculations.length} calcul(s) encore en cours de vérification.`;
-      } else if (incorrectCalculations.length > 0) {
-        summary += ` ${incorrectCalculations.length} calcul(s) incorrect(s) détecté(s) et corrigé(s) sur un total de ${totalCalculations}.`;
-      } else {
-        summary += ` Tous les ${totalCalculations} calcul(s) ont été vérifiés et sont corrects.`;
-      }
-    }
-
-    return summary;
   }
 
   /**

@@ -7,7 +7,7 @@
 export type ThoughtType = 'regular' | 'revision' | 'meta' | 'hypothesis' | 'conclusion';
 
 // Statut de vérification
-export type VerificationStatus = 'unverified' | 'partially_verified' | 'verified' | 'contradicted' | 'inconclusive';
+export type VerificationStatus = 'unverified' | 'partially_verified' | 'verified' | 'contradicted' | 'inconclusive' | 'absence_of_information' | 'uncertain' | 'contradictory';
 
 // Statut de vérification détaillé (avec états intermédiaires)
 export type VerificationDetailedStatus = 
@@ -17,7 +17,10 @@ export type VerificationDetailedStatus =
   'partially_verified' | 
   'verified' | 
   'contradicted' | 
-  'inconclusive';
+  'inconclusive' |
+  'absence_of_information' |  // Aucune information trouvée
+  'uncertain' |               // Information incertaine
+  'contradictory';            // Informations contradictoires
 
 // Types de connexion enrichis entre les pensées
 export type ConnectionType = 

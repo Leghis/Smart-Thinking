@@ -146,10 +146,10 @@ export class VerificationService implements IVerificationService {
     };
     
     try {
-      // AMÉLIORÉ: Réduire le seuil de similarité pour une meilleure correspondance
-      const similarityThreshold = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY;
+      // CORRECTION: Augmenter le seuil de similarité pour éviter les fausses correspondances
+      const similarityThreshold = VerificationConfig.SIMILARITY.HIGH_SIMILARITY;
       
-      // Rechercher une vérification similaire dans la mémoire avec un seuil de similarité plus bas
+      // Rechercher une vérification similaire dans la mémoire avec un seuil de similarité plus élevé
       console.error(`Smart-Thinking: Recherche de vérifications précédentes avec seuil ${similarityThreshold}...`);
       
       const previousVerification = await this.verificationMemory.findVerification(
@@ -161,22 +161,34 @@ export class VerificationService implements IVerificationService {
       if (previousVerification) {
         console.error(`Smart-Thinking: Vérification précédente trouvée avec similarité: ${previousVerification.similarity}`);
         
-        // AMÉLIORÉ: Toujours marquer comme vérifié si une correspondance est trouvée
-        const isVerified = ['verified', 'partially_verified'].includes(previousVerification.status);
+        // CORRECTION: Ne marquer comme vérifié que si le niveau de similarité est vraiment élevé
+        // et si les sources sont valides
+        const isValidSource = previousVerification.sources && 
+                              previousVerification.sources.length > 0 && 
+                              !previousVerification.sources.includes("Information non vérifiable");
+        
+        const isVerified = ['verified', 'partially_verified'].includes(previousVerification.status) && 
+                           previousVerification.similarity >= VerificationConfig.SIMILARITY.HIGH_SIMILARITY &&
+                           isValidSource;
+        
+        // CORRECTION: Ajuster le niveau de confiance en fonction de la similarité
+        const adjustedConfidence = Math.min(previousVerification.confidence, previousVerification.similarity);
         
         // Préparer la réponse avec les informations de vérification précédente
         return {
           previousVerification,
           isVerified,
-          verificationStatus: previousVerification.status as VerificationDetailedStatus,
-          certaintySummary: `Information vérifiée précédemment avec ${Math.round(previousVerification.similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(previousVerification.confidence * 100)}%.`,
-          verification: {
+          verificationStatus: isVerified ? previousVerification.status as VerificationDetailedStatus : 'uncertain',
+          certaintySummary: isVerified 
+            ? `Information vérifiée précédemment avec ${Math.round(previousVerification.similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(adjustedConfidence * 100)}%.`
+            : `Information partiellement similaire (${Math.round(previousVerification.similarity * 100)}%) à une vérification précédente, mais nécessite une nouvelle vérification.`,
+          verification: isVerified ? {
             status: previousVerification.status,
-            confidence: previousVerification.confidence,
+            confidence: adjustedConfidence,
             sources: previousVerification.sources || [],
             verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
             notes: `Cette information est similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée.`
-          }
+          } : undefined
         };
       } 
       // Nouveau: propagation du statut pour les pensées de type conclusion ou revision
@@ -232,9 +244,10 @@ export class VerificationService implements IVerificationService {
     
     // Vérifier si l'information a déjà été vérifiée
     if (!forceVerification) {
-      const previousCheckResult = await this.checkPreviousVerification(content, sessionId);
+      const previousCheckResult = await this.checkPreviousVerification(content, sessionId, thought.type, 
+        thought.connections.map(c => c.targetId));
       
-      if (previousCheckResult.previousVerification) {
+      if (previousCheckResult.previousVerification && previousCheckResult.isVerified) {
         console.error('Smart-Thinking: Utilisation d\'une vérification précédente trouvée en mémoire');
         
         // Mettre à jour les métadonnées de la pensée
@@ -421,6 +434,22 @@ export class VerificationService implements IVerificationService {
     let status = this.metricsCalculator.determineVerificationStatus(verificationResults);
     let confidence = this.metricsCalculator.calculateVerificationConfidence(verificationResults);
     
+    // CORRECTION: S'assurer que le niveau de confiance est cohérent avec le statut
+    const minConfidenceByStatus: Record<string, number> = {
+      'verified': 0.6,
+      'partially_verified': 0.4,
+      'unverified': 0.0,
+      'contradictory': 0.0,
+      'absence_of_information': 0.0,
+      'uncertain': 0.0
+    };
+    
+    // Appliquer un plancher de confiance minimum pour les statuts vérifiés
+    if (minConfidenceByStatus[status] && confidence < minConfidenceByStatus[status]) {
+      console.error(`Smart-Thinking: Ajustement de la confiance pour le statut ${status} de ${confidence.toFixed(2)} à ${minConfidenceByStatus[status].toFixed(2)}`);
+      confidence = minConfidenceByStatus[status];
+    }
+    
     // Construire la liste des sources et des étapes de vérification
     const sources = verificationResults.map(r => {
       const source = r.result.source || `${r.toolName} (source non spécifiée)`;
@@ -439,69 +468,6 @@ export class VerificationService implements IVerificationService {
       console.error('Smart-Thinking: Aucune vérification effectuée, statut: unverified');
     } else {
       console.error(`Smart-Thinking: Vérification effectuée avec ${verificationResults.length} outil(s), statut préliminaire: ${status}`);
-    }
-    
-    // Vérification de confirmation des résultats
-    // Vérifier si au moins un outil a explicitement confirmé l'information
-    const hasExplicitConfirmation = verificationResults.some(r => 
-      r.result.isValid === true || 
-      (r.result.confidence && r.result.confidence > 0.8)
-    );
-    
-    // AMÉLIORÉ: Adapter la stratégie en fonction des résultats des outils externes
-    if (hasExplicitConfirmation) {
-      console.error('Smart-Thinking: Confirmation explicite reçue d\'au moins un outil');
-      
-      // Si l'information est explicitement confirmée, augmenter la confiance
-      if (status === 'partially_verified') {
-        const multipleConfirmations = verificationResults.filter(r => 
-          r.result.isValid === true || 
-          (r.result.confidence && r.result.confidence > 0.7)
-        ).length >= 2;
-        
-        if (multipleConfirmations) {
-          status = 'verified';
-          confidence = Math.max(confidence, 0.85);
-          console.error('Smart-Thinking: Confirmations multiples reçues, statut mis à jour vers "verified"');
-        }
-      }
-    } else {
-      console.error('Smart-Thinking: Aucune confirmation explicite des outils externes');
-      
-      // Si aucun outil n'a explicitement confirmé l'information, réduire la confiance
-      if (status === 'verified') {
-        status = 'partially_verified';
-        confidence *= 0.8;
-        console.error('Smart-Thinking: Statut réduit à "partially_verified" en raison du manque de confirmation explicite');
-      }
-    }
-    
-    // AMÉLIORÉ: Si des calculs ont été vérifiés, considérer comme au moins partiellement vérifié
-    if (verifiedCalculations && verifiedCalculations.length > 0) {
-      if (status === 'unverified') {
-        status = 'partially_verified';
-        console.error('Smart-Thinking: Statut mis à jour vers "partially_verified" en raison des calculs vérifiés');
-      }
-      
-      // Augmenter la confiance en fonction du nombre de calculs corrects
-      const correctCalculations = verifiedCalculations.filter(calc => calc.isCorrect).length;
-      if (correctCalculations > 0) {
-        const calculationAccuracy = correctCalculations / verifiedCalculations.length;
-        confidence = Math.max(confidence, calculationAccuracy * 0.7);
-        console.error(`Smart-Thinking: Confiance ajustée à ${confidence.toFixed(2)} basée sur la précision des calculs`);
-      }
-    }
-    
-    // Fixer un seuil minimum de confiance pour considérer une information comme vérifiée
-    if (status === 'verified' && confidence < VerificationConfig.CONFIDENCE.MINIMUM_THRESHOLD) {
-      status = 'partially_verified';
-      console.error(`Smart-Thinking: Confiance insuffisante (${confidence.toFixed(2)}), statut réduit à "partially_verified"`);
-    }
-    
-    // Si plusieurs vérifications ont échoué, considérer comme non concluant
-    if (status === 'unverified' && verificationResults.length >= 2) {
-      status = 'inconclusive';
-      console.error('Smart-Thinking: Multiples vérifications sans confirmation, statut: "inconclusive"');
     }
     
     // IMPORTANT: Mettre à jour les métadonnées de la pensée
@@ -547,7 +513,255 @@ export class VerificationService implements IVerificationService {
     
     console.error(`Smart-Thinking: Vérification complétée, statut final: ${status}, confiance: ${confidence.toFixed(2)}`);
     
-    return verificationResult;
+    // ÉTAPE 5: Analyse finale et évaluation de certitude
+    console.error('Smart-Thinking: Étape 5 - Analyse finale et évaluation de certitude');
+    
+    // CORRECTION: Améliorer la détection des "non-résultats" (aucune information trouvée)
+    const noInformationFound = validPrimaryResults.length > 0 && validPrimaryResults.every(r => {
+      if (!r || !r.result) return false;
+      const content = r.result.details ? r.result.details.toLowerCase() : '';
+      // Amélioration avec une détection plus précise des phrases indiquant l'absence d'information
+      return content.includes("pas d'information") || 
+             content.includes("aucune information") || 
+             content.includes("no information") ||
+             content.includes("not found") ||
+             content.includes("couldn't find") ||
+             content.includes("no specific information") ||
+             content.includes("no details") ||
+             (content.includes("information spécifique") && content.includes("pas")) ||
+             content.includes("i don't have") ||
+             content.includes("je n'ai pas trouvé") ||
+             content.includes("not available") ||
+             content.includes("no results") ||
+             content.includes("aucun résultat") ||
+             content.includes("no relevant") ||
+             content.includes("no data available");
+    });
+    
+    // CORRECTION: Si aucune information n'a été trouvée sur le sujet
+    if ((noInformationFound && validPrimaryResults.length > 0) || 
+        (content.toLowerCase().includes("qui est") && (noInformationFound || validPrimaryResults.length === 0)) || 
+        ((content.match(/\?$/) || content.includes("what is") || content.includes("qu'est-ce que")) && (noInformationFound || validPrimaryResults.length === 0))) {
+      // C'est un résultat "absence d'information" qui est valide mais différent d'une information vérifiée
+      status = 'absence_of_information' as VerificationStatus;
+      // Ajuster le niveau de confiance en fonction du nombre de sources concordantes
+      confidence = Math.min(0.7 + (validPrimaryResults.length * 0.05), 0.9);
+      console.error(`Smart-Thinking: Aucune information trouvée sur le sujet avec ${validPrimaryResults.length} sources, confiance: ${confidence}`);
+      
+      // Marquer explicitement que les résultats des outils indiquent une absence d'information
+      validPrimaryResults.forEach(r => {
+        if (r && r.result) {
+          r.result.isValid = 'absence_of_information';
+        }
+      });
+    }
+    // Si au moins un outil a confirmé l'information et aucun ne l'a contredite
+    else if (validPrimaryResults.some(r => r && r.result && r.result.isValid === true) && 
+        !validPrimaryResults.some(r => r && r.result && r.result.isValid === false)) {
+      status = 'verified';
+      
+      // Calculer le score de confiance basé sur le nombre de confirmations et leur niveau de confiance
+      const confirmedResults = validPrimaryResults.filter(r => r && r.result && r.result.isValid === true);
+      const averageConfidence = confirmedResults.reduce((sum, r) => sum + (r ? r.confidence : 0), 0) / 
+                               (confirmedResults.length || 1);
+      
+      // Ajuster en fonction du nombre de confirmations (bonus pour les confirmations multiples)
+      confidence = Math.min(averageConfidence + (confirmedResults.length * 0.05), 0.95);
+      console.error(`Smart-Thinking: Information vérifiée avec ${confirmedResults.length} confirmations, confiance: ${confidence}`);
+    }
+    // Si au moins un outil a confirmé partiellement l'information
+    else if (validPrimaryResults.some(r => r && r.result && r.result.isValid === 'partial')) {
+      status = 'partially_verified';
+      
+      // Calculer le score de confiance pour une vérification partielle
+      const partialResults = validPrimaryResults.filter(r => r && r.result && r.result.isValid === 'partial');
+      confidence = Math.min(
+        partialResults.reduce((sum, r) => sum + (r ? r.confidence : 0), 0) / 
+        (partialResults.length || 1),
+        0.75
+      );
+      console.error(`Smart-Thinking: Information partiellement vérifiée, confiance: ${confidence}`);
+    }
+    // Si les outils sont en désaccord (certains confirment, d'autres contredisent)
+    else if (validPrimaryResults.some(r => r && r.result && r.result.isValid === true) && 
+             validPrimaryResults.some(r => r && r.result && r.result.isValid === false)) {
+      status = 'contradictory';
+      
+      // Calculer un score de confiance réduit en cas de contradiction
+      confidence = 0.4;
+      console.error(`Smart-Thinking: Informations contradictoires détectées, confiance réduite: ${confidence}`);
+    }
+    // Si on a détecté une absence d'information
+    else if (validPrimaryResults.some(r => r && r.result && 
+             (r.result.isValid === 'absence_of_information' || 
+              (typeof r.result.isValid === 'string' && r.result.isValid.includes('absence'))))) {
+      status = 'absence_of_information' as VerificationStatus;
+      
+      // Calculer un score de confiance adapté pour l'absence d'information
+      const absenceResults = validPrimaryResults.filter(r => r && r.result && 
+                           (r.result.isValid === 'absence_of_information' || 
+                            (typeof r.result.isValid === 'string' && r.result.isValid.includes('absence'))));
+      confidence = Math.min(0.6 + (absenceResults.length * 0.05), 0.8);
+      console.error(`Smart-Thinking: Absence d'information confirmée par ${absenceResults.length} sources, confiance: ${confidence}`);
+    }
+    // Si les outils n'ont pas pu déterminer la validité de manière claire
+    else if (validPrimaryResults.some(r => r && r.result && (r.result.isValid === null || r.result.isValid === undefined))) {
+      status = 'uncertain';
+      
+      // Attribuer un score de confiance faible
+      confidence = 0.3;
+      console.error(`Smart-Thinking: Incertitude sur la validité de l'information, confiance: ${confidence}`);
+    }
+    // Par défaut si aucun cas précédent n'est satisfait
+    else {
+      status = 'unverified';
+      confidence = 0.3;
+      console.error(`Smart-Thinking: Information non vérifiée, confiance par défaut: ${confidence}`);
+    }
+    
+    // IMPORTANT: Mettre à jour les métadonnées de la pensée avec le statut final correct
+    thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
+    
+    // Important: Ajuster la métadonnée isVerified pour l'absence d'information
+    // Une absence d'information confirmée est techniquement "vérifiée" mais différemment
+    if (status === 'absence_of_information' as VerificationStatus) {
+      thought.metadata.isVerified = true; // Nous considérons qu'une absence d'information est une information vérifiée
+    }
+    
+    // Mise à jour du reste des métadonnées
+    thought.metadata.verificationTimestamp = new Date();
+    thought.metadata.verificationSource = verificationResults.length > 0 ? 'tools' : 'internal';
+    thought.metadata.verificationSessionId = sessionId;
+    thought.metadata.verificationToolsUsed = verificationResults.length;
+    thought.metadata.verificationStages = verificationStages;
+    
+    let finalStatus: VerificationStatus = status;
+    let finalConfidence = confidence; // Score de confiance par défaut
+    
+    // NOUVELLE LOGIQUE: Considérer une pensée "partiellement vérifiée" si elle a une confiance interne élevée
+    // Même si elle n'a pas été vérifiée explicitement par des sources externes
+    // Cela s'applique surtout aux pensées de raisonnement mathématique/logique
+    if (finalStatus === 'unverified' && thought.metrics && thought.metrics.confidence > 0.65) {
+      // Cas spécial: Si la pensée contient des équations, calculs ou raisonnements mathématiques
+      const hasCalculations = content.match(/\d+[\+\-\*\/\^]=|sqrt\(|log\(|sin\(|cos\(|\([\d\s\+\-\*\/\^]+\)/) !== null;
+      const hasMathReferences = content.includes("mathématique") || content.includes("algorithme") || 
+                            content.includes("calculer") || content.includes("computation") || 
+                            content.includes("complexité") || content.includes("factorisation");
+      
+      if (hasCalculations || hasMathReferences) {
+        // Les pensées contenant des calculs ou des références mathématiques avec haute confiance 
+        // sont considérées comme partiellement vérifiées
+        finalStatus = 'partially_verified';
+        finalConfidence = Math.max(confidence, thought.metrics.confidence * 0.8);
+        console.error(`Smart-Thinking: Pensée mathématique à haute confiance (${thought.metrics.confidence.toFixed(2)}) considérée comme partiellement vérifiée`);
+      } 
+      // Pour les pensées avec très haute confiance interne, les considérer partiellement vérifiées même sans calculs
+      else if (thought.metrics.confidence > 0.75) {
+        finalStatus = 'partially_verified';
+        finalConfidence = thought.metrics.confidence * 0.75; // Légèrement réduit pour réfleter l'absence de vérification externe
+        console.error(`Smart-Thinking: Pensée à très haute confiance (${thought.metrics.confidence.toFixed(2)}) considérée comme partiellement vérifiée`);
+      }
+    }
+    
+    // CORRECTION: Si aucune information n'est trouvée dans les sources, forcer le statut
+    if (noInformationFound && validPrimaryResults.length >= 2) {
+      finalStatus = 'absence_of_information' as VerificationStatus;
+      console.error(`Smart-Thinking: Statut forcé à 'absence_of_information' après détection d'absence d'information dans toutes les sources`);
+      
+      // Ajuster la confiance en fonction du nombre de sources qui confirment l'absence
+      finalConfidence = Math.min(0.5 + (validPrimaryResults.length * 0.05), 0.7);
+    }
+    
+    // Déterminer le statut final de vérification
+    // Si au moins un outil a confirmé l'information et aucun ne l'a contredite
+    if (validPrimaryResults.some(r => r && r.result && r.result.isValid === true) && 
+        !validPrimaryResults.some(r => r && r.result && r.result.isValid === false)) {
+      finalStatus = 'verified';
+      
+      // Calculer le score de confiance basé sur le nombre de confirmations et leur niveau de confiance
+      const confirmedResults = validPrimaryResults.filter(r => r && r.result && r.result.isValid === true);
+      const averageConfidence = confirmedResults.reduce((sum, r) => sum + (r ? r.confidence : 0), 0) / 
+                               (confirmedResults.length || 1);
+      
+      // Ajuster en fonction du nombre de confirmations (bonus pour les confirmations multiples)
+      finalConfidence = Math.min(averageConfidence + (confirmedResults.length * 0.05), 0.95);
+      console.error(`Smart-Thinking: Information vérifiée avec ${confirmedResults.length} confirmations, confiance: ${finalConfidence}`);
+    }
+    // Si au moins un outil a confirmé partiellement l'information
+    else if (validPrimaryResults.some(r => r && r.result && r.result.isValid === 'partial')) {
+      finalStatus = 'partially_verified';
+      
+      // Calculer le score de confiance pour une vérification partielle
+      const partialResults = validPrimaryResults.filter(r => r && r.result && r.result.isValid === 'partial');
+      finalConfidence = Math.min(
+        partialResults.reduce((sum, r) => sum + (r ? r.confidence : 0), 0) / 
+        (partialResults.length || 1),
+        0.75
+      );
+      console.error(`Smart-Thinking: Information partiellement vérifiée, confiance: ${finalConfidence}`);
+    }
+    // Si les outils sont en désaccord (certains confirment, d'autres contredisent)
+    else if (validPrimaryResults.some(r => r && r.result && r.result.isValid === true) && 
+             validPrimaryResults.some(r => r && r.result && r.result.isValid === false)) {
+      finalStatus = 'contradictory';
+      
+      // Calculer un score de confiance réduit en cas de contradiction
+      finalConfidence = 0.4;
+      console.error(`Smart-Thinking: Informations contradictoires détectées, confiance réduite: ${finalConfidence}`);
+    }
+    // Si on a détecté une absence d'information (cas spécial)
+    else if (validPrimaryResults.some(r => r && r.result && 
+             (r.result.isValid === 'absence_of_information' || 
+              (typeof r.result.isValid === 'string' && r.result.isValid.includes('absence'))))) {
+      finalStatus = 'absence_of_information' as VerificationStatus;
+      
+      // Calculer un score de confiance adapté pour l'absence d'information
+      const absenceResults = validPrimaryResults.filter(r => r && r.result && 
+                           (r.result.isValid === 'absence_of_information' || 
+                            (typeof r.result.isValid === 'string' && r.result.isValid.includes('absence'))));
+      finalConfidence = Math.min(0.6 + (absenceResults.length * 0.05), 0.8);
+      console.error(`Smart-Thinking: Absence d'information confirmée par ${absenceResults.length} sources, confiance: ${finalConfidence}`);
+    }
+    // Si les outils n'ont pas pu déterminer la validité de manière claire
+    else if (validPrimaryResults.some(r => r && r.result && (r.result.isValid === null || r.result.isValid === undefined))) {
+      finalStatus = 'uncertain';
+      
+      // Attribuer un score de confiance faible
+      finalConfidence = 0.3;
+      console.error(`Smart-Thinking: Incertitude sur la validité de l'information, confiance: ${finalConfidence}`);
+    }
+    // Par défaut si aucun cas précédent n'est satisfait
+    else {
+      finalStatus = 'unverified';
+      finalConfidence = 0.3;
+      console.error(`Smart-Thinking: Information non vérifiée, confiance par défaut: ${finalConfidence}`);
+    }
+    
+    // IMPORTANT: Mettre à jour les métadonnées de la pensée avec le statut final correct
+    thought.metadata.isVerified = finalStatus === 'verified' || finalStatus === 'partially_verified';
+    
+    // Important: Ajuster la métadonnée isVerified pour l'absence d'information
+    // Une absence d'information confirmée est techniquement "vérifiée" mais différemment
+    if (finalStatus === 'absence_of_information' as VerificationStatus) {
+      thought.metadata.isVerified = true; // Nous considérons qu'une absence d'information est une information vérifiée
+    }
+    
+    // Mise à jour du reste des métadonnées
+    thought.metadata.verificationTimestamp = new Date();
+    thought.metadata.verificationSource = verificationResults.length > 0 ? 'tools' : 'internal';
+    thought.metadata.verificationSessionId = sessionId;
+    thought.metadata.verificationToolsUsed = verificationResults.length;
+    thought.metadata.verificationStages = verificationStages;
+    
+    return {
+      status: finalStatus,
+      confidence: finalConfidence,
+      sources,
+      verificationSteps: steps,
+      contradictions: contradictions.length > 0 ? contradictions : undefined,
+      notes: this.generateVerificationNotes(verificationResults, verifiedCalculations),
+      verifiedCalculations
+    };
   }
   
   /**
