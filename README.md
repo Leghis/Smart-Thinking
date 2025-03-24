@@ -1,5 +1,6 @@
 # Smart-Thinking
 
+[![smithery badge](https://smithery.ai/badge/@Leghis/smart-thinking)](https://smithery.ai/server/@Leghis/smart-thinking)
 [![npm version](https://img.shields.io/npm/v/smart-thinking-mcp.svg)](https://www.npmjs.com/package/smart-thinking-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.1.6-blue)](https://www.typescriptlang.org/)
@@ -43,6 +44,13 @@ Ajoutez cette configuration à votre fichier `claude_desktop_config.json` :
     }
   }
 }
+```
+### Installing via Smithery
+
+To install smart-thinking for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Leghis/smart-thinking):
+
+```bash
+npx -y @smithery/cli install @Leghis/smart-thinking --client claude
 ```
 
 ## Utilisation
