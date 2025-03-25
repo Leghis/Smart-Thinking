@@ -5,6 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.1.6-blue)](https://www.typescriptlang.org/)
 
+<a href="https://glama.ai/mcp/servers/@Leghis/Smart-Thinking">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Leghis/Smart-Thinking/badge" alt="Smart-Thinking MCP server" />
+</a>
+
 ## Vue d'ensemble
 
 Smart-Thinking est un serveur MCP (Model Context Protocol) sophistiqué qui fournit un cadre de raisonnement multi-dimensionnel, adaptatif et auto-vérifiable pour les assistants IA comme Claude. Contrairement aux approches de raisonnement linéaire, Smart-Thinking utilise une architecture basée sur des graphes qui permet des connexions complexes entre les pensées, offrant ainsi une capacité de raisonnement plus nuancée et plus proche de la cognition humaine.
