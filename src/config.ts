@@ -4,6 +4,9 @@
  * Fichier de configuration centralisé pour Smart-Thinking
  * Contient les seuils, paramètres et constantes utilisés dans tout le système
  */
+import { platform } from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Configuration pour les seuils de vérification et similarité
@@ -52,4 +55,72 @@ export const SystemConfig = {
   DEFAULT_SESSION_ID: 'default',
   MAX_THOUGHT_LENGTH: 10000,          // Longueur maximale d'une pensée en caractères
   MAX_CONNECTIONS: 50                 // Nombre maximum de connexions par pensée
+};
+
+/**
+ * Configuration spécifique à la plateforme
+ * Détecte automatiquement l'environnement d'exécution et ajuste les paramètres
+ */
+export const PlatformConfig = {
+  IS_WINDOWS: platform() === 'win32',
+  IS_MAC: platform() === 'darwin',
+  IS_LINUX: platform() === 'linux',
+  
+  /**
+   * Obtient le répertoire de configuration selon la plateforme
+   */
+  getConfigPath: (): string => {
+    if (platform() === 'win32') {
+      return process.env.APPDATA 
+        ? path.join(process.env.APPDATA, 'Smart-Thinking') 
+        : path.join(process.env.USERPROFILE || '', 'AppData', 'Roaming', 'Smart-Thinking');
+    } else if (platform() === 'darwin') {
+      return path.join(process.env.HOME || '', 'Library', 'Application Support', 'Smart-Thinking');
+    } else {
+      return path.join(process.env.HOME || '', '.smart-thinking');
+    }
+  },
+  
+  /**
+   * Obtient le répertoire temporaire selon la plateforme
+   */
+  getTempPath: (): string => {
+    return path.join(
+      platform() === 'win32' ? (process.env.TEMP || 'C:/Temp') : '/tmp',
+      'smart-thinking'
+    );
+  },
+  
+  /**
+   * Vérifie si Node.js est installé via NVM
+   * Utile pour ajuster les chemins sur Windows avec NVM
+   */
+  isNvmEnvironment: (): boolean => {
+    const nodePath = process.execPath.toLowerCase();
+    return nodePath.includes('nvm') || 
+           (platform() === 'win32' && nodePath.includes('appdata\\roaming\\nvm'));
+  },
+  
+  /**
+   * Obtient le chemin de base de NVM si applicable
+   * Important pour les configurations sur Windows avec NVM
+   */
+  getNvmBasePath: (): string | null => {
+    if (!PlatformConfig.isNvmEnvironment()) {
+      return null;
+    }
+    
+    if (platform() === 'win32') {
+      const nvmPath = process.execPath.split('\\node.exe')[0];
+      return nvmPath;
+    } else {
+      // Pour Unix, essayer de détecter le chemin NVM
+      const nvmDir = process.env.NVM_DIR;
+      if (nvmDir) {
+        return nvmDir;
+      }
+    }
+    
+    return null;
+  }
 };

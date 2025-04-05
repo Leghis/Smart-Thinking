@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { EnhancedStdioServerTransport } from './utils/platform-stdio';
 import { z } from 'zod';
 import { ThoughtGraph } from './thought-graph';
 import { MemoryManager } from './memory-manager';
@@ -15,7 +15,8 @@ import { VerificationMemory } from './verification-memory';
 import { ServiceContainer } from './services/service-container';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { VerificationConfig } from './config';
+import { VerificationConfig, PlatformConfig } from './config';
+import { PathUtils } from './utils/path-utils';
 
 /**
  * Point d'entrée du serveur MCP Smart-Thinking
@@ -35,12 +36,14 @@ const safeStdoutWrite = function() {
     if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && !isValidJSON(trimmed)) {
       console.error('[ERREUR] JSON invalide détecté:', chunk);
       try {
+        // Sur Windows, ajoutons un saut de ligne supplémentaire pour éviter les problèmes de buffering
         const safeMessage = JSON.stringify({
           jsonrpc: "2.0",
           result: {
             content: [{ type: "text", text: chunk }]
           }
-        });
+        }) + (PlatformConfig.IS_WINDOWS ? '\n' : '');
+        
         return originalStdoutWrite.call(process.stdout, safeMessage, arguments[1], arguments[2]);
       } catch(e) {
         console.error('[ERREUR] Impossible de corriger le JSON:', e);
@@ -66,10 +69,24 @@ const safeStdoutWrite = function() {
 // Remplacer process.stdout.write par notre version sécurisée
 process.stdout.write = safeStdoutWrite as any;
 
-// Fonction utilitaire pour vérifier la validité JSON
+/**
+ * Vérifie si une chaîne est un JSON valide
+ * @param str Chaîne à vérifier
+ * @returns true si la chaîne est un JSON valide
+ */
 function isValidJSON(str: string): boolean {
+  if (typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  if (!trimmed) return false;
+  
+  // Vérifier si la chaîne a une structure JSON de base
+  if (!(trimmed.startsWith('{') && trimmed.endsWith('}')) && 
+      !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    return false;
+  }
+  
   try {
-    JSON.parse(str);
+    JSON.parse(trimmed);
     return true;
   } catch (e) {
     return false;
@@ -570,17 +587,44 @@ generateVisualization: true
     }
 );
 
-// Initialisation du transport
-const transport = new StdioServerTransport();
+// Initialisation du transport avec notre version améliorée pour la compatibilité cross-plateforme
+const transport = new EnhancedStdioServerTransport();
 
-// Création du répertoire data
+/**
+ * Crée le répertoire de données si nécessaire
+ * Compatible avec toutes les plateformes (Windows, Mac, Linux)
+ */
 async function ensureDataDirExists() {
-  const dataDir = path.join(process.cwd(), 'data');
+  // Utiliser l'utilitaire de chemins pour un chemin normalisé
+  const dataDir = PathUtils.getDataDirectory();
+  
   try {
     await fs.mkdir(dataDir, { recursive: true });
-    console.error('Smart-Thinking: Répertoire data créé ou confirmé');
+    console.error(`Smart-Thinking: Répertoire data créé ou confirmé: ${dataDir}`);
+    
+    // Sur Windows, vérifier les droits d'accès explicitement
+    if (PlatformConfig.IS_WINDOWS) {
+      try {
+        // Vérifier l'accès en écriture
+        await fs.access(dataDir, fs.constants.W_OK);
+      } catch (accessError) {
+        console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError.message}`);
+        console.error('Smart-Thinking: Essayez d\'exécuter l\'application avec des droits d\'administrateur ou choisissez un autre emplacement.');
+      }
+    }
   } catch (error) {
-    console.error('Smart-Thinking: Erreur lors de la création du répertoire data:', error);
+    console.error(`Smart-Thinking: Erreur lors de la création du répertoire data: ${error}`);
+    
+    // Essayer un répertoire alternatif sur Windows en cas d'échec
+    if (PlatformConfig.IS_WINDOWS) {
+      const altDataDir = path.join(process.env.USERPROFILE || '', 'Documents', 'Smart-Thinking', 'data');
+      try {
+        await fs.mkdir(altDataDir, { recursive: true });
+        console.error(`Smart-Thinking: Création d'un répertoire data alternatif: ${altDataDir}`);
+      } catch (altError) {
+        console.error(`Smart-Thinking: Échec de la création du répertoire alternatif: ${altError}`);
+      }
+    }
   }
 }
 

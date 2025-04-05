@@ -10,14 +10,14 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc && node -e \"if(process.platform !== 'win32') { try { require('child_process').execSync('chmod +x ./build/index.js'); } catch(e) { console.log('Could not chmod +x, but continuing'); } }\"",
+    "build": "tsc && node scripts/make-executable.js",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "start": "node build/index.js",
     "test": "jest",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
-    "postinstall": "node -e \"if(process.platform !== 'win32') { try { require('fs').accessSync('./build/index.js') && require('child_process').execSync('chmod +x ./build/index.js'); } catch(e) { console.log('Skip chmod, file not found or error occurred'); } }\""
+    "postinstall": "node scripts/make-executable.js"
   },
   "keywords": [
     "mcp",
@@ -42,5 +42,13 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6"
-  }
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ]
 }
