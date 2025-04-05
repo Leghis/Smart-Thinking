@@ -608,7 +608,7 @@ async function ensureDataDirExists() {
         // Vérifier l'accès en écriture
         await fs.access(dataDir, fs.constants.W_OK);
       } catch (accessError) {
-        console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError.message}`);
+        console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError instanceof Error ? accessError.message : String(accessError)}`);
         console.error('Smart-Thinking: Essayez d\'exécuter l\'application avec des droits d\'administrateur ou choisissez un autre emplacement.');
       }
     }

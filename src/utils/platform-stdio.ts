@@ -5,6 +5,13 @@
 import { platform } from 'os';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
+// Définir une interface étendue pour les flux avec propriétés internes
+interface ExtendedWriteStream extends NodeJS.WriteStream {
+  _handle?: {
+    setBlocking?: (blocking: boolean) => void;
+  };
+}
+
 /**
  * Transport StdioServer amélioré pour la compatibilité cross-plateforme
  * Gère spécifiquement les problèmes connus sur Windows
@@ -33,33 +40,25 @@ export class EnhancedStdioServerTransport extends StdioServerTransport {
       process.stdout.setDefaultEncoding('utf8');
       
       // Éviter les problèmes de buffering sur Windows
-      if (process.stdout._handle) {
-        try {
-          // @ts-ignore: Propriété non documentée mais nécessaire pour Windows
-          process.stdout._handle.setBlocking(true);
-        } catch (error) {
-          console.error('Smart-Thinking: Impossible de configurer le mode bloquant pour stdout');
-        }
+      const stdoutExt = process.stdout as ExtendedWriteStream;
+      if (stdoutExt._handle && stdoutExt._handle.setBlocking) {
+        stdoutExt._handle.setBlocking(true);
       }
       
-      if (process.stderr._handle) {
-        try {
-          // @ts-ignore: Propriété non documentée mais nécessaire pour Windows
-          process.stderr._handle.setBlocking(true);
-        } catch (error) {
-          console.error('Smart-Thinking: Impossible de configurer le mode bloquant pour stderr');
-        }
+      const stderrExt = process.stderr as ExtendedWriteStream;
+      if (stderrExt._handle && stderrExt._handle.setBlocking) {
+        stderrExt._handle.setBlocking(true);
       }
       
       // Désactiver le buffering du stdout en définissant une taille de buffer de 0
       // Aide à résoudre les problèmes de communication sur Windows
-      if (process.stdout._handle && typeof process.stdout._handle.setBlocking === 'function') {
-        process.stdout._handle.setBlocking(true);
+      if (stdoutExt._handle && stdoutExt._handle.setBlocking) {
+        stdoutExt._handle.setBlocking(true);
       }
       
       console.error('Smart-Thinking: Configuration Windows appliquée pour les flux stdio');
     } catch (error) {
-      console.error(`Smart-Thinking: Erreur lors de la configuration des flux stdio: ${error}`);
+      console.error(`Smart-Thinking: Erreur lors de la configuration des flux stdio: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
