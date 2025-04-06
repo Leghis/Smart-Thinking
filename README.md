@@ -81,7 +81,7 @@ npx -y smart-thinking-mcp
 
 ```bash
 # Cloner le dépôt
-git clone https://github.com/votre-utilisateur/Smart-Thinking.git
+git clone https://github.com/Leghis/Smart-Thinking.git
 cd Smart-Thinking
 
 # Installer les dépendances
