@@ -97,19 +97,19 @@ function isValidJSON(str: string): boolean {
 const packageInfo = require(path.join(__dirname, '..', 'package.json'));
 const version = packageInfo.version || '1.0.3';
 
-// Afficher un message de bienvenue
-console.error(`
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║      Smart-Thinking MCP Server                               ║
-║      Un outil de raisonnement multi-dimensionnel avancé      ║
-║                                                              ║
-║      Version: ${version}                                     ║
-║                                                              ║
-║      Démarrage du serveur...                                ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-`);
+// Afficher un message de bienvenue (désactivé pour éviter les messages en rouge sur Cline)
+// console.error(`
+// ╔══════════════════════════════════════════════════════════════╗
+// ║                                                              ║
+// ║      Smart-Thinking MCP Server                               ║
+// ║      Un outil de raisonnement multi-dimensionnel avancé      ║
+// ║                                                              ║
+// ║      Version: ${version}                                     ║
+// ║                                                              ║
+// ║      Démarrage du serveur...                                ║
+// ║                                                              ║
+// ╚══════════════════════════════════════════════════════════════╝
+// `);
 
 // Initialisation des services
 const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
@@ -129,9 +129,10 @@ serviceContainer.initializeServices(toolIntegrator, metricsCalculator, embedding
 const verificationService = serviceContainer.getVerificationService();
 qualityEvaluator.setVerificationService(verificationService);
 
-// Configuration des écouteurs d'événements
+// Configuration des écouteurs d'événements - mode silencieux
 thoughtGraph.on('calculations-verified', (data: {thoughtId: string, verifiedCalculations: CalculationVerificationResult[], updatedContent: string}) => {
-  console.error(`Smart-Thinking: Calculs vérifiés pour la pensée ${data.thoughtId}`);
+  // Console de débogage désactivée pour éviter les messages en rouge
+  // console.error(`Smart-Thinking: Calculs vérifiés pour la pensée ${data.thoughtId}`);
 });
 
 // Créer une instance du serveur MCP
@@ -141,18 +142,68 @@ const server = new McpServer({
   capabilities: {}
 });
 
-// Schémas Zod pour les options avancées
+// ======================================================================
+// REFACTORISATION DES SCHÉMAS POUR COMPATIBILITÉ MCP
+// ======================================================================
+
+// 1. Définition des types d'énumération en constantes nommées pour plus de clarté
+const ThoughtTypeEnum = z.enum(['regular', 'revision', 'meta', 'hypothesis', 'conclusion']);
+
+const ConnectionTypeEnum = z.enum([
+  'supports', 'contradicts', 'refines', 'branches', 'derives', 'associates', 
+  'exemplifies', 'generalizes', 'compares', 'contrasts', 'questions', 
+  'extends', 'analyzes', 'synthesizes', 'applies', 'evaluates', 'cites',
+  'extended-by', 'analyzed-by', 'component-of', 'applied-by', 'evaluated-by', 'cited-by'
+]);
+
+const TemporalityEnum = z.enum(['before', 'after', 'during', 'concurrent']);
+const CertaintyEnum = z.enum(['definite', 'high', 'moderate', 'low', 'speculative']);
+const DirectionalityEnum = z.enum(['unidirectional', 'bidirectional', 'multidirectional']);
+const ScopeEnum = z.enum(['broad', 'specific', 'partial', 'complete']);
+const NatureEnum = z.enum(['causal', 'correlational', 'sequential', 'hierarchical', 'associative']);
+const VisualizationTypeEnum = z.enum(['graph', 'chronological', 'thematic', 'hierarchical', 'force', 'radial']);
+const ClusterByEnum = z.enum(['type', 'theme', 'metric', 'connectivity']);
+const DirectionEnum = z.enum(['LR', 'RL', 'TB', 'BT']);
+
+// 2. Définition explicite des schémas d'attributs
+const ConnectionAttributesSchema = z.object({
+  temporality: TemporalityEnum.optional(),
+  certainty: CertaintyEnum.optional(),
+  directionality: DirectionalityEnum.optional(),
+  scope: ScopeEnum.optional(),
+  nature: NatureEnum.optional(),
+  // Utiliser un type spécifique au lieu de any
+  customAttributes: z.record(z.string()).optional()
+});
+
+// 3. Schéma pour les connexions avec tous les types explicites
+const ConnectionSchema = z.object({
+  targetId: z.string().describe("ID de la pensée cible"),
+  type: ConnectionTypeEnum.describe("Type de connexion"),
+  strength: z.number().min(0).max(1).describe("Force de la connexion (0 à 1)"),
+  description: z.string().optional().describe("Description optionnelle de la connexion"),
+  attributes: ConnectionAttributesSchema.optional(),
+  inferred: z.boolean().optional().describe("Si la connexion a été inférée automatiquement"),
+  inferenceConfidence: z.number().min(0).max(1).optional().describe("Confiance dans l'inférence (0 à 1)"),
+  bidirectional: z.boolean().optional().describe("Si la relation est intrinsèquement bidirectionnelle")
+});
+
+// 4. Schémas pour les options avancées
+// Remplacer les z.any() par des types spécifiques
+const MetricThresholdsSchema = z.object({
+  confidence: z.tuple([z.number(), z.number()]).optional(),
+  relevance: z.tuple([z.number(), z.number()]).optional(),
+  quality: z.tuple([z.number(), z.number()]).optional()
+});
+
 const FilterOptionsSchema = z.object({
-  nodeTypes: z.array(z.enum(['regular', 'revision', 'meta', 'hypothesis', 'conclusion'])).optional(),
-  connectionTypes: z.array(z.enum(['supports', 'contradicts', 'refines', 'branches', 'derives', 'associates'])).optional(),
-  metricThresholds: z.object({
-    confidence: z.tuple([z.number(), z.number()]).optional(),
-    relevance: z.tuple([z.number(), z.number()]).optional(),
-    quality: z.tuple([z.number(), z.number()]).optional()
-  }).optional(),
+  nodeTypes: z.array(ThoughtTypeEnum).optional(),
+  connectionTypes: z.array(ConnectionTypeEnum).optional(),
+  metricThresholds: MetricThresholdsSchema.optional(),
   textSearch: z.string().optional(),
   dateRange: z.tuple([z.date(), z.date()]).optional(),
-  customFilters: z.record(z.any()).optional()
+  // Remplacer z.any() par z.unknown() pour les types inconnus
+  customFilters: z.record(z.unknown()).optional()
 }).optional();
 
 const InteractivityOptionsSchema = z.object({
@@ -166,6 +217,22 @@ const InteractivityOptionsSchema = z.object({
   highlightOnHover: z.boolean().optional()
 }).optional();
 
+// 5. Schéma des options de visualisation
+const VisualizationOptionsSchema = z.object({
+  clusterBy: ClusterByEnum.optional()
+      .describe('Critère de regroupement des nœuds en clusters'),
+  direction: DirectionEnum.optional().default('TB')
+      .describe('Direction de la disposition hiérarchique'),
+  centerNode: z.string().optional()
+      .describe('ID du nœud central pour les visualisations radiales ou hiérarchiques'),
+  maxDepth: z.number().optional()
+      .describe('Profondeur maximale pour les visualisations hiérarchiques ou radiales'),
+  filters: FilterOptionsSchema
+      .describe('Options de filtrage des nœuds et des liens'),
+  interactivity: InteractivityOptionsSchema
+      .describe('Options d\'interactivité pour la visualisation')
+}).optional();
+
 /**
  * Schéma des paramètres pour l'outil smartthinking
  * ----------------------------------------------
@@ -177,12 +244,12 @@ const SmartThinkingParamsSchema = z.object({
       'Le contenu de la pensée à analyser - PARAMÈTRE OBLIGATOIRE - Cette pensée sera ajoutée au graphe de raisonnement'
   ),
 
-  thoughtType: z.enum(['regular', 'revision', 'meta', 'hypothesis', 'conclusion']).default('regular')
+  thoughtType: ThoughtTypeEnum.default('regular')
       .describe(
           'Type de pensée dans le graphe de raisonnement - Détermine la fonction de cette pensée'
       ),
 
-  connections: z.array(z.any()).default([])
+  connections: z.array(ConnectionSchema).default([])
       .describe(
           'Connexions à d\'autres pensées - Permet de lier cette pensée à d\'autres pensées du graphe'
       ),
@@ -197,7 +264,7 @@ const SmartThinkingParamsSchema = z.object({
           'Générer une visualisation du graphe de pensée'
       ),
 
-  visualizationType: z.enum(['graph', 'chronological', 'thematic', 'hierarchical', 'force', 'radial']).default('graph')
+  visualizationType: VisualizationTypeEnum.default('graph')
       .describe(
           'Type de visualisation à générer'
       ),
@@ -232,20 +299,7 @@ const SmartThinkingParamsSchema = z.object({
           'Indique si la pensée contient des calculs à vérifier'
       ),
 
-  visualizationOptions: z.object({
-    clusterBy: z.enum(['type', 'theme', 'metric', 'connectivity']).optional()
-        .describe('Critère de regroupement des nœuds en clusters'),
-    direction: z.enum(['LR', 'RL', 'TB', 'BT']).optional().default('TB')
-        .describe('Direction de la disposition hiérarchique'),
-    centerNode: z.string().optional()
-        .describe('ID du nœud central pour les visualisations radiales ou hiérarchiques'),
-    maxDepth: z.number().optional()
-        .describe('Profondeur maximale pour les visualisations hiérarchiques ou radiales'),
-    filters: FilterOptionsSchema
-        .describe('Options de filtrage des nœuds et des liens'),
-    interactivity: InteractivityOptionsSchema
-        .describe('Options d\'interactivité pour la visualisation')
-  }).optional()
+  visualizationOptions: VisualizationOptionsSchema
       .describe('Options avancées pour la visualisation')
 });
 
@@ -336,7 +390,7 @@ generateVisualization: true
         };
       }
 
-      console.error('Smart-Thinking: traitement de la pensée:', params.thought);
+      // console.error('Smart-Thinking: traitement de la pensée:', params.thought);
 
       // Traitement de la pensée
       const preliminaryResult = await verificationService.performPreliminaryVerification(
@@ -445,7 +499,8 @@ generateVisualization: true
 
       // Vérification approfondie si nécessaire
       if ((qualityMetrics.confidence < VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED || params.requestVerification) && !previousResult.previousVerification) {
-        console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
+        // Débogage silencieux
+        // console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
         
         try {
           if (thought) {
@@ -483,7 +538,8 @@ generateVisualization: true
             }
           }
         } catch (error) {
-          console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
+          // Suppression des logs d'erreur
+          // console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
           response.verificationStatus = 'inconclusive';
           response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%.`;
         }
@@ -553,7 +609,8 @@ generateVisualization: true
             response.visualization = visualizer.simplifyVisualization(response.visualization);
           }
         } catch (error) {
-          console.error('Smart-Thinking: Erreur lors de la génération de la visualisation:', error);
+          // Suppression des logs d'erreur
+          // console.error('Smart-Thinking: Erreur lors de la génération de la visualisation:', error);
         }
       }
 
@@ -573,7 +630,7 @@ generateVisualization: true
         memoryManager.addMemory(params.thought, tags);
       }
 
-      console.error('Smart-Thinking: pensée traitée avec succès, id:', thoughtId);
+      // console.error('Smart-Thinking: pensée traitée avec succès, id:', thoughtId);
 
       // Retour de la réponse formatée pour MCP
       return {
@@ -600,7 +657,7 @@ async function ensureDataDirExists() {
   
   try {
     await fs.mkdir(dataDir, { recursive: true });
-    console.error(`Smart-Thinking: Répertoire data créé ou confirmé: ${dataDir}`);
+    // console.error(`Smart-Thinking: Répertoire data créé ou confirmé: ${dataDir}`);
     
     // Sur Windows, vérifier les droits d'accès explicitement
     if (PlatformConfig.IS_WINDOWS) {
@@ -608,21 +665,20 @@ async function ensureDataDirExists() {
         // Vérifier l'accès en écriture
         await fs.access(dataDir, fs.constants.W_OK);
       } catch (accessError) {
-        console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError instanceof Error ? accessError.message : String(accessError)}`);
-        console.error('Smart-Thinking: Essayez d\'exécuter l\'application avec des droits d\'administrateur ou choisissez un autre emplacement.');
+        // console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError instanceof Error ? accessError.message : String(accessError)}`);
+        // console.error('Smart-Thinking: Essayez d\'exécuter l\'application avec des droits d\'administrateur ou choisissez un autre emplacement.');
       }
     }
   } catch (error) {
-    console.error(`Smart-Thinking: Erreur lors de la création du répertoire data: ${error}`);
-    
+    // Erreur ignorée, utiliser un répertoire par défaut sans message
     // Essayer un répertoire alternatif sur Windows en cas d'échec
     if (PlatformConfig.IS_WINDOWS) {
       const altDataDir = path.join(process.env.USERPROFILE || '', 'Documents', 'Smart-Thinking', 'data');
       try {
         await fs.mkdir(altDataDir, { recursive: true });
-        console.error(`Smart-Thinking: Création d'un répertoire data alternatif: ${altDataDir}`);
+        // Log supprimé pour éviter les messages sur Cline
       } catch (altError) {
-        console.error(`Smart-Thinking: Échec de la création du répertoire alternatif: ${altError}`);
+        // Log d'erreur supprimé
       }
     }
   }
@@ -633,10 +689,11 @@ async function start() {
   try {
     await ensureDataDirExists();
     await server.connect(transport);
-    console.error('Smart-Thinking MCP Server démarré avec succès.');
-    console.error('L\'outil "smartthinking" est maintenant disponible pour Claude.');
+    // Démarrage silencieux pour éviter les messages en rouge sur Cline
+    // console.error('Smart-Thinking MCP Server démarré avec succès.');
+    // console.error('L\'outil "smartthinking" est maintenant disponible pour Claude.');
   } catch (error) {
-    console.error('Erreur lors du démarrage du serveur:', error);
+    // Sortie silencieuse en cas d'erreur pour éviter les messages en rouge
     process.exit(1);
   }
 }

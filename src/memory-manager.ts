@@ -2,6 +2,10 @@ import { MemoryItem } from './types';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { EmbeddingService } from './embedding-service';
+import { PathUtils } from './utils/path-utils';
+
+// Constante pour contrôler l'affichage des logs de débogage
+const DEBUG_MODE = false;
 
 /**
  * Classe qui gère la mémoire persistante des sessions précédentes
@@ -12,14 +16,36 @@ export class MemoryManager {
   private embeddingService?: EmbeddingService;
   
   // Chemins pour les fichiers de persistance
-  private dataDir = path.join(process.cwd(), 'data');
-  private memoriesDir = path.join(this.dataDir, 'memories');
-  private knowledgeFilePath = path.join(this.dataDir, 'knowledge.json');
+  private dataDir: string;
+  private memoriesDir: string;
+  private knowledgeFilePath: string;
   
   constructor(embeddingService?: EmbeddingService) {
     this.embeddingService = embeddingService;
+    
+    // Initialiser les chemins de fichiers - utiliser des chemins absolus
+    this.dataDir = PathUtils.getDataDirectory();
+    this.memoriesDir = path.join(this.dataDir, 'memories');
+    this.knowledgeFilePath = path.join(this.dataDir, 'knowledge.json');
+    
+    // Log uniquement en mode debug
+    this.debugLog(`Chemins de stockage initialisés:
+    - dataDir: ${this.dataDir}
+    - memoriesDir: ${this.memoriesDir}
+    - knowledgeFilePath: ${this.knowledgeFilePath}`);
+    
     // Charger les mémoires et la base de connaissances depuis le stockage persistant
     this.loadFromStorage();
+  }
+  
+  /**
+   * Fonction de log pour le débogage uniquement
+   * @param message Message à logger
+   */
+  private debugLog(message: string): void {
+    if (DEBUG_MODE) {
+      console.error(`Smart-Thinking Debug: ${message}`);
+    }
   }
   
   /**
@@ -34,13 +60,41 @@ export class MemoryManager {
    */
   private async ensureDirectoriesExist(): Promise<void> {
     try {
-      // Créer les répertoires data et memories s'ils n'existent pas
-      await fs.mkdir(this.memoriesDir, { recursive: true });
+      // Utiliser PathUtils pour créer les répertoires avec des chemins absolus
+      await PathUtils.ensureDirectoryExists(this.dataDir);
+      await PathUtils.ensureDirectoryExists(this.memoriesDir);
       
-      console.error('Smart-Thinking: Répertoires de données créés ou confirmés');
+      this.debugLog(`Répertoires de données créés ou confirmés:
+      - dataDir: ${this.dataDir}
+      - memoriesDir: ${this.memoriesDir}`);
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Smart-Thinking: Erreur lors de la création des répertoires:', error);
-      // Ne pas interrompre l'application si la création échoue
+      
+      // En cas d'échec, utiliser un répertoire temporaire comme fallback
+      try {
+        const tempDir = PathUtils.getTempDirectory();
+        const tempMemoriesDir = path.join(tempDir, 'memories');
+        
+        // S'assurer que le chemin est absolu
+        await fs.mkdir(tempMemoriesDir, { recursive: true, mode: 0o777 });
+        
+        // Mettre à jour les chemins
+        this.dataDir = tempDir;
+        this.memoriesDir = tempMemoriesDir;
+        this.knowledgeFilePath = path.join(tempDir, 'knowledge.json');
+        
+        this.debugLog(`Utilisation des répertoires temporaires:
+        - dataDir: ${this.dataDir}
+        - memoriesDir: ${this.memoriesDir}
+        - knowledgeFilePath: ${this.knowledgeFilePath}`);
+      } catch (fallbackError) {
+        // Log d'erreur important - garder
+        console.error('Smart-Thinking: Échec de la création des répertoires temporaires:', fallbackError);
+        
+        // Si tout échoue, utiliser des objets en mémoire uniquement
+        this.debugLog('Fonctionnement en mode mémoire uniquement (sans persistance)');
+      }
     }
   }
   
@@ -83,8 +137,9 @@ export class MemoryManager {
         }
       }
       
-      console.error('Smart-Thinking: Chargement des données terminé');
+      this.debugLog('Chargement des données terminé');
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Erreur lors du chargement de la mémoire:', error);
       
       // En cas d'erreur, utiliser les données prédéfinies
@@ -115,9 +170,21 @@ export class MemoryManager {
    */
   private async loadMemoriesFromFiles(): Promise<boolean> {
     try {
+      this.debugLog(`Tentative de lecture du répertoire de mémoires: ${this.memoriesDir}`);
+      
+      // Vérifie si le répertoire existe
+      try {
+        await fs.access(this.memoriesDir, fs.constants.R_OK);
+      } catch (accessError) {
+        this.debugLog(`Répertoire de mémoires inaccessible: ${accessError}`);
+        return false;
+      }
+      
       // Lire la liste des fichiers dans le répertoire memories
       const files = await fs.readdir(this.memoriesDir);
       const jsonFiles = files.filter(file => file.endsWith('.json'));
+      
+      this.debugLog(`${jsonFiles.length} fichiers JSON trouvés dans le répertoire de mémoires`);
       
       if (jsonFiles.length === 0) {
         return false;
@@ -142,6 +209,7 @@ export class MemoryManager {
             memoryLoaded = true;
           }
         } catch (fileError) {
+          // Log d'erreur important - garder
           console.error(`Erreur lors du chargement du fichier ${file}:`, fileError);
           // Continuer avec le fichier suivant
         }
@@ -149,6 +217,7 @@ export class MemoryManager {
       
       return memoryLoaded;
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Erreur lors du chargement des mémoires depuis les fichiers:', error);
       return false;
     }
@@ -180,6 +249,7 @@ export class MemoryManager {
       
       return true;
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Erreur lors du chargement de la base de connaissances:', error);
       return false;
     }
@@ -272,13 +342,14 @@ export class MemoryManager {
         'utf8'
       );
       
-      console.error('Smart-Thinking: Données sauvegardées avec succès');
+      this.debugLog('Données sauvegardées avec succès');
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Erreur lors de la sauvegarde de la mémoire:', error);
       
       // En cas d'erreur, afficher les données qui auraient dû être sauvegardées (pour débogage)
-      console.error('Mémoires qui auraient dû être sauvegardées:', Array.from(this.memories.values()));
-      console.error('Base de connaissances qui aurait dû être sauvegardée:', Object.fromEntries(this.knowledgeBase));
+      this.debugLog('Mémoires qui auraient dû être sauvegardées: ' + this.memories.size + ' éléments');
+      this.debugLog('Base de connaissances qui aurait dû être sauvegardée: ' + this.knowledgeBase.size + ' éléments');
     }
   }
   
@@ -340,13 +411,13 @@ export class MemoryManager {
     
     // Vérifier si nous avons des mémoires à traiter
     if (allMemories.length === 0) {
-      console.error('Smart-Thinking: Aucune mémoire disponible pour la recherche de pertinence');
+      this.debugLog('Aucune mémoire disponible pour la recherche de pertinence');
       return [];
     }
     
     // Si nous n'avons pas de service d'embeddings, utiliser l'algorithme de base
     if (!this.embeddingService) {
-      console.error('Smart-Thinking: Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés');
+      this.debugLog('Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés');
       return this.getRelevantMemoriesWithKeywords(context, limit);
     }
     
@@ -354,18 +425,18 @@ export class MemoryManager {
       // Utiliser le service d'embeddings pour trouver les mémoires similaires
       const memoryTexts = allMemories.map(memory => memory.content);
       
-      console.error(`Smart-Thinking: Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec embeddings`);
+      this.debugLog(`Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec embeddings`);
       
       // Utiliser un seuil de similarité plus bas pour augmenter les chances de trouver des correspondances
       const threshold = 0.3; // Seuil de similarité plus bas
       
       const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit, threshold);
       
-      console.error(`Smart-Thinking: ${similarResults.length} résultats similaires trouvés avec embeddings`);
+      this.debugLog(`${similarResults.length} résultats similaires trouvés avec embeddings`);
       
       if (similarResults.length === 0) {
         // Aucun résultat avec embeddings, essayer avec mots-clés
-        console.error('Smart-Thinking: Aucun résultat avec embeddings, utilisation des mots-clés');
+        this.debugLog('Aucun résultat avec embeddings, utilisation des mots-clés');
         return this.getRelevantMemoriesWithKeywords(context, limit);
       }
       
@@ -380,12 +451,13 @@ export class MemoryManager {
             ...matchingMemory,
             relevanceScore: result.score
           });
-          console.error(`Smart-Thinking: Mémoire correspondante trouvée avec score ${result.score.toFixed(2)}`);
+          this.debugLog(`Mémoire correspondante trouvée avec score ${result.score.toFixed(2)}`);
         }
       }
       
       return memoryResults;
     } catch (error) {
+      // Log d'erreur important - garder
       console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
       // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés
       return this.getRelevantMemoriesWithKeywords(context, limit);
