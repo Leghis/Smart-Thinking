@@ -1,9 +1,10 @@
-import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult } from './types';
+import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
 import { ThoughtGraph } from './thought-graph';
 import { MetricsCalculator } from './metrics-calculator';
 import { VerificationConfig, SystemConfig } from './config';
 import { IVerificationService } from './services/verification-service.interface';
 import { ServiceContainer } from './services/service-container';
+import { suggestLlmImprovements } from './utils/openrouter-client'; // Corrected import path
 
 /**
  * Classe qui évalue la qualité des pensées
@@ -13,13 +14,13 @@ import { ServiceContainer } from './services/service-container';
 export class QualityEvaluator {
   private verificationService!: IVerificationService; // L'opérateur ! indique que la propriété sera initialisée après la construction
   public metricsCalculator: MetricsCalculator;
-  
+
   // Caches pour les résultats d'évaluation et les détections de biais
   private evaluationCache: Map<string, ThoughtMetrics> = new Map();
   private biasCache: Map<string, Array<{type: string, score: number, description: string}>> = new Map();
   private suggestionCache: Map<string, string[]> = new Map();
-  
-  // Expressions régulières pré-compilées pour la détection de biais
+
+  // Expressions régulières pré-compilées pour la détection de biais (heuristique de repli)
   private readonly biasPatterns = [
     {
       regex: /\b(comme je l'ai dit|comme je le pensais|tel que mentionné)\b/i,
@@ -46,8 +47,8 @@ export class QualityEvaluator {
       description: "Présente comme certain ce qui est discutable"
     }
   ];
-  
-  // Mappage pour les suggestions d'amélioration
+
+  // Mappage pour les suggestions d'amélioration (heuristique de repli)
   private readonly suggestionMappings = [
     {
       condition: (metrics: ThoughtMetrics) => metrics.confidence < VerificationConfig.CONFIDENCE.LOW_CONFIDENCE,
@@ -69,8 +70,8 @@ export class QualityEvaluator {
       ]
     }
   ];
-  
-  // Mappage pour les suggestions spécifiques au type de pensée
+
+  // Mappage pour les suggestions spécifiques au type de pensée (heuristique de repli)
   private readonly typeSuggestionMap: Record<string, Array<{ condition: (thought: ThoughtNode, connectedThoughts: ThoughtNode[]) => boolean, suggestion: string }>> = {
     'hypothesis': [
       {
@@ -86,28 +87,28 @@ export class QualityEvaluator {
     ],
     'revision': [
       {
-        condition: (thought, connectedThoughts) => !connectedThoughts.some(t => 
-          thought.connections.some(conn => conn.targetId === t.id && 
+        condition: (thought, connectedThoughts) => !connectedThoughts.some(t =>
+          thought.connections.some(conn => conn.targetId === t.id &&
           ['refines', 'contradicts', 'supports'].includes(conn.type))),
         suggestion: 'Une révision devrait clairement indiquer ce qu\'elle raffine ou corrige.'
       }
     ]
   };
-  
+
   constructor() {
     this.metricsCalculator = new MetricsCalculator();
     // L'initialisation du verificationService se fera via setVerificationService
   }
-  
+
   /**
    * Définit le service de vérification à utiliser
-   * 
+   *
    * @param verificationService Le service de vérification
    */
   public setVerificationService(verificationService: IVerificationService): void {
     this.verificationService = verificationService;
   }
-  
+
   /**
    * Obtient le service de vérification depuis le conteneur si nécessaire
    * @returns Le service de vérification
@@ -118,10 +119,10 @@ export class QualityEvaluator {
     }
     return this.verificationService;
   }
-  
+
   /**
    * Crée une clé unique pour le cache
-   * 
+   *
    * @param thoughtId L'identifiant de la pensée
    * @param contextId Un identifiant supplémentaire pour le contexte (comme l'ID de graphe)
    * @returns Une clé unique pour le cache
@@ -129,52 +130,55 @@ export class QualityEvaluator {
   private createCacheKey(thoughtId: string, contextId?: string): string {
     return contextId ? `${thoughtId}:${contextId}` : thoughtId;
   }
-  
+
   /**
    * Évalue la qualité d'une pensée avec mise en cache pour améliorer les performances
-   * 
+   *
    * @param thoughtId L'identifiant de la pensée à évaluer
    * @param thoughtGraph Le graphe de pensées contenant la pensée
    * @returns Les métriques de qualité évaluées
    */
-  evaluate(thoughtId: string, thoughtGraph: ThoughtGraph): ThoughtMetrics {
-    // Créer une clé de cache unique basée sur l'ID de la pensée et une représentation unique du graphe
-    // Utilisons l'ID de la pensée comme identifiant primaire puisque c'est unique par graphe
+  async evaluate(thoughtId: string, thoughtGraph: ThoughtGraph): Promise<ThoughtMetrics> {
+    // Créer une clé de cache unique basée sur l'ID de la pensée
     const cacheKey = this.createCacheKey(thoughtId);
-    
+
     // Vérifier si le résultat est déjà en cache
     const cachedMetrics = this.evaluationCache.get(cacheKey);
     if (cachedMetrics) {
       return { ...cachedMetrics };  // Retourner une copie pour éviter la mutation
     }
-    
+
     const thought = thoughtGraph.getThought(thoughtId);
-    
+
     if (!thought) {
+      // Retourner des métriques par défaut si la pensée n'est pas trouvée
       return {
         confidence: 0.5,
         relevance: 0.5,
         quality: 0.5
       };
     }
-    
+
     // Récupérer les pensées connectées pour le contexte
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thoughtId);
-    
-    // Utiliser le calculateur de métriques pour obtenir des valeurs plus précises
-    const confidence = this.metricsCalculator.calculateConfidence(thought);
-    const relevance = this.metricsCalculator.calculateRelevance(thought, connectedThoughts);
-    const quality = this.metricsCalculator.calculateQuality(thought, connectedThoughts);
-    
-    const metrics = {
+
+    // Utiliser le calculateur de métriques pour obtenir des valeurs plus précises (maintenant asynchrone)
+    // Utiliser Promise.all pour exécuter les calculs en parallèle
+    const [confidence, relevance, quality] = await Promise.all([
+        this.metricsCalculator.calculateConfidence(thought),
+        this.metricsCalculator.calculateRelevance(thought, connectedThoughts),
+        this.metricsCalculator.calculateQuality(thought, connectedThoughts)
+    ]);
+
+    const metrics: ThoughtMetrics = {
       confidence,
       relevance,
       quality
     };
-    
+
     // Mettre en cache le résultat
     this.evaluationCache.set(cacheKey, { ...metrics });
-    
+
     return metrics;
   }
 
@@ -184,21 +188,20 @@ export class QualityEvaluator {
   public async performPreliminaryVerification(thought: string, explicitlyRequested: boolean = false) {
     return this.getVerificationService().performPreliminaryVerification(thought, explicitlyRequested);
   }
-  
+
   /**
    * Méthode de délégation pour checkPreviousVerification
    */
   public async checkPreviousVerification(thoughtContent: string, sessionId: string = SystemConfig.DEFAULT_SESSION_ID) {
     return this.getVerificationService().checkPreviousVerification(thoughtContent, sessionId);
   }
-  
+
   /**
    * Méthode de délégation pour deepVerify
    */
   public async deepVerify(
-    thought: ThoughtNode, 
-    toolIntegrator: any, 
-    containsCalculations: boolean = false,
+    thought: ThoughtNode,
+    containsCalculations: boolean = false, // toolIntegrator removed as it's handled within VerificationService
     forceVerification: boolean = false,
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID
   ): Promise<VerificationResult> {
@@ -216,84 +219,69 @@ export class QualityEvaluator {
   public async detectAndVerifyCalculations(content: string) {
     return this.getVerificationService().detectAndVerifyCalculations(content);
   }
-  
+
   /**
    * Méthode de délégation pour annotateThoughtWithVerifications
    */
-  public annotateThoughtWithVerifications(thought: string, verifications: any[]): string {
+  public annotateThoughtWithVerifications(thought: string, verifications: CalculationVerificationResult[]): string {
+    // Ensure the parameter type matches the interface/implementation
     return this.getVerificationService().annotateThoughtWithVerifications(thought, verifications);
   }
 
   /**
    * Détecte les biais potentiels dans une pensée avec mise en cache des résultats
-   * et utilisation d'expressions régulières optimisées
-   * 
+   * et utilisation d'expressions régulières optimisées (maintenant asynchrone)
+   *
    * @param thought La pensée à analyser
    * @returns Un tableau de biais détectés, vide si aucun
    */
-  detectBiases(thought: ThoughtNode): Array<{type: string, score: number, description: string}> {
+  async detectBiases(thought: ThoughtNode): Promise<Array<{type: string, score: number, description: string}>> {
     // Vérifier d'abord le cache
     if (this.biasCache.has(thought.id)) {
       // Retourner une copie pour éviter la mutation des données en cache
       return [...this.biasCache.get(thought.id)!];
     }
-    
-    // Si pas en cache, effectuer l'analyse
-    const biases: Array<{type: string, score: number, description: string}> = [];
-    const content = thought.content.toLowerCase();
-    
-    // Utiliser les expressions régulières pré-compilées
-    for (const pattern of this.biasPatterns) {
-      if (pattern.regex.test(content)) {
-        biases.push({
-          type: pattern.type,
-          score: pattern.score,
-          description: pattern.description
-        });
-      }
-    }
-    
-    // Ajouter les biais spécifiques basés sur les métriques si disponibles
-    if (thought.metrics) {
-      // Biais d'excès de confiance
-      if (thought.metrics.confidence > 0.85 && 
-          (/\bcertain(ement)?\b|\bsans doute\b|\babsolument\b/i.test(content))) {
-        biases.push({
-          type: "overconfidence_bias",
-          score: 0.8,
-          description: "Exprime une confiance excessive non justifiée"
-        });
-      }
-    }
-    
+
+    // Utiliser la méthode asynchrone de MetricsCalculator
+    const biases = await this.metricsCalculator.detectBiases(thought);
+
     // Mettre le résultat en cache
     this.biasCache.set(thought.id, [...biases]);
-    
+
     return biases;
   }
-  
+
   /**
    * Suggère des améliorations pour une pensée avec mise en cache des résultats
-   * et structure optimisée pour réduire les calculs redondants
-   * 
+   * et structure optimisée pour réduire les calculs redondants (maintenant asynchrone)
+   *
    * @param thought La pensée à améliorer
    * @param thoughtGraph Le graphe de pensées
-   * @returns Un tableau de suggestions d'amélioration
+   * @returns Un tableau de suggestions d'amélioration (basé sur LLM ou heuristique)
    */
-  suggestImprovements(thought: ThoughtNode, thoughtGraph: ThoughtGraph): string[] {
-    // Créer une clé de cache basée sur l'ID de la pensée et une représentation unique du graphe
-    // Utilisons l'ID de la pensée comme identifiant primaire puisque c'est unique par graphe
+  async suggestImprovements(thought: ThoughtNode, thoughtGraph: ThoughtGraph): Promise<string[]> {
+    // Créer une clé de cache basée sur l'ID de la pensée
     const cacheKey = this.createCacheKey(thought.id);
-    
+
     // Vérifier si les suggestions sont déjà en cache
     if (this.suggestionCache.has(cacheKey)) {
       return [...this.suggestionCache.get(cacheKey)!];
     }
-    
-    // Obtenir les métriques et les pensées connectées
-    const metrics = this.evaluate(thought.id, thoughtGraph);
+
+    // Attempt LLM-based suggestions first
+    const llmSuggestions = await suggestLlmImprovements(thought.content);
+    if (llmSuggestions !== null && llmSuggestions.length > 0) {
+        this.suggestionCache.set(cacheKey, [...llmSuggestions]);
+        return llmSuggestions;
+    } else if (llmSuggestions === null) {
+         console.warn(`LLM analysis failed for suggestions on thought ${thought.id}. Falling back to heuristic.`);
+    }
+    // If LLM fails or returns no suggestions, fallback to heuristic method
+
+    // Obtenir les métriques et les pensées connectées (evaluate est maintenant async)
+    const metrics = await this.evaluate(thought.id, thoughtGraph); // Await the async evaluate call
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thought.id);
-    
+
     const suggestions: string[] = [];
 
     // Appliquer les mappages de suggestions basées sur les métriques
@@ -309,12 +297,12 @@ export class QualityEvaluator {
 
     if (wordCount < 10) {
       suggestions.push('Développez davantage cette pensée, elle est trop courte pour être complète.');
-    } else if (wordCount > SystemConfig.MAX_THOUGHT_LENGTH / 50) {
+    } else if (wordCount > SystemConfig.MAX_THOUGHT_LENGTH / 50) { // Assuming MAX_THOUGHT_LENGTH exists in SystemConfig
       suggestions.push('Considérez diviser cette pensée en plusieurs parties plus ciblées.');
     }
 
-    // Vérifier la présence de biais
-    const biases = this.detectBiases(thought);
+    // Vérifier la présence de biais (detectBiases est maintenant async)
+    const biases = await this.detectBiases(thought); // Await the async detectBiases call
     if (biases.length > 0) {
       suggestions.push(`Attention aux biais potentiels: ${biases.map(bias => bias.type).join(', ')}.`);
     }
@@ -336,13 +324,13 @@ export class QualityEvaluator {
     if (hasContradictions) {
       suggestions.push('Résolvez ou clarifiez les contradictions avec d\'autres pensées.');
     }
-    
-    // Mettre en cache les suggestions
+
+    // Mettre en cache les suggestions (heuristiques)
     this.suggestionCache.set(cacheKey, [...suggestions]);
 
-    return suggestions;
+    return suggestions; // Return heuristic suggestions if LLM failed
   }
-  
+
   /**
    * Efface les caches pour forcer une réévaluation complète
    * Utile lorsque des pensées sont modifiées
@@ -352,10 +340,10 @@ export class QualityEvaluator {
     this.biasCache.clear();
     this.suggestionCache.clear();
   }
-  
+
   /**
    * Supprime une entrée spécifique des caches
-   * 
+   *
    * @param thoughtId L'identifiant de la pensée à supprimer des caches
    */
   public invalidateCacheForThought(thoughtId: string): void {
@@ -365,9 +353,9 @@ export class QualityEvaluator {
         this.evaluationCache.delete(key);
       }
     }
-    
+
     this.biasCache.delete(thoughtId);
-    
+
     for (const key of this.suggestionCache.keys()) {
       if (key.startsWith(thoughtId)) {
         this.suggestionCache.delete(key);

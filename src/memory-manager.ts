@@ -358,16 +358,20 @@ export class MemoryManager {
    * 
    * @param content Le contenu de l'élément de mémoire
    * @param tags Les tags associés
+   * @param sessionId L'identifiant de session facultatif
    * @returns L'identifiant de l'élément ajouté
    */
-  addMemory(content: string, tags: string[] = []): string {
+  addMemory(content: string, tags: string[] = [], sessionId?: string): string {
     const id = this.generateUniqueId();
     
     const memory: MemoryItem = {
       id,
       content,
       tags,
-      timestamp: new Date()
+      timestamp: new Date(),
+      metadata: { // Store sessionId in metadata
+        sessionId: sessionId || 'default' // Use 'default' if no session ID provided
+      }
     };
     
     this.memories.set(id, memory);
@@ -390,10 +394,16 @@ export class MemoryManager {
    * Récupère les éléments de mémoire les plus récents
    * 
    * @param limit Le nombre maximum d'éléments à récupérer
-   * @returns Un tableau des éléments les plus récents
+   * @param sessionId L'identifiant de session facultatif pour filtrer
+   * @returns Un tableau des éléments les plus récents (filtrés par session)
    */
-  getRecentMemories(limit: number = 5): MemoryItem[] {
-    return Array.from(this.memories.values())
+  getRecentMemories(limit: number = 5, sessionId?: string): MemoryItem[] {
+    const allMemories = Array.from(this.memories.values());
+    const filteredMemories = sessionId
+      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
+      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default'); // Include default session if no ID specified
+
+    return filteredMemories
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
@@ -404,26 +414,30 @@ export class MemoryManager {
    * 
    * @param context Le contexte pour lequel chercher des éléments pertinents
    * @param limit Le nombre maximum d'éléments à récupérer
-   * @returns Un tableau des éléments les plus pertinents
+   * @param sessionId L'identifiant de session facultatif pour filtrer
+   * @returns Un tableau des éléments les plus pertinents (filtrés par session)
    */
-  async getRelevantMemories(context: string, limit: number = 3): Promise<MemoryItem[]> {
+  async getRelevantMemories(context: string, limit: number = 3, sessionId?: string): Promise<MemoryItem[]> {
+    // Filter memories by session first
     const allMemories = Array.from(this.memories.values());
-    
-    // Vérifier si nous avons des mémoires à traiter
-    if (allMemories.length === 0) {
+    const sessionMemories = sessionId
+      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
+      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default'); // Include default session if no ID specified
+
+    // Vérifier si nous avons des mémoires à traiter dans cette session
+    if (sessionMemories.length === 0) {
       this.debugLog('Aucune mémoire disponible pour la recherche de pertinence');
       return [];
     }
-    
-    // Si nous n'avons pas de service d'embeddings, utiliser l'algorithme de base
+    // Si nous n'avons pas de service d'embeddings, utiliser l'algorithme de base sur les mémoires de la session
     if (!this.embeddingService) {
-      this.debugLog('Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés');
-      return this.getRelevantMemoriesWithKeywords(context, limit);
+      this.debugLog('Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés pour la session');
+      return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
     }
-    
+
     try {
-      // Utiliser le service d'embeddings pour trouver les mémoires similaires
-      const memoryTexts = allMemories.map(memory => memory.content);
+      // Utiliser le service d'embeddings pour trouver les mémoires similaires DANS LA SESSION
+      const memoryTexts = sessionMemories.map(memory => memory.content);
       
       this.debugLog(`Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec embeddings`);
       
@@ -433,18 +447,18 @@ export class MemoryManager {
       const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit, threshold);
       
       this.debugLog(`${similarResults.length} résultats similaires trouvés avec embeddings`);
-      
       if (similarResults.length === 0) {
-        // Aucun résultat avec embeddings, essayer avec mots-clés
-        this.debugLog('Aucun résultat avec embeddings, utilisation des mots-clés');
-        return this.getRelevantMemoriesWithKeywords(context, limit);
+        // Aucun résultat avec embeddings dans la session, essayer avec mots-clés pour la session
+        this.debugLog('Aucun résultat avec embeddings pour la session, utilisation des mots-clés pour la session');
+        return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
       }
-      
-      // Convertir les résultats en mémoires
+
+      // Convertir les résultats en mémoires (en s'assurant qu'ils proviennent de la session)
       const memoryResults: MemoryItem[] = [];
-      
+
       for (const result of similarResults) {
-        const matchingMemory = allMemories.find(memory => memory.content === result.text);
+        // Find the matching memory within the session memories
+        const matchingMemory = sessionMemories.find(memory => memory.content === result.text);
         if (matchingMemory) {
           // Créer une copie avec le score de pertinence
           memoryResults.push({
@@ -459,8 +473,8 @@ export class MemoryManager {
     } catch (error) {
       // Log d'erreur important - garder
       console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
-      // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés
-      return this.getRelevantMemoriesWithKeywords(context, limit);
+      // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés pour la session
+      return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
     }
   }
   
@@ -469,13 +483,22 @@ export class MemoryManager {
    * 
    * @param context Le contexte pour lequel chercher des éléments pertinents
    * @param limit Le nombre maximum d'éléments à récupérer
-   * @returns Un tableau des éléments les plus pertinents
+   * @param sessionId L'identifiant de session facultatif pour filtrer
+   * @returns Un tableau des éléments les plus pertinents (filtrés par session)
    */
-  private getRelevantMemoriesWithKeywords(context: string, limit: number = 3): MemoryItem[] {
-    // Une implémentation simple basée sur la correspondance de mots-clés
+  private getRelevantMemoriesWithKeywords(context: string, limit: number = 3, sessionId?: string): MemoryItem[] {
+    // Filter memories by session first
+    const allMemories = Array.from(this.memories.values());
+    const sessionMemories = sessionId
+      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
+      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default');
+
+    if (sessionMemories.length === 0) return [];
+
+    // Une implémentation simple basée sur la correspondance de mots-clés DANS LA SESSION
     const contextWords = context.toLowerCase().split(/\W+/).filter(word => word.length > 3);
-    
-    return Array.from(this.memories.values())
+
+    return sessionMemories
       .map(memory => {
         const memoryWords = memory.content.toLowerCase().split(/\W+/).filter(word => word.length > 3);
         const memoryTagWords = memory.tags.join(' ').toLowerCase().split(/\W+/).filter(word => word.length > 3);
@@ -511,11 +534,16 @@ export class MemoryManager {
    * 
    * @param tag Le tag à rechercher
    * @param limit Le nombre maximum d'éléments à récupérer
-   * @returns Un tableau des éléments correspondant au tag
+   * @param sessionId L'identifiant de session facultatif pour filtrer
+   * @returns Un tableau des éléments correspondant au tag (filtrés par session)
    */
-  getMemoriesByTag(tag: string, limit: number = 10): MemoryItem[] {
-    return Array.from(this.memories.values())
-      .filter(memory => memory.tags.includes(tag))
+  getMemoriesByTag(tag: string, limit: number = 10, sessionId?: string): MemoryItem[] {
+    const allMemories = Array.from(this.memories.values());
+    const filteredMemories = sessionId
+      ? allMemories.filter(m => m.metadata?.sessionId === sessionId && m.tags.includes(tag))
+      : allMemories.filter(m => (!m.metadata?.sessionId || m.metadata?.sessionId === 'default') && m.tags.includes(tag));
+
+    return filteredMemories
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }

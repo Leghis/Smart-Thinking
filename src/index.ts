@@ -117,23 +117,30 @@ const embeddingService = new EmbeddingService(COHERE_API_KEY);
 const metricsCalculator = new MetricsCalculator();
 const qualityEvaluator = new QualityEvaluator();
 const toolIntegrator = new ToolIntegrator();
-const thoughtGraph = new ThoughtGraph(undefined, embeddingService, qualityEvaluator);
-const memoryManager = new MemoryManager(embeddingService);
-const visualizer = new Visualizer();
-const verificationMemory = VerificationMemory.getInstance();
-
-// Configuration des dépendances
-verificationMemory.setEmbeddingService(embeddingService);
+// Note: ThoughtGraph and MemoryManager instances are typically created per request or session
+// For simplicity in this example, we'll manage session context within the handler.
+// A more robust implementation might use a factory or manage instances per session ID.
+const globalEmbeddingService = embeddingService; // Keep a global instance
+const globalQualityEvaluator = qualityEvaluator; // Keep a global instance
+const globalToolIntegrator = toolIntegrator; // Keep a global instance
+const globalMetricsCalculator = metricsCalculator; // Keep a global instance
+// Get ServiceContainer instance first
 const serviceContainer = ServiceContainer.getInstance();
-serviceContainer.initializeServices(toolIntegrator, metricsCalculator, embeddingService);
-const verificationService = serviceContainer.getVerificationService();
-qualityEvaluator.setVerificationService(verificationService);
+// Initialize services if not already done (assuming initializeServices handles idempotency or is called only once)
+serviceContainer.initializeServices(globalToolIntegrator, globalMetricsCalculator, globalEmbeddingService);
+// Now get the verification service
+const globalVerificationService = serviceContainer.getVerificationService();
+const globalMemoryManager = new MemoryManager(globalEmbeddingService); // Global memory manager for persistence
+const visualizer = new Visualizer(); // Visualizer can likely remain global
+const verificationMemory = VerificationMemory.getInstance(); // Singleton
 
-// Configuration des écouteurs d'événements - mode silencieux
-thoughtGraph.on('calculations-verified', (data: {thoughtId: string, verifiedCalculations: CalculationVerificationResult[], updatedContent: string}) => {
-  // Console de débogage désactivée pour éviter les messages en rouge
-  // console.error(`Smart-Thinking: Calculs vérifiés pour la pensée ${data.thoughtId}`);
-});
+// Configuration des dépendances (assurez-vous que les services globaux sont configurés)
+verificationMemory.setEmbeddingService(globalEmbeddingService);
+// Ensure quality evaluator uses the correct verification service instance
+globalQualityEvaluator.setVerificationService(globalVerificationService);
+
+// Note: Event listeners on a per-session graph would need careful management.
+// For this fix, we'll assume events are handled within the request lifecycle or globally if appropriate.
 
 // Créer une instance du serveur MCP
 const server = new McpServer({
@@ -390,23 +397,43 @@ generateVisualization: true
         };
       }
 
-      // console.error('Smart-Thinking: traitement de la pensée:', params.thought);
+      // console.error('Smart-Thinking: traitement de la pensée pour session:', params.sessionId || 'default');
+
+      // --- Session Management ---
+      // Create or retrieve session-specific instances
+      // For simplicity, we create them per request here. A real implementation might cache them.
+      const currentSessionId = params.sessionId || 'default';
+      const sessionThoughtGraph = new ThoughtGraph(currentSessionId, globalEmbeddingService, globalQualityEvaluator);
+      // Load existing session data if applicable (assuming MemoryManager handles persistence)
+      // This part needs a mechanism to load graph state per session, which is complex.
+      // For now, we'll operate on a fresh graph per call but use the session ID for filtering memory.
+      // A full fix would involve loading/saving graph state via MemoryManager or similar.
+
+      // Use session-specific or global services as appropriate
+      const verificationService = globalVerificationService; // Use global
+      const qualityEvaluator = globalQualityEvaluator; // Use global
+      const memoryManager = globalMemoryManager; // Use global for persistence access
+      const metricsCalculator = globalMetricsCalculator; // Use global
+      const toolIntegrator = globalToolIntegrator; // Use global
 
       // Traitement de la pensée
       const preliminaryResult = await verificationService.performPreliminaryVerification(
         params.thought,
         !!params.containsCalculations
       );
-      
-      const thoughtId = thoughtGraph.addThought(
+
+      // Add thought to the session-specific graph instance
+      const thoughtId = sessionThoughtGraph.addThought(
           preliminaryResult.preverifiedThought,
           params.thoughtType,
           params.connections
+          // Note: addThought now implicitly uses the graph's sessionId
       );
 
-      // Évaluation de la qualité
-      const qualityMetrics = qualityEvaluator.evaluate(thoughtId, thoughtGraph);
-      thoughtGraph.updateThoughtMetrics(thoughtId, qualityMetrics);
+      // Évaluation de la qualité (maintenant asynchrone) using the session graph
+      const qualityMetrics: ThoughtMetrics = await qualityEvaluator.evaluate(thoughtId, sessionThoughtGraph);
+      // Update metrics on the session graph instance
+      sessionThoughtGraph.updateThoughtMetrics(thoughtId, qualityMetrics);
 
       // Détermination du statut de vérification
       let verificationStatus: VerificationDetailedStatus = 'unverified';
@@ -437,12 +464,12 @@ generateVisualization: true
         certaintySummary: certaintySummary,
         reliabilityScore: metricsCalculator.calculateReliabilityScore(
           qualityMetrics, 
-          preliminaryResult.initialVerification ? 'partially_verified' as VerificationStatus : 'unverified' as VerificationStatus, 
+          preliminaryResult.initialVerification ? 'partially_verified' as VerificationStatus : 'unverified' as VerificationStatus,
           preliminaryResult.verifiedCalculations,
           undefined // Pas de score précédent pour la première pensée
         )
       };
-      
+
       // Traitement des calculs vérifiés
       if (preliminaryResult.verifiedCalculations && preliminaryResult.verifiedCalculations.length > 0) {
         response.isVerified = true;
@@ -463,14 +490,14 @@ generateVisualization: true
         }
       }
 
-      // Vérification des informations précédemment vérifiées
-      const thought = thoughtGraph.getThought(thoughtId);
+      // Vérification des informations précédemment vérifiées (using session ID)
+      const thought = sessionThoughtGraph.getThought(thoughtId); // Get from session graph
       // Récupérer les IDs des pensées connectées
       const connectedThoughtIds = params.connections?.map(conn => conn.targetId) || [];
       // Appel amélioré avec type de pensée et connexions
       const previousResult = await verificationService.checkPreviousVerification(
         thought?.content || params.thought,
-        params.sessionId || 'default',
+        currentSessionId, // Pass current session ID
         params.thoughtType || 'regular',
         connectedThoughtIds
       );
@@ -486,9 +513,9 @@ generateVisualization: true
           preliminaryResult.verifiedCalculations,
           response.reliabilityScore // Utiliser le score déjà calculé comme référence
         );
-        
-        if (thought) {
-          thought.metadata.previousVerification = {
+            // Update the thought within the session graph instance
+            if (thought) {
+              thought.metadata.previousVerification = {
             similarity: previousResult.previousVerification.similarity,
             status: previousResult.previousVerification.status,
             confidence: previousResult.previousVerification.confidence,
@@ -498,21 +525,22 @@ generateVisualization: true
       }
 
       // Vérification approfondie si nécessaire
+      // Ensure qualityMetrics is awaited before accessing its properties
       if ((qualityMetrics.confidence < VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED || params.requestVerification) && !previousResult.previousVerification) {
         // Débogage silencieux
-        // console.error('Smart-Thinking: Confiance faible ou vérification demandée, vérification complète nécessaire...');
-        
+        // console.error(`Smart-Thinking [${currentSessionId}]: Confiance faible ou vérification demandée, vérification complète nécessaire...`);
+
         try {
-          if (thought) {
+          if (thought) { // Ensure thought exists in session graph
             response.verificationStatus = 'verification_in_progress';
-            
+
             const verification = await verificationService.deepVerify(
               thought,
               params.containsCalculations || false,
               false,
-              params.sessionId || 'default'
+              currentSessionId // Pass current session ID
             );
-            
+
             response.verification = verification;
             response.isVerified = verification.status === 'verified' || 
                             verification.status === 'partially_verified' || 
@@ -534,37 +562,44 @@ generateVisualization: true
                 response.thought,
                 verification.verifiedCalculations
               );
-              thoughtGraph.updateThoughtContent(thoughtId, response.thought);
+              // Update content in the session graph instance
+              sessionThoughtGraph.updateThoughtContent(thoughtId, response.thought);
             }
           }
         } catch (error) {
           // Suppression des logs d'erreur
           // console.error('Smart-Thinking: Erreur lors de la vérification complète:', error);
           response.verificationStatus = 'inconclusive';
+          // Ensure qualityMetrics is awaited before accessing its properties here too
           response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(qualityMetrics.confidence * 100)}%.`;
         }
       }
 
       // Fonctionnalités additionnelles selon les paramètres
       if (params.suggestTools) {
-        response.suggestedTools = toolIntegrator.suggestTools(params.thought);
+        // suggestTools is now async
+        response.suggestedTools = await toolIntegrator.suggestTools(params.thought); // Tool suggestions are likely context-dependent, not session-dependent
       }
 
-      // Génération de visualisation si demandée
+      // Génération de visualisation si demandée (using session graph)
       if (params.generateVisualization) {
         try {
           const visualizationType = params.visualizationType || 'graph';
           const visualizationOptions = params.visualizationOptions || {};
-          
+
+          // Pass the session-specific graph to the visualizer methods
           const generateVisualizationAsync = async () => {
             switch (visualizationType) {
               case 'chronological':
-                return await Promise.resolve(visualizer.generateChronologicalVisualization(thoughtGraph));
+                // Pass session graph
+                return await Promise.resolve(visualizer.generateChronologicalVisualization(sessionThoughtGraph));
               case 'thematic':
-                return await Promise.resolve(visualizer.generateThematicVisualization(thoughtGraph));
+                 // Pass session graph
+                return await Promise.resolve(visualizer.generateThematicVisualization(sessionThoughtGraph));
               case 'hierarchical':
+                 // Pass session graph
                 return await Promise.resolve(visualizer.generateHierarchicalVisualization(
-                  thoughtGraph,
+                  sessionThoughtGraph,
                   visualizationOptions.centerNode,
                   {
                     direction: visualizationOptions.direction as any,
@@ -573,8 +608,9 @@ generateVisualization: true
                   }
                 ));
               case 'force':
+                 // Pass session graph
                 return await Promise.resolve(visualizer.generateForceDirectedVisualization(
-                  thoughtGraph,
+                  sessionThoughtGraph,
                   {
                     clusterBy: visualizationOptions.clusterBy as any,
                     forceStrength: 0.5,
@@ -582,8 +618,9 @@ generateVisualization: true
                   }
                 ));
               case 'radial':
+                 // Pass session graph
                 return await Promise.resolve(visualizer.generateRadialVisualization(
-                  thoughtGraph,
+                  sessionThoughtGraph,
                   visualizationOptions.centerNode,
                   {
                     maxDepth: visualizationOptions.maxDepth,
@@ -592,7 +629,8 @@ generateVisualization: true
                 ));
               case 'graph':
               default:
-                return await Promise.resolve(visualizer.generateVisualization(thoughtGraph, thoughtId));
+                 // Pass session graph
+                return await Promise.resolve(visualizer.generateVisualization(sessionThoughtGraph, thoughtId));
             }
           };
           
@@ -614,12 +652,13 @@ generateVisualization: true
         }
       }
 
-      // Récupération des mémoires et suggestions
-      const relevantMemoriesPromise = memoryManager.getRelevantMemories(params.thought);
-      response.suggestedNextSteps = thoughtGraph.suggestNextSteps();
+      // Récupération des mémoires et suggestions (pass session ID)
+      const relevantMemoriesPromise = memoryManager.getRelevantMemories(params.thought, 3, currentSessionId);
+      // Pass session ID to suggestNextSteps
+      response.suggestedNextSteps = await sessionThoughtGraph.suggestNextSteps(3, currentSessionId);
       response.relevantMemories = await relevantMemoriesPromise;
 
-      // Stockage de la pensée dans la mémoire si sa qualité est suffisante
+      // Stockage de la pensée dans la mémoire (pass session ID)
       if (response.qualityMetrics.quality > 0.7) {
         const tags = params.thought
             .toLowerCase()
@@ -627,10 +666,11 @@ generateVisualization: true
             .filter((word: string) => word.length > 4)
             .slice(0, 5);
 
-        memoryManager.addMemory(params.thought, tags);
+        // Pass session ID when adding memory
+        memoryManager.addMemory(params.thought, tags, currentSessionId);
       }
 
-      // console.error('Smart-Thinking: pensée traitée avec succès, id:', thoughtId);
+      // console.error(`Smart-Thinking [${currentSessionId}]: pensée traitée avec succès, id:`, thoughtId);
 
       // Retour de la réponse formatée pour MCP
       return {

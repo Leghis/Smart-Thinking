@@ -34,6 +34,7 @@
     "@modelcontextprotocol/sdk": "^1.7.0",
     "cohere-ai": "^7.7.5",
     "mkdirp": "^3.0.1",
+    "openai": "^4.92.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {

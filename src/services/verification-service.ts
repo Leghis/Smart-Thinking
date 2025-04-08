@@ -5,6 +5,7 @@ import { MetricsCalculator } from '../metrics-calculator';
 import { MathEvaluator } from '../utils/math-evaluator';
 import { VerificationConfig, SystemConfig } from '../config';
 import { IVerificationService, PreliminaryVerificationResult, PreviousVerificationResult } from './verification-service.interface';
+import { verifyWithLlm } from '../utils/openrouter-client'; // Import LLM verification utility
 
 /**
  * Classe LRUCache optimisée pour la mise en cache des résultats
@@ -191,11 +192,12 @@ export class VerificationService implements IVerificationService {
         };
       }
       
-      // Vérifier s'il existe des outils de vérification adaptés
-      const calculationTools = this.toolIntegrator.suggestVerificationTools(content)
-        .filter(tool => tool.name.toLowerCase().includes('calc') || 
-               tool.name.toLowerCase().includes('math') || 
-               tool.name.toLowerCase().includes('python') || 
+      // Vérifier s'il existe des outils de vérification adaptés (maintenant asynchrone)
+      const suggestedTools = await this.toolIntegrator.suggestVerificationTools(content); // Added await
+      const calculationTools = suggestedTools
+        .filter((tool: SuggestedTool) => tool.name.toLowerCase().includes('calc') || // Added type annotation
+               tool.name.toLowerCase().includes('math') ||
+               tool.name.toLowerCase().includes('python') ||
                tool.name.toLowerCase().includes('javascript'));
       
       if (calculationTools.length > 0) {
@@ -518,10 +520,9 @@ export class VerificationService implements IVerificationService {
     if (contentCharacteristics.hasExternalRefs) contentCategories.push('references');
     
     console.error(`Smart-Thinking: Catégories de contenu détectées: ${contentCategories.join(', ') || 'aucune spécifique'}`);
-    
-    // Déterminer les besoins de vérification
-    const verificationRequirements = this.metricsCalculator.determineVerificationRequirements(content);
-    
+    // Déterminer les besoins de vérification (maintenant asynchrone)
+    const verificationRequirements = await this.metricsCalculator.determineVerificationRequirements(content); // Added await
+
     return {
       contentCharacteristics,
       verificationRequirements
@@ -540,24 +541,24 @@ export class VerificationService implements IVerificationService {
     verificationNeeds: any
   ): Promise<any[]> {
     console.error('Smart-Thinking: Sélection et exécution des outils de vérification');
-    
-    // Obtenir les outils de vérification recommandés
-    const verificationTools = this.toolIntegrator.suggestVerificationTools(content);
-    
+
+    // Obtenir les outils de vérification recommandés (maintenant asynchrone)
+    const verificationTools: SuggestedTool[] = await this.toolIntegrator.suggestVerificationTools(content); // Added await
+
     if (verificationTools.length === 0) {
       console.error('Smart-Thinking: Aucun outil de vérification disponible');
       return [];
     }
     
     console.error(`Smart-Thinking: ${verificationTools.length} outils de vérification disponibles`);
-    
+
     // Calculer le nombre optimal d'outils à utiliser
     const baseToolCount = Math.min(
       verificationNeeds.verificationRequirements.requiresMultipleVerifications ? 
         verificationNeeds.verificationRequirements.recommendedVerificationsCount : 1,
       Math.max(1, verificationTools.length)
     );
-    
+
     // Ajuster le nombre d'outils en fonction de la complexité
     const contentCategories = Object.values(verificationNeeds.contentCharacteristics)
       .filter(value => value === true).length;
@@ -566,12 +567,11 @@ export class VerificationService implements IVerificationService {
       contentCategories > 2 ? baseToolCount + 1 : baseToolCount,
       verificationTools.length
     );
-    
+
     console.error(`Smart-Thinking: Utilisation de ${toolsToUse} outil(s) externe(s) pour la vérification`);
-    
     // Exécuter les vérifications avec Promise.allSettled et timeouts
     const verificationPromises = verificationTools.slice(0, toolsToUse).map(
-      async (tool: SuggestedTool) => {
+      async (tool: SuggestedTool) => { // Explicit type for tool
         return this.executeWithTimeout(
           (async () => {
             try {
@@ -612,10 +612,10 @@ export class VerificationService implements IVerificationService {
     
     // Filtrer les résultats réussis
     const verificationResults = settledResults
-      .filter((result): result is PromiseFulfilledResult<any> => 
+      .filter((result): result is PromiseFulfilledResult<any> => // Type assertion for filter
         result.status === 'fulfilled' && result.value !== null)
-      .map(result => result.value);
-    
+      .map((result: PromiseFulfilledResult<any>) => result.value); // Explicit type for map parameter
+
     console.error(`Smart-Thinking: ${verificationResults.length}/${verificationPromises.length} vérifications réussies`);
     
     return verificationResults;
@@ -681,8 +681,35 @@ export class VerificationService implements IVerificationService {
     sessionId: string
   ): Promise<VerificationResult> {
     console.error('Smart-Thinking: Analyse et agrégation des résultats');
-    
-    // Déterminer le statut et le niveau de confiance de manière optimisée
+
+    let llmVerificationResult: { status: 'verified' | 'contradicted' | 'unverified', confidence: number, notes: string } | null = null;
+
+    // Call internal LLM for verification if results are sparse or inconclusive, or if forced
+    const initialStatusCheck = this.determineVerificationStatusAndConfidence(verificationResults, thought);
+    const needsLlmCheck = verificationResults.length < 2 || ['unverified', 'uncertain'].includes(initialStatusCheck.status);
+
+    if (needsLlmCheck) {
+        console.error('Smart-Thinking: Tentative de vérification supplémentaire avec le LLM interne...');
+        llmVerificationResult = await verifyWithLlm(thought.content);
+        if (llmVerificationResult) {
+            console.error(`Smart-Thinking: Résultat de la vérification LLM: ${llmVerificationResult.status}, Confiance: ${llmVerificationResult.confidence}`);
+            // Add LLM result as if it came from a tool
+            verificationResults.push({
+                toolName: 'internal_llm',
+                result: {
+                    isValid: llmVerificationResult.status === 'verified' ? true : (llmVerificationResult.status === 'contradicted' ? false : undefined),
+                    details: llmVerificationResult.notes,
+                    source: 'Internal LLM Analysis'
+                },
+                confidence: llmVerificationResult.confidence,
+                stage: 'secondary' // Mark as secondary verification stage
+            });
+        } else {
+             console.error('Smart-Thinking: Échec de la vérification LLM interne.');
+        }
+    }
+
+    // Déterminer le statut et le niveau de confiance de manière optimisée (now includes potential LLM result)
     const { status, confidence } = this.determineVerificationStatusAndConfidence(
       verificationResults,
       thought
@@ -703,21 +730,26 @@ export class VerificationService implements IVerificationService {
     
     const steps = [
       ...verificationStages.map(stage => `Étape de ${stage}`),
-      ...verificationResults.map(r => `Vérifié avec ${r.toolName} (${r.stage})`)
+      ...verificationResults.map(r => `Vérifié avec ${r.toolName} (${r.stage || 'primary'})`) // Ensure stage exists
     ];
-    
+    if (llmVerificationResult) {
+        steps.push('Vérifié avec internal_llm (secondary)');
+    }
+
     // Détecter les contradictions
     const contradictions = this.detectContradictions(verificationResults);
-    
     // Générer des notes de vérification
-    const notes = this.generateVerificationNotes(verificationResults, verifiedCalculations);
-    
+    let notes = this.generateVerificationNotes(verificationResults, verifiedCalculations);
+    if (llmVerificationResult) {
+        notes += ` | LLM Notes: ${llmVerificationResult.notes}`;
+    }
+
     // IMPORTANT: Mettre à jour les métadonnées de la pensée
     thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
     thought.metadata.verificationTimestamp = new Date();
-    thought.metadata.verificationSource = verificationResults.length > 0 ? 'tools' : 'internal';
+    thought.metadata.verificationSource = verificationResults.some(r => r.toolName !== 'internal_llm') ? 'tools' : (llmVerificationResult ? 'internal_llm' : 'internal');
     thought.metadata.verificationSessionId = sessionId;
-    thought.metadata.verificationToolsUsed = verificationResults.length;
+    thought.metadata.verificationToolsUsed = verificationResults.map(r => r.toolName); // Store all tool names
     thought.metadata.verificationStages = verificationStages;
     
     // Ajustement spécial pour "absence d'information"

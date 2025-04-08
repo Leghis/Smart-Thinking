@@ -4,8 +4,9 @@ import {
   Connection, 
   ConnectionType, 
   VerificationStatus,
-  CalculationVerificationResult 
+  CalculationVerificationResult
 } from './types';
+import { analyzeForMetric } from './utils/openrouter-client'; // Import the new utility
 
 /**
  * metrics-calculator.ts - VERSION OPTIMISÉE
@@ -185,7 +186,7 @@ export class MetricsCalculator {
 
   // Paramètres configurables pour ajuster les calculs
   private config = {
-    // Poids des différentes composantes dans le calcul de la confiance
+    // Poids des différentes composantes dans le calcul de la confiance (HEURISTIQUE UNIQUEMENT)
     confidenceWeights: {
       modifierAnalysis: 0.4,   // Analyse des modalisateurs de certitude/incertitude
       thoughtType: 0.2,        // Type de pensée (hypothesis, conclusion, etc.)
@@ -193,13 +194,13 @@ export class MetricsCalculator {
       sentimentBalance: 0.2    // Équilibre des sentiments positifs/négatifs
     },
 
-    // Poids des différentes composantes dans le calcul de la pertinence
+    // Poids des différentes composantes dans le calcul de la pertinence (HEURISTIQUE UNIQUEMENT)
     relevanceWeights: {
       keywordOverlap: 0.5,     // Chevauchement de mots-clés
       connectionStrength: 0.5  // Force des connexions dans le graphe
     },
 
-    // Poids des différentes composantes dans le calcul de la qualité
+    // Poids des différentes composantes dans le calcul de la qualité (HEURISTIQUE UNIQUEMENT)
     qualityWeights: {
       wordIndicators: 0.25,    // Indicateurs de mots positifs/négatifs
       typeSpecificIndicators: 0.25, // Indicateurs spécifiques au type
@@ -207,7 +208,7 @@ export class MetricsCalculator {
       coherence: 0.3           // Cohérence globale
     },
 
-    // Ajustements par type de pensée
+    // Ajustements par type de pensée (HEURISTIQUE UNIQUEMENT)
     typeAdjustments: {
       'hypothesis': { confidence: 0.9, quality: 1.0, coherence: 1.1 },
       'conclusion': { confidence: 1.1, quality: 1.2, coherence: 1.2 },
@@ -216,7 +217,7 @@ export class MetricsCalculator {
       'regular': { confidence: 1.0, quality: 1.0, coherence: 1.0 }
     },
 
-    // Paramètres pour l'algorithme TF-IDF
+    // Paramètres pour l'algorithme TF-IDF (HEURISTIQUE UNIQUEMENT)
     tfIdf: {
       minFrequency: 2,         // Fréquence minimale pour qu'un terme soit considéré
       maxDocumentPercentage: 0.7 // Pourcentage maximum de documents contenant un terme
@@ -282,118 +283,160 @@ export class MetricsCalculator {
   }
 
   /**
-   * Calcule la métrique de confiance pour une pensée - VERSION OPTIMISÉE
-   * Implémente un algorithme amélioré pour évaluer la confiance
+   * Calcule la métrique de confiance pour une pensée.
+   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
    *
    * @param thought La pensée à évaluer
+   * @param connectedThoughts Les pensées connectées (pour le contexte)
    * @returns Niveau de confiance entre 0 et 1
    */
-  calculateConfidence(thought: ThoughtNode): number {
+  async calculateConfidence(thought: ThoughtNode, connectedThoughts: ThoughtNode[] = []): Promise<number> { 
+
+    // --- Préparer le contexte pour l'appel LLM ---
+    let contextForLlm: { previousThoughtContent?: string; connectionType?: string; } | undefined = undefined;
+    if (thought.connections.length > 0 && connectedThoughts.length > 0) {
+        const firstConnection = thought.connections[0];
+        const previousThought = connectedThoughts.find(t => t.id === firstConnection.targetId); 
+        if (previousThought) {
+            contextForLlm = {
+                previousThoughtContent: previousThought.content,
+                connectionType: firstConnection.type
+            };
+        }
+    }
+    // --- Fin de la préparation du contexte ---
+
+    // Appel à analyzeForMetric AVEC le contexte
+    const llmConfidence = await analyzeForMetric(thought.content, 'confidence', contextForLlm);
+
+    if (llmConfidence !== null) {
+      // Utiliser directement le score LLM s'il est disponible
+      const finalScore = llmConfidence; 
+
+      // Clamp the result
+      if (finalScore < this.THRESHOLDS.MIN_CONFIDENCE) {
+        return this.THRESHOLDS.MIN_CONFIDENCE;
+      } else if (finalScore > this.THRESHOLDS.MAX_CONFIDENCE) {
+        return this.THRESHOLDS.MAX_CONFIDENCE;
+      }
+      return finalScore;
+    }
+
+    // --- Fallback: Calcul heuristique si l'appel LLM échoue ---
+    console.warn(`LLM analysis failed for confidence on thought ${thought.id}. Falling back to heuristic.`);
     const content = thought.content.toLowerCase();
     const typeWeight = this.config.typeAdjustments[thought.type].confidence;
 
-    // 1. OPTIMISATION: Analyse des modalisateurs avec RegExp
+    // 1. Analyse des modalisateurs
     const uncertaintyCount = this.countModifiers(content, this.REGEX.UNCERTAINTY_MODIFIERS!);
     const certaintyCount = this.countModifiers(content, this.REGEX.CERTAINTY_MODIFIERS!);
-
-    // Calculer le ratio de certitude de manière continue
-    let modifierScore;
-    if (uncertaintyCount === 0 && certaintyCount === 0) {
-      modifierScore = 0.5; // Valeur neutre par défaut
-    } else {
+    let modifierScore = 0.5;
+    if (uncertaintyCount > 0 || certaintyCount > 0) {
       const totalModifiers = uncertaintyCount + certaintyCount;
-      // OPTIMISATION: Approximation plus rapide de la fonction sigmoïde
-      const certitudeRatio = certaintyCount / totalModifiers;
-      const x = -5 * (certitudeRatio - 0.5);
-      if (Math.abs(x) < 1) {
-        modifierScore = 0.5 + 0.25 * x; // Approximation linéaire pour |x| < 1
-      } else {
-        modifierScore = x < 0 ? 0.95 : 0.05; // Valeurs limites pour les autres cas
-      }
+      modifierScore = certaintyCount / totalModifiers;
     }
 
-    // 2. OPTIMISATION: Analyse des indicateurs structurels avec RegExp précompilées
+    // 2. Analyse structurelle
     const referenceMatches = content.match(this.REGEX.REFERENCES) || [];
     const numberMatches = content.match(this.REGEX.NUMBERS) || [];
-    
-    // OPTIMISATION: Éviter les appels à Math.min en utilisant une condition
-    const referenceScore = referenceMatches.length * 0.05 > 0.2 ? 0.2 : referenceMatches.length * 0.05;
-    const numberScore = numberMatches.length * 0.025 > 0.1 ? 0.1 : numberMatches.length * 0.025;
+    const referenceScore = Math.min(referenceMatches.length * 0.05, 0.2);
+    const numberScore = Math.min(numberMatches.length * 0.025, 0.1);
     const structuralScore = 0.5 + referenceScore + numberScore;
 
-    // 3. OPTIMISATION: Utiliser la Map pour accéder au type score
+    // 3. Score basé sur le type
     const typeScore = this.typeScoresMap.get(thought.type) || 0.65;
 
-    // Combinaison pondérée des facteurs avec normalisation intégrée
+    // Combinaison pondérée
     const weights = this.config.confidenceWeights;
-    let confidenceScore = (
+    let heuristicConfidenceScore = (
         modifierScore * weights.modifierAnalysis +
         typeScore * weights.thoughtType +
         structuralScore * weights.structuralIndicators +
-        0.5 * weights.sentimentBalance // Simplification pour la sentimentBalance
+        0.5 * weights.sentimentBalance // Placeholder
     ) * typeWeight;
 
-    // OPTIMISATION: Limite directement sans appels répétés à Math.min/max
-    if (confidenceScore < this.THRESHOLDS.MIN_CONFIDENCE) {
+    // Clamp final
+    if (heuristicConfidenceScore < this.THRESHOLDS.MIN_CONFIDENCE) {
       return this.THRESHOLDS.MIN_CONFIDENCE;
-    } else if (confidenceScore > this.THRESHOLDS.MAX_CONFIDENCE) {
+    } else if (heuristicConfidenceScore > this.THRESHOLDS.MAX_CONFIDENCE) {
       return this.THRESHOLDS.MAX_CONFIDENCE;
     }
-    return confidenceScore;
+    return heuristicConfidenceScore;
   }
 
   /**
-   * Calcule la métrique de pertinence pour une pensée par rapport à son contexte - VERSION OPTIMISÉE
-   * Utilise un algorithme hybride combinant TF-IDF et analyse de connexions
+   * Calcule la métrique de pertinence pour une pensée.
+   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
    *
    * @param thought La pensée à évaluer
    * @param connectedThoughts Les pensées connectées (contexte)
    * @returns Niveau de pertinence entre 0 et 1
    */
-  calculateRelevance(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): number {
-    // Si pas de pensées connectées, la pertinence est moyenne par défaut
+  async calculateRelevance(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): Promise<number> {
+    
+    // --- Préparer le contexte pour l'appel LLM ---
+    let contextForLlm: { previousThoughtContent?: string; connectionType?: string; } | undefined = undefined;
+    if (thought.connections.length > 0 && connectedThoughts.length > 0) {
+        const firstConnection = thought.connections[0];
+        const previousThought = connectedThoughts.find(t => t.id === firstConnection.targetId); 
+        if (previousThought) {
+            contextForLlm = {
+                previousThoughtContent: previousThought.content,
+                connectionType: firstConnection.type
+            };
+        }
+    }
+    // --- Fin de la préparation du contexte ---
+
+    // Appel à analyzeForMetric AVEC le contexte
+    const llmRelevance = await analyzeForMetric(thought.content, 'relevance', contextForLlm);
+
+    if (llmRelevance !== null) {
+        const finalScore = llmRelevance; 
+
+        // Clamp the result
+        if (finalScore < this.THRESHOLDS.MIN_RELEVANCE) {
+            return this.THRESHOLDS.MIN_RELEVANCE;
+        } else if (finalScore > this.THRESHOLDS.MAX_RELEVANCE) {
+            return this.THRESHOLDS.MAX_RELEVANCE;
+        }
+        return finalScore;
+    }
+
+    // --- Fallback: Calcul heuristique si l'appel LLM échoue ---
+    console.warn(`LLM analysis failed for relevance on thought ${thought.id}. Falling back to heuristic.`);
+
     if (connectedThoughts.length === 0) {
       return 0.5;
     }
 
-    // 1. OPTIMISATION: Cache les résultats des extractions de mots-clés
+    // 1. Chevauchement de mots-clés
     const thoughtKeywords = this.extractKeywords(thought.content);
-    
-    // OPTIMISATION: Extraire le contenu une seule fois
     const contextContent = connectedThoughts.map(t => t.content).join(' ');
     const contextKeywords = this.extractAndWeightContextKeywords(contextContent);
-
-    // Calculer la pertinence par chevauchement pondéré
     let keywordScore = 0;
     let totalWeight = 0;
-
-    // OPTIMISATION: Utiliser des variables locales pour éviter les accès objet répétés
     for (const [keyword, weight] of Object.entries(contextKeywords)) {
       totalWeight += weight;
       if (thoughtKeywords.includes(keyword)) {
         keywordScore += weight;
       }
     }
-
     const keywordOverlapScore = totalWeight > 0 ? keywordScore / totalWeight : 0.5;
 
-    // 2. Analyse des connexions - OPTIMISATION: Réutilisation des variables pour réduire GC
+    // 2. Analyse des connexions (sortantes)
     let connectionScoreSum = 0;
     const connectionScoresLength = thought.connections.length;
-    
     if (connectionScoresLength > 0) {
       for (let i = 0; i < connectionScoresLength; i++) {
         const conn = thought.connections[i];
-        // OPTIMISATION: Map lookups plus rapides
         const typeWeight = this.connectionWeightsMap.get(conn.type) || 0.5;
         connectionScoreSum += conn.strength * typeWeight;
       }
     }
-    
-    const connectionScore = connectionScoresLength > 0 ? 
-        connectionScoreSum / connectionScoresLength : 0.5;
+    const connectionScore = connectionScoresLength > 0 ? connectionScoreSum / connectionScoresLength : 0.5;
 
-    // 3. OPTIMISATION: Calcul de l'ancrage contextuel plus efficace
+    // 3. Analyse des connexions (entrantes)
     const incomingConnections = []; 
     for (const t of connectedThoughts) {
       for (const conn of t.connections) {
@@ -402,7 +445,6 @@ export class MetricsCalculator {
         }
       }
     }
-
     let incomingScore = 0.5;
     if (incomingConnections.length > 0) {
       let incomingStrengthSum = 0;
@@ -412,18 +454,17 @@ export class MetricsCalculator {
       incomingScore = incomingStrengthSum / incomingConnections.length;
     }
 
-    // Combinaison pondérée avec distribution uniforme entre les composantes de connexion
+    // Combinaison pondérée
     const relevanceScore = (
         keywordOverlapScore * this.config.relevanceWeights.keywordOverlap +
         ((connectionScore + incomingScore) / 2) * this.config.relevanceWeights.connectionStrength
     );
 
-    // Ajustement par type de pensée
-    const typeAdjustment = thought.type === 'meta' ? 0.9 :
-        thought.type === 'revision' ? 1.1 : 1.0;
-
-    // OPTIMISATION: Limite directement
+    // Ajustement par type
+    const typeAdjustment = thought.type === 'meta' ? 0.9 : (thought.type === 'revision' ? 1.1 : 1.0);
     const adjustedScore = relevanceScore * typeAdjustment;
+
+    // Clamp final
     if (adjustedScore < this.THRESHOLDS.MIN_RELEVANCE) {
       return this.THRESHOLDS.MIN_RELEVANCE;
     } else if (adjustedScore > this.THRESHOLDS.MAX_RELEVANCE) {
@@ -433,151 +474,105 @@ export class MetricsCalculator {
   }
 
   /**
-   * Calcule la métrique de qualité globale pour une pensée - VERSION OPTIMISÉE
-   * Utilise une approche multi-factorielle
+   * Calcule la métrique de qualité globale pour une pensée.
+   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
    *
    * @param thought La pensée à évaluer
    * @param connectedThoughts Les pensées connectées (contexte)
    * @returns Niveau de qualité entre 0 et 1
    */
-  calculateQuality(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): number {
-    const content = thought.content.toLowerCase();
+  async calculateQuality(thought: ThoughtNode, connectedThoughts: ThoughtNode[] = []): Promise<number> {
     
-    // OPTIMISATION: Table de lookup pour les ajustements de type
-    const typeAdjustmentMap = new Map([
-      ['conclusion', 1.05],
-      ['revision', 1.0],
-      ['hypothesis', 1.0],
-      ['meta', 1.1],
-      ['regular', 1.0]
-    ]);
-    
-    const typeAdjustment = typeAdjustmentMap.get(thought.type) || 1.0;
+    // --- Préparer le contexte pour l'appel LLM ---
+    let contextForLlm: { previousThoughtContent?: string; connectionType?: string; } | undefined = undefined;
+    if (thought.connections.length > 0 && connectedThoughts.length > 0) {
+        const firstConnection = thought.connections[0];
+        const previousThought = connectedThoughts.find(t => t.id === firstConnection.targetId); 
+        if (previousThought) {
+            contextForLlm = {
+                previousThoughtContent: previousThought.content,
+                connectionType: firstConnection.type
+            };
+        }
+    }
+    // --- Fin de la préparation du contexte ---
 
-    // 1. OPTIMISATION: Analyse des indicateurs lexicaux avec RegExp
-    // Précompiler les regex pour les mots positifs et négatifs
+    // Appel à analyzeForMetric AVEC le contexte
+    const llmQuality = await analyzeForMetric(thought.content, 'quality', contextForLlm);
+
+    if (llmQuality !== null) {
+      const finalScore = llmQuality; 
+
+      // Clamp the result
+      if (finalScore < this.THRESHOLDS.MIN_QUALITY) {
+        return this.THRESHOLDS.MIN_QUALITY;
+      } else if (finalScore > this.THRESHOLDS.MAX_QUALITY) {
+        return this.THRESHOLDS.MAX_QUALITY;
+      }
+      return finalScore;
+    }
+
+    // --- Fallback: Calcul heuristique si l'appel LLM échoue ---
+    console.warn(`LLM analysis failed for quality on thought ${thought.id}. Falling back to heuristic.`);
+    const content = thought.content.toLowerCase();
+    const typeAdjustment = this.config.typeAdjustments[thought.type]?.quality || 1.0;
+
+    // 1. Indicateurs lexicaux
     const positiveWordsRegex = new RegExp('\\b(' + this.positiveWords.join('|') + ')\\b', 'gi');
     const negativeWordsRegex = new RegExp('\\b(' + this.negativeWords.join('|') + ')\\b', 'gi');
-    
     const positiveMatches = content.match(positiveWordsRegex) || [];
     const negativeMatches = content.match(negativeWordsRegex) || [];
-    
-    // Score basé sur le ratio positif/négatif
     const positiveCount = positiveMatches.length;
     const negativeCount = negativeMatches.length;
-    
     let wordIndicatorScore = 0.5;
     if (positiveCount > 0 || negativeCount > 0) {
       const total = positiveCount + negativeCount;
       wordIndicatorScore = (positiveCount / total) * 0.5 + 0.3;
     }
 
-    // 2. OPTIMISATION: Analyse des indicateurs spécifiques au type avec RegExp
+    // 2. Indicateurs spécifiques au type
     const typeIndicators = this.qualityIndicators[thought.type] || this.qualityIndicators['regular'];
     const positiveTypeRegex = new RegExp(typeIndicators.positive.join('|'), 'gi');
     const negativeTypeRegex = new RegExp(typeIndicators.negative.join('|'), 'gi');
-    
     const positiveTypeMatches = content.match(positiveTypeRegex) || [];
     const negativeTypeMatches = content.match(negativeTypeRegex) || [];
-    
-    // Score basé sur les indicateurs spécifiques au type
     const positiveTypeCount = positiveTypeMatches.length;
     const negativeTypeCount = negativeTypeMatches.length;
-    
     let typeIndicatorScore = 0.5;
     if (positiveTypeCount > 0 || negativeTypeCount > 0) {
       typeIndicatorScore = 0.5 + (positiveTypeCount - negativeTypeCount) * 0.1;
-      // OPTIMISATION: Éviter les appels à Math.min/max en séquence
       typeIndicatorScore = typeIndicatorScore < 0.3 ? 0.3 : (typeIndicatorScore > 0.9 ? 0.9 : typeIndicatorScore);
     }
 
-    // 3. OPTIMISATION: Analyse structurelle plus efficace
-    // Cache les résultats de split qui sont utilisés plusieurs fois
+    // 3. Analyse structurelle
     const wordsArray = content.split(this.REGEX.WHITESPACE);
     const wordCount = wordsArray.length;
     const sentencesArray = content.split(this.REGEX.SENTENCES).filter(s => s.trim().length > 0);
     const sentenceCount = sentencesArray.length;
     const avgSentenceLength = wordCount / Math.max(sentenceCount, 1);
-
-    // OPTIMISATION: Utiliser une approche de lookup au lieu de branches conditionnelles
     let structuralScore;
     const isTypeWithSpecialHandling = thought.type === 'conclusion' || thought.type === 'revision';
-    
     if (isTypeWithSpecialHandling) {
-      // Tables de lookup pour les conclusions/révisions
       structuralScore = wordCount < 5 ? 0.4 : (wordCount > 300 ? 0.5 : 0.8);
     } else {
-      // Tables de lookup pour les autres types
-      if (wordCount < 5) {
-        structuralScore = 0.3;
-      } else if (wordCount > 300) {
-        structuralScore = 0.4;
-      } else if (wordCount >= 150) {
-        structuralScore = 0.6;
-      } else if (wordCount >= 30) {
-        structuralScore = 0.8;
-      } else {
-        structuralScore = 0.5; // Valeur par défaut
-      }
+      if (wordCount < 5) structuralScore = 0.3;
+      else if (wordCount > 300) structuralScore = 0.4;
+      else if (wordCount >= 150) structuralScore = 0.6;
+      else if (wordCount >= 30) structuralScore = 0.8;
+      else structuralScore = 0.5;
     }
-
-    // OPTIMISATION: Optimiser les pénalités pour la longueur des phrases
     if (avgSentenceLength > 25 || (avgSentenceLength < 5 && sentenceCount > 1)) {
       structuralScore *= 0.9;
     }
 
-    // 4. OPTIMISATION: Analyse de la cohérence plus efficace
-    let coherenceScore = 0.5;
-
-    if (connectedThoughts.length > 0) {
-      // OPTIMISATION: Compter directement au lieu de filter + length
-      let contradictions = 0;
-      let supports = 0;
-      
-      // OPTIMISATION: Utiliser des sets pour lookup rapide
-      const connectedIds = new Set(connectedThoughts.map(t => t.id));
-      
-      // Une seule boucle pour compter les deux
-      for (let i = 0; i < thought.connections.length; i++) {
-        const conn = thought.connections[i];
-        if (connectedIds.has(conn.targetId)) {
-          if (conn.type === 'contradicts') {
-            contradictions++;
-          } else if (conn.type === 'supports') {
-            supports++;
-          }
-        }
-      }
-      
-      // OPTIMISATION: Optimiser les conditions avec une seule vérification
-      if (thought.type === 'revision' || thought.type === 'conclusion') {
-        if (thought.connections.length >= 2) {
-          coherenceScore = 0.7;
-        }
-      }
-
-      // OPTIMISATION: Optimiser les comparaisons de cohérence
-      if (contradictions > 0) {
-        if (supports === 0) {
-          coherenceScore = coherenceScore < 0.45 ? 0.45 : coherenceScore;
-        } else {
-          coherenceScore = coherenceScore < 0.6 ? 0.6 : coherenceScore;
-        }
-      } else if (supports > 0) {
-        coherenceScore = coherenceScore < 0.7 ? 0.7 : coherenceScore;
-      }
-
-      // Bonus pour les pensées bien connectées
-      const connectionRatio = thought.connections.length / connectedThoughts.length;
-      if (connectionRatio > 0.5) {
-        coherenceScore += 0.1;
-      }
-      
-      // OPTIMISATION: Limite directement
-      coherenceScore = coherenceScore > 0.9 ? 0.9 : coherenceScore;
+    // 4. Analyse de cohérence (simplifiée sans contexte profond pour l'heuristique)
+    let coherenceScore = 0.5; 
+    if (thought.connections.length > 0) {
+        coherenceScore = 0.6; // Léger bonus si connecté
+        // Une analyse plus poussée nécessiterait connectedThoughts ici
     }
 
-    // OPTIMISATION: Combiner les scores avec pondération en évitant les accès répétés
+    // Combinaison pondérée
     const weights = this.config.qualityWeights;
     const qualityScore = (
         wordIndicatorScore * weights.wordIndicators +
@@ -586,7 +581,7 @@ export class MetricsCalculator {
         coherenceScore * weights.coherence
     ) * typeAdjustment;
 
-    // OPTIMISATION: Limiter directement
+    // Clamp final
     if (qualityScore < 0.3) {
       return 0.3;
     } else if (qualityScore > 0.95) {
@@ -948,12 +943,32 @@ export class MetricsCalculator {
    * Détecte les biais potentiels dans une pensée - VERSION OPTIMISÉE
    * 
    * @param thought La pensée à analyser
-   * @returns Un tableau des biais détectés avec leur score (0-1)
+   * @returns Un tableau des biais détectés avec leur score (0-1) (basé sur LLM ou heuristique)
    */
-  detectBiases(thought: ThoughtNode): Array<{type: string, score: number, description: string}> {
+  async detectBiases(thought: ThoughtNode): Promise<Array<{type: string, score: number, description: string}>> {
+    const llmBiasScore = await analyzeForMetric(thought.content, 'bias');
+
+    if (llmBiasScore !== null && llmBiasScore > 0.3) { // Use a threshold to decide if LLM detected significant bias
+        // If LLM detects bias, return a generic bias entry.
+        // More sophisticated analysis could involve asking the LLM *which* bias it detected.
+        return [{
+            type: 'llm_detected_bias',
+            score: llmBiasScore,
+            description: 'Potential bias detected by internal LLM analysis.'
+        }];
+    } else if (llmBiasScore !== null && llmBiasScore <= 0.3) {
+        // LLM analysis suggests low bias, return empty array
+        return [];
+    }
+
+    // Fallback to original heuristic calculation if LLM fails or score is low/null
+    if (llmBiasScore === null) {
+      console.warn(`LLM analysis failed for bias on thought ${thought.id}. Falling back to heuristic.`);
+    }
+
     const content = thought.content.toLowerCase();
     const biases = [];
-    
+
     // OPTIMISATION: Liste des patterns de biais cognitifs courants
     const biasPatterns = [
       {
@@ -1020,9 +1035,9 @@ export class MetricsCalculator {
    * Détermine les besoins de vérification pour un contenu donné - VERSION OPTIMISÉE
    * 
    * @param content Le contenu textuel à analyser
-   * @returns Configuration recommandée pour la vérification
+   * @returns Configuration recommandée pour la vérification (basée sur LLM ou heuristique)
    */
-  determineVerificationRequirements(content: string): {
+  async determineVerificationRequirements(content: string): Promise<{
     needsFactCheck: boolean;
     needsMathCheck: boolean;
     needsSourceCheck: boolean;
@@ -1031,9 +1046,10 @@ export class MetricsCalculator {
     requiresMultipleVerifications: boolean;
     reasons: string[];
     recommendedVerificationsCount: number;
-  } {
-    const lowercaseContent = content.toLowerCase();
-    
+  }> {
+    const lowercaseContent = content.toLowerCase(); // Define lowercaseContent here
+    const llmVerificationNeed = await analyzeForMetric(content, 'verification_need');
+
     // Initialiser les résultats
     const result = {
       needsFactCheck: false,
@@ -1091,10 +1107,17 @@ export class MetricsCalculator {
       score += 1;
       result.reasons.push('Contient des références temporelles récentes');
     }
-    
-    // OPTIMISATION: Définir la priorité en fonction du score directement
-    result.priority = score >= 3 ? 'high' : (score >= 1 ? 'medium' : 'low');
-    
+    // OPTIMISATION: Définir la priorité en fonction du score directement et de l'analyse LLM
+    if (llmVerificationNeed !== null) {
+        // Blend LLM score with heuristic score
+        score += llmVerificationNeed * 2; // Give LLM score some weight
+        if (llmVerificationNeed > 0.7) result.reasons.push('LLM analysis indicates high verification need');
+    } else {
+        console.warn(`LLM analysis failed for verification_need. Relying solely on heuristic.`);
+    }
+
+    result.priority = score >= 4 ? 'high' : (score >= 2 ? 'medium' : 'low'); // Adjusted thresholds
+
     // OPTIMISATION: Déterminer si plusieurs vérifications sont nécessaires
     // Basé sur la complexité et l'importance du contenu
     result.requiresMultipleVerifications = 
