@@ -577,4 +577,48 @@ export class MemoryManager {
     this.knowledgeBase.clear();
     this.saveToStorage();
   }
+
+  /**
+   * Sauvegarde l'état complet d'un graphe de session dans un fichier dédié.
+   * @param sessionId L'identifiant de la session.
+   * @param graphStateJson La représentation JSON de l'état du graphe.
+   */
+  async saveGraphState(sessionId: string, graphStateJson: string): Promise<void> {
+    try {
+      await this.ensureDirectoriesExist(); // Assure que le répertoire data existe
+      const filePath = path.join(this.dataDir, `graph_state_${sessionId}.json`);
+      await fs.writeFile(filePath, graphStateJson, 'utf8');
+      this.debugLog(`État du graphe pour la session ${sessionId} sauvegardé dans ${filePath}`);
+    } catch (error) {
+      console.error(`Smart-Thinking: Erreur lors de la sauvegarde de l'état du graphe pour la session ${sessionId}:`, error);
+      // Ne pas bloquer l'exécution principale si la sauvegarde échoue, mais logger l'erreur.
+    }
+  }
+
+  /**
+   * Charge l'état complet d'un graphe de session depuis son fichier dédié.
+   * @param sessionId L'identifiant de la session.
+   * @returns Le JSON de l'état du graphe ou null si non trouvé ou en cas d'erreur.
+   */
+  async loadGraphState(sessionId: string): Promise<string | null> {
+    try {
+      await this.ensureDirectoriesExist(); // Assure que le répertoire data existe
+      const filePath = path.join(this.dataDir, `graph_state_${sessionId}.json`);
+      
+      // Vérifier si le fichier existe avant de tenter de le lire
+      try {
+        await fs.access(filePath, fs.constants.R_OK);
+      } catch (accessError) {
+        this.debugLog(`Aucun état de graphe sauvegardé trouvé pour la session ${sessionId} à ${filePath}`);
+        return null; // Fichier non trouvé ou inaccessible
+      }
+
+      const graphStateJson = await fs.readFile(filePath, 'utf8');
+      this.debugLog(`État du graphe pour la session ${sessionId} chargé depuis ${filePath}`);
+      return graphStateJson;
+    } catch (error) {
+      console.error(`Smart-Thinking: Erreur lors du chargement de l'état du graphe pour la session ${sessionId}:`, error);
+      return null; // Retourner null en cas d'erreur de lecture ou de parsing
+    }
+  }
 }

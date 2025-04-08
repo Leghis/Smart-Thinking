@@ -3,11 +3,11 @@ import OpenAI from 'openai';
 // import { SystemConfig } from '../config'; 
 
 // WARNING: Hardcoding API keys is generally insecure. Consider environment variables or a config file.
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 // --- CORRECTION: Utiliser directement le modèle fallback car SystemConfig ne contient pas l'ID ---
-const INTERNAL_MODEL_ID = 'meta-llama/llama-4-maverick'; // Fallback model
-console.log(`Using OpenRouter Model: ${INTERNAL_MODEL_ID}`); // Log the model being used
+const INTERNAL_MODEL_ID = 'openrouter/quasar-alpha'; // Fallback model
+console.error(`Using OpenRouter Model: ${INTERNAL_MODEL_ID}`); // Log the model being used - Redirected to stderr
 
 const openAI = new OpenAI({
   baseURL: OPENROUTER_BASE_URL,
@@ -29,7 +29,7 @@ const openAI = new OpenAI({
 export async function callInternalLlm(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 150
+  maxTokens: number = 2000
 ): Promise<string | null> {
   try {
     console.log(`Calling LLM. System Prompt: ${systemPrompt.substring(0, 100)}... User Prompt: ${userPrompt.substring(0, 200)}...`); // Log prompts
@@ -40,7 +40,7 @@ export async function callInternalLlm(
         { role: 'user', content: userPrompt },
       ],
       max_tokens: maxTokens,
-      temperature: 0.5, // Slightly lower temperature for more deterministic scoring
+      temperature: 0.7, // Slightly lower temperature for more deterministic scoring
     });
 
     const responseContent = completion.choices[0]?.message?.content?.trim() ?? null;

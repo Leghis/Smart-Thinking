@@ -892,28 +892,70 @@ export class ThoughtGraph {
 
     const sourceContent = sourceThought.content.toLowerCase();
     const targetContent = targetThought.content.toLowerCase();
+    const combinedContent = sourceContent + " " + targetContent; // Combine for easier marker checking
 
-    // Recherche de mots-clés indiquant des contradictions
+    // --- Enrichissement des marqueurs ---
     const contradictionMarkers = [
-      'cependant', 'mais', 'toutefois', 'contrairement', 'oppose',
-      'contredit', 'différent', 'désaccord', 'conteste', 'au contraire', 'inversement'
+      'cependant', 'mais', 'toutefois', 'contrairement', 'oppose', 'inversement',
+      'contredit', 'différent', 'désaccord', 'conteste', 'au contraire', 'réfute',
+      'pourtant', 'malgré', 'bien que', 'alors que', 'pas d\'accord', 'faux', 'incorrect'
+    ];
+    const supportMarkers = [
+      'confirme', 'soutient', 'renforce', 'valide', 'appuie', 'corrobore',
+      'accord', 'similaire', 'également', 'aussi', 'de même', 'en effet',
+      'prouve', 'démontre', 'illustre', 'comme', 'ainsi', 'par exemple' // Certains peuvent aussi être 'exemplifies'
+    ];
+    const derivationMarkers = [ // Pour 'derives', 'synthesizes', 'applies'
+      'donc', 'par conséquent', 'ainsi', 'résulte', 'implique', 'entraîne',
+      'si...alors', 'parce que', 'car', 'puisque', 'étant donné', 'conclusion', 'synthèse'
+    ];
+    const exemplificationMarkers = [ // Pour 'exemplifies'
+      'par exemple', 'comme', 'illustre', 'notamment', 'tel que'
+    ];
+    const questionMarkers = [ // Pour 'questions'
+      'pourquoi', 'comment', 'quel', 'quelle', 'qui', 'où', 'quand', '?', 'remet en question'
+    ];
+    const refinementMarkers = [ // Pour 'refines'
+      'précise', 'détaille', 'améliore', 'corrige', 'en d\'autres termes', 'spécifiquement'
     ];
 
-    if (contradictionMarkers.some(marker =>
-      sourceContent.includes(marker) || targetContent.includes(marker)
-    )) {
+    // --- Logique d'inférence améliorée ---
+
+    // Priorité aux contradictions
+    if (contradictionMarkers.some((marker: string) => combinedContent.includes(marker))) { // Explicitly typed param
       return 'contradicts';
     }
 
-    // Recherche de mots-clés indiquant un support
-    const supportMarkers = [
-      'confirme', 'soutient', 'renforce', 'valide', 'appuie',
-      'corrobore', 'accord', 'similaire', 'également', 'aussi', 'de même'
-    ];
+    // Ensuite, les dérivations/applications (logique forte)
+    if (derivationMarkers.some((marker: string) => combinedContent.includes(marker))) { // Explicitly typed param
+        // Affiner si possible (ex: si source est conclusion/meta et cible est regular -> synthesizes)
+        if (sourceThought.type === 'conclusion' && targetThought.type !== 'conclusion') return 'synthesizes';
+        if (sourceThought.type === 'meta') return 'analyzes'; // ou evaluates
+        // Si contient "si...alors", pourrait être 'applies' ou 'derives'
+        if (combinedContent.includes('si') && combinedContent.includes('alors')) return 'applies';
+        return 'derives'; // Ou 'supports' selon le contexte exact
+    }
 
-    if (supportMarkers.some(marker =>
-      sourceContent.includes(marker) || targetContent.includes(marker)
-    )) {
+    // Ensuite, les exemples
+    if (exemplificationMarkers.some((marker: string) => combinedContent.includes(marker))) { // Explicitly typed param
+        // Vérifier la direction (source exemplifie cible ou l'inverse)
+        if (exemplificationMarkers.some((marker: string) => sourceContent.includes(marker))) return 'exemplifies'; // Check marker in source
+        if (exemplificationMarkers.some((marker: string) => targetContent.includes(marker))) return 'generalizes'; // Check marker in target
+        return 'exemplifies'; // Par défaut
+    }
+
+     // Ensuite, les questions
+    if (questionMarkers.some((marker: string) => combinedContent.includes(marker))) { // Explicitly typed param
+      return 'questions';
+    }
+
+    // Ensuite, les raffinements/révisions
+    if (refinementMarkers.some((marker: string) => combinedContent.includes(marker)) || sourceThought.type === 'revision') { // Explicitly typed param
+      return 'refines';
+    }
+
+    // Ensuite, le support (logique plus faible ou association positive)
+    if (supportMarkers.some((marker: string) => combinedContent.includes(marker))) { // Explicitly typed param
       return 'supports';
     }
 
@@ -934,9 +976,7 @@ export class ThoughtGraph {
       return 'analyzes';
     }
 
-    if (sourceThought.type === 'revision') {
-      return 'refines';
-    }
+    // Removed redundant check for 'revision' here as it's handled earlier
 
     // Par défaut, type d'association générique
     return 'associates';
@@ -1070,7 +1110,7 @@ export class ThoughtGraph {
   ): ConnectionAttributes {
     const attributes: ConnectionAttributes = {};
 
-    // Inférer la temporalité
+    // Inférer la temporalité (inchangé)
     if (sourceThought.timestamp < targetThought.timestamp) {
       attributes.temporality = 'before';
     } else if (sourceThought.timestamp > targetThought.timestamp) {
@@ -1079,14 +1119,31 @@ export class ThoughtGraph {
         attributes.temporality = 'concurrent';
     }
 
+    // --- Inférence de Certitude ---
+    const certaintyMarkersLow = ['peut-être', 'semble', 'possible', 'pourrait', 'probablement', 'suggère'];
+    const certaintyMarkersHigh = ['certainement', 'clairement', 'évidemment', 'prouvé', 'démontré', 'sans aucun doute'];
+    const combinedContentForCertainty = sourceThought.content.toLowerCase() + " " + targetThought.content.toLowerCase();
 
-    // Inférer la nature
+    if (certaintyMarkersHigh.some((marker: string) => combinedContentForCertainty.includes(marker))) { // Explicitly typed param
+        attributes.certainty = 'high'; // Ou 'definite' si très fort
+    } else if (certaintyMarkersLow.some((marker: string) => combinedContentForCertainty.includes(marker))) { // Explicitly typed param
+        attributes.certainty = 'low'; // Ou 'speculative' si très faible
+    } else {
+        // Default basé sur la confiance de la connexion inférée (si disponible)
+        // Ou 'moderate' par défaut
+        attributes.certainty = 'moderate';
+    }
+    // Note: La confiance de la connexion elle-même (strength) pourrait aussi influencer la certitude.
+
+    // Inférer la nature (légèrement affiné)
     switch (type) {
       case 'supports':
       case 'contradicts':
         attributes.nature = 'associative'; // Could be causal/correlational depending on content
         break;
       case 'derives':
+        attributes.nature = combinedContentForCertainty.includes('parce que') || combinedContentForCertainty.includes('car') ? 'causal' : 'sequential';
+        break;
       case 'refines':
       case 'generalizes':
       case 'exemplifies':
@@ -1100,20 +1157,20 @@ export class ThoughtGraph {
       case 'analyzes':
       case 'evaluates':
       case 'applies':
-        attributes.nature = 'causal'; // Often implies causality or application
+        attributes.nature = 'causal'; // Maintient l'hypothèse causale/applicative
         break;
       default:
         attributes.nature = 'associative';
     }
 
-    // Inférer la directionnalité
+    // Inférer la directionnalité (inchangé)
     if (this.shouldCreateReciprocalConnection(type)) {
       attributes.directionality = 'bidirectional';
     } else {
       attributes.directionality = 'unidirectional';
     }
 
-    // Inférer la portée (simple heuristic)
+    // Inférer la portée (inchangé - heuristique simple)
     const sourceLength = sourceThought.content.length;
     const targetLength = targetThought.content.length;
     if (Math.abs(sourceLength - targetLength) < 50) {
@@ -1123,7 +1180,6 @@ export class ThoughtGraph {
     } else {
         attributes.scope = 'partial';
     }
-
 
     return attributes;
   }

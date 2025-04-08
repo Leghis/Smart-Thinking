@@ -399,20 +399,32 @@ generateVisualization: true
 
       // console.error('Smart-Thinking: traitement de la pensée pour session:', params.sessionId || 'default');
 
-      // --- Session Management ---
-      // Create or retrieve session-specific instances
-      // For simplicity, we create them per request here. A real implementation might cache them.
+      // --- Session Management & State Loading ---
       const currentSessionId = params.sessionId || 'default';
-      const sessionThoughtGraph = new ThoughtGraph(currentSessionId, globalEmbeddingService, globalQualityEvaluator);
-      // Load existing session data if applicable (assuming MemoryManager handles persistence)
-      // This part needs a mechanism to load graph state per session, which is complex.
-      // For now, we'll operate on a fresh graph per call but use the session ID for filtering memory.
-      // A full fix would involve loading/saving graph state via MemoryManager or similar.
+      const memoryManager = globalMemoryManager; // Use global manager for persistence
 
-      // Use session-specific or global services as appropriate
-      const verificationService = globalVerificationService; // Use global
+      // Create a new graph instance for the session
+      const sessionThoughtGraph = new ThoughtGraph(currentSessionId, globalEmbeddingService, globalQualityEvaluator);
+
+      // Attempt to load previous graph state for this session
+      const loadedStateJson = await memoryManager.loadGraphState(currentSessionId);
+      if (loadedStateJson) {
+        const importSuccess = sessionThoughtGraph.importEnrichedGraph(loadedStateJson);
+        if (importSuccess) {
+          console.error(`Smart-Thinking [${currentSessionId}]: État du graphe précédent chargé avec succès.`);
+        } else {
+          console.error(`Smart-Thinking [${currentSessionId}]: Échec du chargement/parsing de l'état du graphe précédent.`);
+          // Continue with an empty graph for this session
+        }
+      } else {
+         console.error(`Smart-Thinking [${currentSessionId}]: Aucun état de graphe précédent trouvé, nouvelle session de graphe démarrée.`);
+      }
+
+      // Use global services (assuming they are stateless or manage their own state)
+      // Use the global memoryManager instance directly
+      const verificationService = globalVerificationService;
       const qualityEvaluator = globalQualityEvaluator; // Use global
-      const memoryManager = globalMemoryManager; // Use global for persistence access
+      // const memoryManager = globalMemoryManager; // REMOVED local redeclaration
       const metricsCalculator = globalMetricsCalculator; // Use global
       const toolIntegrator = globalToolIntegrator; // Use global
 
@@ -652,8 +664,8 @@ generateVisualization: true
         }
       }
 
-      // Récupération des mémoires et suggestions (pass session ID)
-      const relevantMemoriesPromise = memoryManager.getRelevantMemories(params.thought, 3, currentSessionId);
+      // Récupération des mémoires et suggestions (pass session ID) using globalMemoryManager
+      const relevantMemoriesPromise = globalMemoryManager.getRelevantMemories(params.thought, 3, currentSessionId);
       // Pass session ID to suggestNextSteps
       response.suggestedNextSteps = await sessionThoughtGraph.suggestNextSteps(3, currentSessionId);
       response.relevantMemories = await relevantMemoriesPromise;
@@ -666,11 +678,17 @@ generateVisualization: true
             .filter((word: string) => word.length > 4)
             .slice(0, 5);
 
-        // Pass session ID when adding memory
-        memoryManager.addMemory(params.thought, tags, currentSessionId);
+        // Pass session ID when adding memory using globalMemoryManager
+        globalMemoryManager.addMemory(params.thought, tags, currentSessionId);
       }
 
       // console.error(`Smart-Thinking [${currentSessionId}]: pensée traitée avec succès, id:`, thoughtId);
+
+      // --- State Saving ---
+      // Export and save the updated graph state before returning using globalMemoryManager
+      const currentStateJson = sessionThoughtGraph.exportEnrichedGraph();
+      await globalMemoryManager.saveGraphState(currentSessionId, currentStateJson);
+      console.error(`Smart-Thinking [${currentSessionId}]: État actuel du graphe sauvegardé.`);
 
       // Retour de la réponse formatée pour MCP
       return {
