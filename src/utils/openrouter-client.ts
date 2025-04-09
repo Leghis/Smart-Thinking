@@ -6,7 +6,7 @@ import OpenAI from 'openai';
 const OPENROUTER_API_KEY = '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';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 // --- CORRECTION: Utiliser directement le modèle fallback car SystemConfig ne contient pas l'ID ---
-const INTERNAL_MODEL_ID = 'openrouter/quasar-alpha'; // Fallback model
+const INTERNAL_MODEL_ID = 'meta-llama/llama-4-maverick'; // Fallback model
 console.error(`Using OpenRouter Model: ${INTERNAL_MODEL_ID}`); // Log the model being used - Redirected to stderr
 
 const openAI = new OpenAI({
