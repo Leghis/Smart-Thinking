@@ -93,6 +93,9 @@ If CONTEXT (previous thought, connection type) is provided, evaluate the confide
 - Confidence is HIGH (0.8-1.0) if the CURRENT thought strongly supports, logically derives from ('derives', 'refines'), or provides strong evidence for the previous thought, OR if it expresses high certainty intrinsically. A short, direct logical derivation can have HIGH confidence.
 - Confidence is MEDIUM (0.4-0.7) if it extends, associates with, or moderately supports the previous thought, OR if it expresses moderate certainty intrinsically.
 - Confidence is LOW (0.0-0.3) if the CURRENT thought contradicts, questions, is irrelevant to the previous thought, OR expresses high uncertainty intrinsically (hedging words like 'maybe', 'perhaps', 'could').
+
+Context sensitivity: If the connection type is 'conclusion' or 'hypothesis', apply stricter evaluation criteria. For 'associates' or 'extends', apply more flexible criteria. For calculations or scientific claims, prioritize factual accuracy. For ethical or philosophical statements, focus on logical coherence.
+
 Return ONLY the confidence score as a float between 0.0 and 1.0.`;
             userPrompt += "Desired Output: Respond with ONLY a single floating-point number between 0.0 and 1.0 representing the confidence score.\nScore (0.0-1.0):";
             break;
@@ -103,6 +106,25 @@ If CONTEXT (previous thought, connection type) is provided, evaluate the relevan
 - Relevance is MEDIUM (0.4-0.7) if the link is less direct (e.g., 'extends', 'compares', 'contrasts', 'associates') or if it's topically related but not directly linked.
 - Relevance is LOW (0.0-0.3) if the CURRENT thought is on a completely different topic or only tangentially related.
 If NO CONTEXT is provided, evaluate the general relevance of the CURRENT thought to a typical logical reasoning process (is it a meaningful, non-trivial statement?).
+
+Examples:
+- Previous thought: "Climate change is primarily caused by human activities."
+- CURRENT thought: "Carbon dioxide emissions from fossil fuels are a major contributor to the greenhouse effect."
+- Connection type: "supports"
+- Expected score: 0.9 (HIGH relevance - directly supports with specific mechanism)
+
+- Previous thought: "Education systems should be reformed."
+- CURRENT thought: "Some schools in Finland have implemented project-based learning."
+- Connection type: "associates"
+- Expected score: 0.5 (MEDIUM relevance - topically related but indirect connection)
+
+- Previous thought: "Economic policies need revision."
+- CURRENT thought: "Jupiter has 79 known moons."
+- Connection type: none
+- Expected score: 0.1 (LOW relevance - completely unrelated topics)
+
+Context sensitivity: If the connection type is 'conclusion' or 'hypothesis', apply stricter evaluation criteria. For 'associates' or 'extends', apply more flexible criteria. For calculations or scientific claims, prioritize factual accuracy. For ethical or philosophical statements, focus on logical coherence.
+
 Return ONLY the relevance score as a float between 0.0 and 1.0.`;
             userPrompt += "Desired Output: Respond with ONLY a single floating-point number between 0.0 and 1.0 representing the relevance score.\nScore (0.0-1.0):";
             break;
@@ -113,18 +135,43 @@ If CONTEXT (previous thought, connection type) is provided, evaluate the quality
 - Quality is MEDIUM (0.4-0.7) for thoughts that are understandable but could be clearer, more concise, or better structured, OR fit only moderately well with context.
 - Quality is LOW (0.0-0.3) for vague, confusing, illogical, poorly structured thoughts, OR thoughts that are clearly incoherent with the context.
 If NO CONTEXT is provided, evaluate the intrinsic quality (clarity, structure, apparent soundness) of the CURRENT thought alone.
+
+Context sensitivity: If the connection type is 'conclusion' or 'hypothesis', apply stricter evaluation criteria. For 'associates' or 'extends', apply more flexible criteria. For calculations or scientific claims, prioritize factual accuracy. For ethical or philosophical statements, focus on logical coherence.
+
 Return ONLY the quality score as a float between 0.0 and 1.0.`;
             userPrompt += "Desired Output: Respond with ONLY a single floating-point number between 0.0 and 1.0 representing the quality score.\nScore (0.0-1.0):";
             break;
         case 'bias':
              // Bias detection is usually intrinsic, context less critical
-             systemPrompt = `You are an AI specialized in detecting potential biases (cognitive, emotional, social) in text. Analyze the CURRENT thought for indicators of bias. Return a single floating-point number between 0.0 (no detectable bias) and 1.0 (strong indication of bias).`;
+             systemPrompt = `You are an AI specialized in detecting potential biases (cognitive, emotional, social) in text. Analyze the CURRENT thought for indicators of bias.
+- Look for cognitive biases such as confirmation bias, anchoring, recency bias, or availability heuristic
+- Detect emotional language that might skew reasoning (strongly positive/negative terms)
+- Identify social biases including stereotyping, in-group favoritism, or authority bias
+- Consider language patterns like absolutes ("always", "never"), overgeneralizations, or cherry-picking
+- HIGH bias (0.8-1.0): Multiple clear indicators of bias that significantly impact reasoning
+- MEDIUM bias (0.4-0.7): Some indicators present but with limited impact on overall reasoning
+- LOW bias (0.0-0.3): Few to no detectable bias indicators
+
+Context sensitivity: If the connection type is 'conclusion' or 'hypothesis', apply stricter evaluation criteria. For 'associates' or 'extends', apply more flexible criteria. For calculations or scientific claims, prioritize factual accuracy. For ethical or philosophical statements, focus on logical coherence.
+
+Return ONLY a single floating-point number between 0.0 (no detectable bias) and 1.0 (strong indication of bias).`;
              // Reset user prompt as context is not needed here
              userPrompt = `Analyze the following text for bias:\n\n"${textToAnalyze}"\n\nDesired Output: Respond with ONLY a single floating-point number between 0.0 and 1.0 indicating the likelihood of bias.\nScore (0.0-1.0):`;
              break;
         case 'verification_need':
              // Verification need is intrinsic
-             systemPrompt = `You are an AI evaluating if a statement likely requires factual verification. Analyze the CURRENT thought for claims, specific data, or assertions that are not common knowledge. Return a single floating-point number between 0.0 (low need for verification) and 1.0 (high need for verification).`;
+             systemPrompt = `You are an AI evaluating if a statement likely requires factual verification. Analyze the CURRENT thought for claims, specific data, or assertions that are not common knowledge.
+- Look for specific statistics, dates, numerical claims, or precise factual assertions
+- Identify historical claims, scientific statements, or technical details
+- Consider claims about causality, trends, or correlations
+- Evaluate citations of studies, reports, or external sources
+- HIGH need (0.8-1.0): Contains multiple specific claims that require verification
+- MEDIUM need (0.4-0.7): Contains some claims that may benefit from verification
+- LOW need (0.0-0.3): Contains primarily opinions, common knowledge, or self-evident statements
+
+Context sensitivity: If the connection type is 'conclusion' or 'hypothesis', apply stricter evaluation criteria. For 'associates' or 'extends', apply more flexible criteria. For calculations or scientific claims, prioritize factual accuracy. For ethical or philosophical statements, focus on logical coherence.
+
+Return ONLY a single floating-point number between 0.0 (low need for verification) and 1.0 (high need for verification).`;
              // Reset user prompt as context is not needed here
              userPrompt = `Analyze the following text:\n\n"${textToAnalyze}"\n\nDesired Output: Respond with ONLY a single floating-point number between 0.0 and 1.0 indicating the likelihood it requires external verification.\nScore (0.0-1.0):`;
              break;
@@ -159,7 +206,16 @@ Return ONLY the quality score as a float between 0.0 and 1.0.`;
  * @returns An array of suggested improvement strings, or null if analysis fails.
  */
 export async function suggestLlmImprovements(thoughtContent: string): Promise<string[] | null> {
-    const systemPrompt = `You are an AI assistant focused on improving the clarity, logic, and completeness of reasoning steps (thoughts). Analyze the provided thought and suggest specific, actionable improvements. List each suggestion on a new line, starting with '- '.`;
+    const systemPrompt = `You are an AI assistant focused on improving the clarity, logic, and completeness of reasoning steps (thoughts). Analyze the provided thought and suggest specific, actionable improvements that would enhance its quality, coherence, and logical soundness. Consider both content improvements and structural improvements.
+
+Look for:
+- Unclear or ambiguous statements that could be clarified
+- Logical inconsistencies or gaps in reasoning
+- Claims that need supporting evidence
+- Opportunities to strengthen connections to context
+- Ways to improve conciseness without sacrificing completeness
+
+List each suggestion on a new line, starting with '- '.`;
     const userPrompt = `Analyze the following thought and suggest improvements:\n\n"${thoughtContent}"\n\nSuggestions:`;
 
     const response = await callInternalLlm(systemPrompt, userPrompt, 200);
@@ -178,8 +234,9 @@ export async function suggestLlmImprovements(thoughtContent: string): Promise<st
  * @param statement - The statement or calculation to verify.
  * @returns An object containing verification status, confidence, and notes, or null if analysis fails.
  */
-export async function verifyWithLlm(statement: string): Promise<{ status: 'verified' | 'contradicted' | 'unverified', confidence: number, notes: string } | null> {
-    const systemPrompt = `You are an AI assistant specialized in fact-checking and calculation verification. Analyze the given statement. Determine if it's likely true (verified), likely false (contradicted), or cannot be determined (unverified). Provide a confidence score (0.0-1.0) and brief notes explaining your reasoning. Respond ONLY in JSON format: {"status": "verified|contradicted|unverified", "confidence": 0.0-1.0, "notes": "Your reasoning..."}`;
+export async function verifyWithLlm(statement: string): Promise<{ status: 'verified' | 'contradicted' | 'unverified', confidence: number, notes: string, key_factors?: string[] } | null> {
+    const systemPrompt = `You are an AI assistant specialized in fact-checking and calculation verification. Analyze the given statement. Determine if it's likely true (verified), likely false (contradicted), or cannot be determined (unverified). Provide a confidence score (0.0-1.0) and brief notes explaining your reasoning. Include key factors that influenced your determination.
+Respond ONLY in JSON format: {"status": "verified|contradicted|unverified", "confidence": 0.0-1.0, "notes": "Your reasoning...", "key_factors": ["factor1", "factor2"]}`;
     const userPrompt = `Verify the following statement: "${statement}"`;
 
     const response = await callInternalLlm(systemPrompt, userPrompt, 250);
