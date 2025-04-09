@@ -202,7 +202,7 @@ export class ToolIntegrator {
         const systemPrompt = `You are an expert assistant selecting the best tools for a given task based on the user's thought content. Analyze the user's thought and suggest the top ${limit} most relevant tools from the provided list ONLY. Explain briefly (max 15 words) why each tool is relevant for the specific thought content. Respond ONLY with a valid JSON array of objects, where each object has exactly two keys: "name" (string, the tool name from the list) and "reason" (string, your brief explanation). Do not include any other text or formatting outside the JSON array. Available tools:\n${toolListString}`;
         const userPrompt = `Thought content:\n"${content}"\n\nSuggest the top ${limit} relevant tools from the list in JSON array format:`;
 
-        const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 350); // Increased tokens slightly
+        const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 1000); // Increased tokens slightly
 
         if (llmResponse) {
             // Tentative de nettoyage de la réponse LLM pour extraire le JSON

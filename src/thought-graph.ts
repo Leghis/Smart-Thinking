@@ -1192,10 +1192,8 @@ export class ThoughtGraph {
    * @returns Une promesse résolvant vers un tableau de suggestions pour les prochaines étapes
    */
   async suggestNextSteps(limit: number = 3, sessionId?: string): Promise<NextStepSuggestion[]> {
-    // Use session-specific thoughts for context
     const sessionThoughts = this.getAllThoughts(sessionId);
     if (sessionThoughts.length === 0) {
-      // Suggest starting only if the specific session is empty
       return [{
         description: "Commencez par définir le problème ou la question à explorer dans cette session",
         type: 'regular',
@@ -1204,66 +1202,53 @@ export class ThoughtGraph {
       }];
     }
 
-    // Use session-specific recent thoughts
     const recentThoughts = this.getRecentThoughts(5, sessionId);
     const recentThoughtsSummary = recentThoughts.map(t => `[${t.type}] ${t.content.substring(0, 100)}...`).join('\n');
     const graphStateSummary = `Session thoughts: ${sessionThoughts.length}. Recent session thoughts:\n${recentThoughtsSummary}`;
 
-    // --- Tentative de suggestion via LLM ---
     let llmSuggestions: NextStepSuggestion[] | null = null;
     try {
-        const systemPrompt = `You are an AI assistant guiding a reasoning process. Based on the current state of the thought graph (summary provided), suggest ${limit} logical and relevant next steps. Focus on actions that advance the reasoning, resolve issues, or explore new angles. Suggest concrete actions like 'Formulate a hypothesis', 'Verify claim X', 'Analyze contradiction Y', 'Synthesize findings', 'Explore alternative Z', 'Refine thought ID W'. Respond ONLY with a valid JSON array of objects, each object having "description" (string, the suggested step) and "type" (string, one of: regular, meta, hypothesis, conclusion, revision).`;
-        const userPrompt = `Current graph state:\n${graphStateSummary}\n\nSuggest the top ${limit} next steps in JSON array format:`;
+      const systemPrompt = `You are an AI assistant guiding a reasoning process. Based on the current state of the thought graph, suggest ${limit} logical and relevant next steps.`;
+      const userPrompt = `Current graph state:\n${graphStateSummary}\n\nSuggest the top ${limit} next steps in JSON array format:`;
+      const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 1000);
 
-        const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 250);
-
-        if (llmResponse) {
-             // Tentative de nettoyage de la réponse LLM pour extraire le JSON
-            const jsonMatch = llmResponse.match(/\[\s*\{[\s\S]*\}\s*\]/);
-             if (jsonMatch) {
-                const jsonString = jsonMatch[0];
-                try {
-                    const parsedSuggestions = JSON.parse(jsonString);
-                    if (Array.isArray(parsedSuggestions) && parsedSuggestions.length > 0) {
-                        const validatedSuggestions: NextStepSuggestion[] = [];
-                        for (const suggestion of parsedSuggestions) {
-                            if (suggestion && typeof suggestion.description === 'string' && typeof suggestion.type === 'string' &&
-                                ['regular', 'meta', 'hypothesis', 'conclusion', 'revision'].includes(suggestion.type)) {
-                                validatedSuggestions.push({
-                                    description: suggestion.description,
-                                    type: suggestion.type as ThoughtType,
-                                    confidence: 0.8, // Assign a default high confidence for LLM suggestions
-                                    reasoning: "Suggested by internal LLM based on graph state."
-                                });
-                                if (validatedSuggestions.length >= limit) break;
-                            } else {
-                                console.warn(`LLM next step suggestion item has invalid format: ${JSON.stringify(suggestion)}`);
-                            }
-                        }
-                         if (validatedSuggestions.length > 0) {
-                            console.error(`Smart-Thinking: Suggestions de prochaines étapes fournies par le LLM interne.`);
-                            llmSuggestions = validatedSuggestions;
-                         }
-                    }
-                } catch (parseError) {
-                    console.warn(`LLM next step suggestion response was not valid JSON: ${llmResponse}`, parseError);
+      if (llmResponse) {
+        const jsonMatch = llmResponse.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          try {
+            const parsedSuggestions = JSON.parse(jsonString);
+            if (Array.isArray(parsedSuggestions) && parsedSuggestions.length > 0) {
+              const validatedSuggestions: NextStepSuggestion[] = [];
+              for (const suggestion of parsedSuggestions) {
+                if (suggestion && typeof suggestion.description === 'string' && typeof suggestion.type === 'string') {
+                  validatedSuggestions.push({
+                    description: suggestion.description,
+                    type: suggestion.type as ThoughtType,
+                    confidence: 0.8,
+                    reasoning: "Suggested by internal LLM based on graph state."
+                  });
+                  if (validatedSuggestions.length >= limit) break;
                 }
-            } else {
-                 console.warn(`Could not extract JSON array from LLM response for next steps: ${llmResponse}`);
+              }
+              if (validatedSuggestions.length > 0) {
+                llmSuggestions = validatedSuggestions;
+              }
             }
+          } catch (parseError) {
+            console.warn(`LLM next step suggestion response was not valid JSON: ${llmResponse}`, parseError);
+          }
         }
+      }
     } catch (llmError) {
-        console.error('Error calling LLM for next step suggestion:', llmError);
+      console.error('Error calling LLM for next step suggestion:', llmError);
     }
 
-     // Si le LLM a fourni des suggestions valides, les retourner
     if (llmSuggestions && llmSuggestions.length > 0) {
-        return llmSuggestions;
+      return llmSuggestions;
     }
 
-    // --- Repli (Fallback) vers l'heuristique si le LLM échoue ---
-    console.warn("LLM next step suggestion failed or returned no valid suggestions. Falling back to heuristic method.");
-    return this.suggestNextStepsHeuristic(limit);
+    return this.suggestNextStepsHeuristic(limit, sessionId);
   }
 
 

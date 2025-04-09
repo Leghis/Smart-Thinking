@@ -29,10 +29,10 @@ const openAI = new OpenAI({
 export async function callInternalLlm(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 2000
+  maxTokens: number = 3000
 ): Promise<string | null> {
   try {
-    console.log(`Calling LLM. System Prompt: ${systemPrompt.substring(0, 100)}... User Prompt: ${userPrompt.substring(0, 200)}...`); // Log prompts
+    console.log(`Calling LLM. System Prompt: ${systemPrompt.substring(0, 2000)}... User Prompt: ${userPrompt.substring(0, 2000)}...`); // Log prompts
     const completion = await openAI.chat.completions.create({
       model: INTERNAL_MODEL_ID,
       messages: [
@@ -180,7 +180,7 @@ Return ONLY a single floating-point number between 0.0 (low need for verificatio
             return null;
     }
 
-    const response = await callInternalLlm(systemPrompt, userPrompt, 10); // Expecting just a number
+    const response = await callInternalLlm(systemPrompt, userPrompt, 3000); // Expecting just a number
 
     if (response) {
         // Try to extract the first valid float number from the response
@@ -218,7 +218,7 @@ Look for:
 List each suggestion on a new line, starting with '- '.`;
     const userPrompt = `Analyze the following thought and suggest improvements:\n\n"${thoughtContent}"\n\nSuggestions:`;
 
-    const response = await callInternalLlm(systemPrompt, userPrompt, 200);
+    const response = await callInternalLlm(systemPrompt, userPrompt, 3000);
 
     if (response) {
         // Split suggestions by newline and filter out empty lines/prefixes
@@ -253,7 +253,7 @@ Respond ONLY in valid JSON format: {"status": "verified|contradicted|unverified"
     const userPrompt = `Critically verify the following statement: "${statement}"`;
 
     // Call LLM with lower temperature for fact-checking
-    const response = await callInternalLlm(systemPrompt, userPrompt, 250); // Temperature adjustment happens inside callInternalLlm if we modify it, or we pass it here if supported. Let's assume callInternalLlm uses default 0.7 for now, but the prompt change is key.
+    const response = await callInternalLlm(systemPrompt, userPrompt, 3000); // Temperature adjustment happens inside callInternalLlm if we modify it, or we pass it here if supported. Let's assume callInternalLlm uses default 0.7 for now, but the prompt change is key.
 
     if (response) {
         try {
