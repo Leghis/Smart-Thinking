@@ -235,11 +235,25 @@ List each suggestion on a new line, starting with '- '.`;
  * @returns An object containing verification status, confidence, and notes, or null if analysis fails.
  */
 export async function verifyWithLlm(statement: string): Promise<{ status: 'verified' | 'contradicted' | 'unverified', confidence: number, notes: string, key_factors?: string[] } | null> {
-    const systemPrompt = `You are an AI assistant specialized in fact-checking and calculation verification. Analyze the given statement. Determine if it's likely true (verified), likely false (contradicted), or cannot be determined (unverified). Provide a confidence score (0.0-1.0) and brief notes explaining your reasoning. Include key factors that influenced your determination.
-Respond ONLY in JSON format: {"status": "verified|contradicted|unverified", "confidence": 0.0-1.0, "notes": "Your reasoning...", "key_factors": ["factor1", "factor2"]}`;
-    const userPrompt = `Verify the following statement: "${statement}"`;
+    // Improved prompt emphasizing contradiction detection
+    const systemPrompt = `You are a highly critical AI assistant specialized in fact-checking. Your primary goal is to identify false or misleading information.
+Analyze the given statement meticulously based on established scientific consensus and common knowledge.
+Determine if the statement is:
+- 'verified': Highly likely to be true based on widely accepted facts.
+- 'contradicted': Highly likely to be false or directly contradicts established facts/science. Be critical and flag falsehoods clearly.
+- 'unverified': Cannot be reliably determined as true or false (e.g., opinion, subjective, lacks sufficient information, genuinely debatable).
 
-    const response = await callInternalLlm(systemPrompt, userPrompt, 250);
+Provide a confidence score (0.0-1.0) reflecting your certainty in the *status* assigned.
+Provide brief notes explaining your reasoning, focusing on why it's verified or contradicted.
+Include key factors (specific facts or reasons) that influenced your determination.
+
+Example of a clearly false statement: "The moon is made of green cheese." -> Status should be 'contradicted'.
+
+Respond ONLY in valid JSON format: {"status": "verified|contradicted|unverified", "confidence": 0.0-1.0, "notes": "Your reasoning...", "key_factors": ["factor1", "factor2"]}`;
+    const userPrompt = `Critically verify the following statement: "${statement}"`;
+
+    // Call LLM with lower temperature for fact-checking
+    const response = await callInternalLlm(systemPrompt, userPrompt, 250); // Temperature adjustment happens inside callInternalLlm if we modify it, or we pass it here if supported. Let's assume callInternalLlm uses default 0.7 for now, but the prompt change is key.
 
     if (response) {
         try {

@@ -17,10 +17,16 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { VerificationConfig, PlatformConfig } from './config';
 import { PathUtils } from './utils/path-utils';
+import { v4 as uuidv4 } from 'uuid'; // Import UUID library
 
 /**
  * Point d'entrée du serveur MCP Smart-Thinking
  */
+
+// Helper function to generate unique IDs
+function generateUniqueId(): string {
+  return uuidv4();
+}
 
 // Protection contre les messages non-JSON envoyés à stdout
 const originalStdoutWrite = process.stdout.write;
@@ -397,10 +403,12 @@ generateVisualization: true
         };
       }
 
-      // console.error('Smart-Thinking: traitement de la pensée pour session:', params.sessionId || 'default');
+      // console.error('Smart-Thinking: traitement de la pensée pour session:', params.sessionId || 'generating new');
 
       // --- Session Management & State Loading ---
-      const currentSessionId = params.sessionId || 'default';
+      // Ensure a unique session ID for each interaction if none is provided
+      const currentSessionId = params.sessionId || generateUniqueId();
+      console.error(`Smart-Thinking: Using session ID: ${currentSessionId}`); // Log the used session ID
       const memoryManager = globalMemoryManager; // Use global manager for persistence
 
       // Create a new graph instance for the session
@@ -671,16 +679,15 @@ generateVisualization: true
       response.relevantMemories = await relevantMemoriesPromise;
 
       // Stockage de la pensée dans la mémoire (pass session ID)
-      if (response.qualityMetrics.quality > 0.7) {
-        const tags = params.thought
-            .toLowerCase()
-            .split(/\W+/)
-            .filter((word: string) => word.length > 4)
-            .slice(0, 5);
+      // REMOVED: Quality check - always add thought to memory for the session
+      const tags = params.thought
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((word: string) => word.length > 4)
+          .slice(0, 5);
 
-        // Pass session ID when adding memory using globalMemoryManager
-        globalMemoryManager.addMemory(params.thought, tags, currentSessionId);
-      }
+      // Pass session ID when adding memory using globalMemoryManager
+      globalMemoryManager.addMemory(response.thought, tags, currentSessionId); // Use response.thought which might be annotated
 
       // console.error(`Smart-Thinking [${currentSessionId}]: pensée traitée avec succès, id:`, thoughtId);
 

@@ -795,75 +795,61 @@ export class VerificationService implements IVerificationService {
    * @returns Statut et niveau de confiance
    */
   private determineVerificationStatusAndConfidence(
-    results: any[],
+    results: any[], // Includes external tools AND internal LLM result if run
     thought: ThoughtNode
   ): { status: VerificationStatus; confidence: number } {
-    // Vérifier si résultats vides
     if (results.length === 0) {
-      return {
-        status: 'unverified',
-        confidence: Math.min(0.3, thought.metrics?.confidence || 0.3)
-      };
+      return { status: 'unverified', confidence: Math.min(0.3, thought.metrics?.confidence || 0.3) };
     }
-    
-    // Variables pour stocker les compteurs
+
     const counts = {
-      verified: results.filter(r => r && r.result && r.result.isValid === true).length,
-      contradicted: results.filter(r => r && r.result && r.result.isValid === false).length,
-      partial: results.filter(r => r && r.result && r.result.isValid === 'partial').length,
-      absence: results.filter(r => r && r.result && 
-        (r.result.isValid === 'absence_of_information' || 
-         (typeof r.result.isValid === 'string' && r.result.isValid.includes('absence')))).length,
-      uncertain: results.filter(r => r && r.result && 
-        (r.result.isValid === null || r.result.isValid === undefined)).length
+      verified: results.filter(r => r?.result?.isValid === true).length,
+      contradicted: results.filter(r => r?.result?.isValid === false).length,
+      partial: results.filter(r => r?.result?.isValid === 'partial').length,
+      absence: results.filter(r => r?.result?.isValid === 'absence_of_information' || (typeof r?.result?.isValid === 'string' && r.result.isValid.includes('absence'))).length,
+      uncertain: results.filter(r => r?.result?.isValid === null || r?.result?.isValid === undefined).length
     };
-    
-    // Déterminer l'état en fonction des compteurs
-    if (counts.verified > 0 && counts.contradicted === 0) {
-      // Information vérifiée sans contradiction
-      const averageConfidence = this.calculateAverageConfidence(
-        results.filter(r => r && r.result && r.result.isValid === true)
-      );
-      
-      return {
-        status: 'verified',
-        confidence: Math.min(averageConfidence + (counts.verified * 0.05), 0.95)
-      };
-    } else if (counts.partial > 0) {
-      // Information partiellement vérifiée
-      const averageConfidence = this.calculateAverageConfidence(
-        results.filter(r => r && r.result && r.result.isValid === 'partial')
-      );
-      
-      return {
-        status: 'partially_verified',
-        confidence: Math.min(averageConfidence, 0.75)
-      };
-    } else if (counts.verified > 0 && counts.contradicted > 0) {
-      // Information contradictoire
-      return {
-        status: 'contradictory',
-        confidence: 0.4
-      };
-    } else if (counts.absence > 0) {
-      // Absence d'information
-      return {
-        status: 'absence_of_information' as VerificationStatus,
-        confidence: Math.min(0.6 + (counts.absence * 0.05), 0.8)
-      };
-    } else if (counts.uncertain > 0) {
-      // Information incertaine
-      return {
-        status: 'uncertain',
-        confidence: 0.3
-      };
-    } else {
-      // Par défaut, non vérifié
-      return {
-        status: 'unverified',
-        confidence: 0.3
-      };
+
+    const totalResults = results.length;
+
+    // --- Revised Logic ---
+    // Priority 1: Contradiction - If ANY source contradicts, the status is contradicted.
+    if (counts.contradicted > 0) {
+      const contradictionConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === false));
+      // Confidence in contradiction is high if source is reliable, use average confidence but ensure it's reasonably high
+      return { status: 'contradicted', confidence: Math.max(0.7, contradictionConfidence) };
     }
+
+    // Priority 2: Verified - Requires stronger evidence now.
+    if (counts.verified > 0) {
+      const verificationConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === true));
+      // Condition for 'verified': At least 2 verified sources OR 1 verified source with high confidence (>0.8) AND no uncertain results.
+      if ((counts.verified >= 2 || (counts.verified === 1 && verificationConfidence > 0.8)) && counts.uncertain === 0) {
+         return { status: 'verified', confidence: Math.min(0.95, verificationConfidence + (counts.verified * 0.05)) };
+      }
+      // Otherwise, if there's verification but not enough consensus or confidence, or if there are uncertain results, it's partial.
+      return { status: 'partially_verified', confidence: Math.min(0.75, verificationConfidence) };
+    }
+
+    // Priority 3: Absence of Information - If this is the only type of result (besides uncertain).
+    if (counts.absence > 0 && counts.verified === 0 && counts.contradicted === 0 && counts.partial === 0) {
+       return { status: 'absence_of_information' as VerificationStatus, confidence: Math.min(0.8, 0.6 + (counts.absence * 0.05)) };
+    }
+
+    // Priority 4: Partially Verified - If explicitly partial results exist and no contradiction/verification.
+    if (counts.partial > 0) {
+       const partialConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === 'partial'));
+       return { status: 'partially_verified', confidence: Math.min(0.75, partialConfidence) };
+    }
+
+    // Priority 5: Uncertain / Unverified - If only uncertain results, or a mix that didn't meet other criteria.
+    // If we have results but none led to a conclusion above, it's uncertain.
+    if (totalResults > 0) {
+      return { status: 'uncertain', confidence: 0.3 };
+    }
+
+    // Default fallback (should only be reached if results array was initially empty, handled at the start)
+    return { status: 'unverified', confidence: 0.3 };
   }
   
   /**
