@@ -698,7 +698,7 @@ export class ThoughtGraph {
   private inferRelationsByPatterns(confidenceThreshold: number): number {
     let newRelationsCount = 0;
 
-    // Détecter les clusters de pensées fortement connectées
+    // Détecter des clusters de pensées fortement connectées
     const clusters = this.detectClusters();
 
     // Pour chaque cluster, créer des hyperliens entre les membres
@@ -1193,26 +1193,147 @@ export class ThoughtGraph {
    */
   async suggestNextSteps(limit: number = 3, sessionId?: string): Promise<NextStepSuggestion[]> {
     const sessionThoughts = this.getAllThoughts(sessionId);
+  
+    // Si aucune pensée n'existe dans la session, retourner un tableau vide
     if (sessionThoughts.length === 0) {
-      return [{
-        description: "Commencez par définir le problème ou la question à explorer dans cette session",
-        type: 'regular',
-        confidence: 0.9,
-        reasoning: "Une définition claire du problème est essentielle pour un raisonnement efficace"
-      }];
+      return [];
     }
 
-    const recentThoughts = this.getRecentThoughts(5, sessionId);
-    const recentThoughtsSummary = recentThoughts.map(t => `[${t.type}] ${t.content.substring(0, 100)}...`).join('\n');
-    const graphStateSummary = `Session thoughts: ${sessionThoughts.length}. Recent session thoughts:\n${recentThoughtsSummary}`;
+    // Recueillir un contexte riche pour le LLM
+    // 1. Obtenir la pensée initiale (probablement la première de la session)
+    const initialThought = sessionThoughts.length > 0 ? 
+      sessionThoughts.reduce((earliest, current) => 
+        new Date(earliest.metadata?.timestamp || 0) <= new Date(current.metadata?.timestamp || 0) ? earliest : current
+      , sessionThoughts[0]) : null;
+  
+    const initialThoughtSummary = initialThought ? 
+      `[${initialThought.type}] ${initialThought.content.substring(0, 150)}...` : 
+      'Non identifié';
 
+    // 2. Identifier les nœuds clés
+    // Hypothèses récentes
+    const hypotheses = sessionThoughts.filter(t => t.type === 'hypothesis');
+    const recentHypotheses = hypotheses
+      .sort((a, b) => new Date(b.metadata?.timestamp || 0).getTime() - new Date(a.metadata?.timestamp || 0).getTime())
+      .slice(0, 3);
+    const hypothesesSummary = recentHypotheses.length > 0 ? 
+      recentHypotheses.map(h => h.content.substring(0, 100)).join('\n') : 
+      'Aucune hypothèse formulée';
+
+    // Conclusions récentes
+    const conclusions = sessionThoughts.filter(t => t.type === 'conclusion');
+    const recentConclusions = conclusions
+      .sort((a, b) => new Date(b.metadata?.timestamp || 0).getTime() - new Date(a.metadata?.timestamp || 0).getTime())
+      .slice(0, 2);
+    const conclusionsSummary = recentConclusions.length > 0 ? 
+      recentConclusions.map(c => c.content.substring(0, 100)).join('\n') : 
+      'Aucune conclusion formulée';
+
+    // Questions ouvertes (pensées contenant des points d'interrogation ou des mots-clés de question)
+    const questionKeywords = ['pourquoi', 'comment', 'quoi', 'qui', 'où', 'quand', 'quel', 'quelle'];
+    const openQuestions = sessionThoughts.filter(t => 
+      t.content.includes('?') || 
+      questionKeywords.some(keyword => t.content.toLowerCase().includes(keyword))
+    );
+    const recentQuestions = openQuestions
+      .sort((a, b) => new Date(b.metadata?.timestamp || 0).getTime() - new Date(a.metadata?.timestamp || 0).getTime())
+      .slice(0, 3);
+    const questionsSummary = recentQuestions.length > 0 ? 
+      recentQuestions.map(q => q.content.substring(0, 100)).join('\n') : 
+      'Aucune question explicite identifiée';
+
+    // 3. Identifier les contradictions et problèmes
+    const contradictions = sessionThoughts.filter(thought =>
+      thought.connections.some(conn => {
+          // Check if the connected thought also belongs to the session
+          const targetThought = this.getThought(conn.targetId);
+          return conn.type === 'contradicts' && targetThought?.metadata?.sessionId === sessionId;
+      })
+    );
+  
+    const contradictionsSummary = contradictions.length > 0 ?
+      contradictions.map(c => {
+        const contradictingConnections = c.connections.filter(conn => conn.type === 'contradicts');
+        const contradictedThoughts = contradictingConnections.map(conn => this.getThought(conn.targetId));
+        return `"${c.content.substring(0, 70)}..." contredit "${contradictedThoughts[0]?.content.substring(0, 70)}..."`;
+      }).join('\n') :
+      'Aucune contradiction explicite détectée';
+
+    // 4. Résumer l'activité récente
+    const recentThoughts = this.getRecentThoughts(5, sessionId);
+    const thoughtTypes = recentThoughts.map(t => t.type);
+    const uniqueTypes = [...new Set(thoughtTypes)];
+    const recentActivitySummary = `Activité récente: ${uniqueTypes.join(', ')}`;
+  
+    // 5. Analyser la structure du graphe
+    let graphStructureSummary = 'Structure indéterminée';
+  
+    if (sessionThoughts.length <= 3) {
+      graphStructureSummary = 'Exploration initiale';
+    } else {
+      // Vérifier si la structure est principalement linéaire
+      const isLinear = sessionThoughts.every(t => t.connections.length <= 2);
+    
+      // Vérifier s'il y a des clusters
+      const hasClusters = this.detectClusters().length > 1;
+    
+      // Vérifier s'il y a beaucoup de connexions (structure en réseau)
+      const avgConnections = sessionThoughts.reduce((sum, t) => sum + t.connections.length, 0) / sessionThoughts.length;
+    
+      if (isLinear) {
+        graphStructureSummary = 'Progression principalement linéaire';
+      } else if (hasClusters) {
+        graphStructureSummary = 'Plusieurs clusters de pensées identifiés';
+      } else if (avgConnections > 3) {
+        graphStructureSummary = 'Structure en réseau avec nombreuses connexions';
+      } else {
+        graphStructureSummary = 'Structure mixte avec quelques branches';
+      }
+    }
+
+    // 6. Construire un prompt utilisateur enrichi
+    const userPrompt = `
+Analyse de la Session de Raisonnement (ID: ${sessionId || 'session principale'}):
+- Pensée Initiale/Objectif: ${initialThoughtSummary}
+- Focus d'Activité Récente: ${recentActivitySummary}
+- Nœuds Clés:
+    - Hypothèses: ${hypothesesSummary}
+    - Conclusions: ${conclusionsSummary}
+    - Questions Ouvertes: ${questionsSummary}
+- État du Graphe: ${graphStructureSummary} (${sessionThoughts.length} pensées au total)
+- Problèmes Identifiés: ${contradictionsSummary}
+
+En fonction de cet état, suggérez les ${limit} prochaines étapes concrètes pour faire avancer le processus de raisonnement. 
+Concentrez-vous sur des étapes qui:
+- Répondent aux questions ouvertes
+- Testent les hypothèses formulées
+- Résolvent les contradictions identifiées
+- Approfondissent l'analyse des points importants
+- Utilisent les outils disponibles (recherche web, exécution de code, etc.) quand c'est pertinent
+
+Formatez la réponse comme un tableau JSON d'objets, chacun avec 'description' (string), 'type' (ThoughtType comme 'regular', 'hypothesis', 'meta', etc.), 'confidence' (nombre entre 0 et 1), et 'reasoning' (string expliquant pourquoi cette étape est suggérée).
+
+Exemple: [{"description": "Vérifier l'affirmation X avec une recherche web", "type": "regular", "confidence": 0.9, "reasoning": "Cette affirmation manque de sources fiables"}, ...]
+`;
+
+    // 7. Améliorer le prompt système
+    const systemPrompt = `Vous êtes un assistant IA expert guidant un processus de raisonnement complexe suivi dans un graphe de pensées. 
+Votre tâche est d'analyser le résumé fourni de l'état actuel du raisonnement (incluant objectifs, nœuds clés, structure et problèmes) 
+et de suggérer ${limit} prochaines étapes concrètes, logiques et pertinentes.
+
+Les suggestions doivent aider l'utilisateur à faire progresser sa réflexion, explorer des possibilités, vérifier des informations, 
+ou synthétiser des découvertes. Vos suggestions doivent être spécifiques et actionables, pas génériques.
+
+Assurez-vous que votre sortie est UNIQUEMENT le tableau JSON demandé, correctement formaté et parsable.`;
+
+    // 8. Appeler le LLM avec le contexte enrichi
     let llmSuggestions: NextStepSuggestion[] | null = null;
     try {
-      const systemPrompt = `You are an AI assistant guiding a reasoning process. Based on the current state of the thought graph, suggest ${limit} logical and relevant next steps.`;
-      const userPrompt = `Current graph state:\n${graphStateSummary}\n\nSuggest the top ${limit} next steps in JSON array format:`;
-      const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 1000);
+      // Réduire la température pour une sortie JSON plus fiable
+      const llmResponse = await callInternalLlm(systemPrompt, userPrompt, 2000);
 
       if (llmResponse) {
+        // Améliorer la détection et l'analyse du JSON
         const jsonMatch = llmResponse.match(/\[\s*\{[\s\S]*\}\s*\]/);
         if (jsonMatch) {
           const jsonString = jsonMatch[0];
@@ -1221,12 +1342,17 @@ export class ThoughtGraph {
             if (Array.isArray(parsedSuggestions) && parsedSuggestions.length > 0) {
               const validatedSuggestions: NextStepSuggestion[] = [];
               for (const suggestion of parsedSuggestions) {
-                if (suggestion && typeof suggestion.description === 'string' && typeof suggestion.type === 'string') {
+                if (suggestion && 
+                    typeof suggestion.description === 'string' && 
+                    typeof suggestion.type === 'string') {
+                  // Valider et normaliser la structure
                   validatedSuggestions.push({
                     description: suggestion.description,
                     type: suggestion.type as ThoughtType,
-                    confidence: 0.8,
-                    reasoning: "Suggested by internal LLM based on graph state."
+                    confidence: typeof suggestion.confidence === 'number' ? 
+                      Math.min(Math.max(suggestion.confidence, 0), 1) : 0.8,
+                    reasoning: typeof suggestion.reasoning === 'string' ? 
+                      suggestion.reasoning : "Suggéré par LLM basé sur l'état du graphe."
                   });
                   if (validatedSuggestions.length >= limit) break;
                 }
@@ -1236,18 +1362,23 @@ export class ThoughtGraph {
               }
             }
           } catch (parseError) {
-            console.warn(`LLM next step suggestion response was not valid JSON: ${llmResponse}`, parseError);
+            console.warn(`Réponse LLM pour suggestion d'étapes suivantes n'était pas un JSON valide: ${llmResponse}`, parseError);
+            // Log the raw response for debugging
+            console.log('Réponse brute du LLM:', llmResponse);
           }
+        } else {
+          console.warn('Aucun JSON trouvé dans la réponse LLM:', llmResponse);
         }
       }
     } catch (llmError) {
-      console.error('Error calling LLM for next step suggestion:', llmError);
+      console.error('Erreur lors de l\'appel au LLM pour suggestion d\'étapes suivantes:', llmError);
     }
 
     if (llmSuggestions && llmSuggestions.length > 0) {
       return llmSuggestions;
     }
 
+    // Fallback à la méthode heuristique si le LLM échoue
     return this.suggestNextStepsHeuristic(limit, sessionId);
   }
 
@@ -1258,14 +1389,7 @@ export class ThoughtGraph {
   private suggestNextStepsHeuristic(limit: number = 3, sessionId?: string): NextStepSuggestion[] {
      // Use session-specific thoughts
      const sessionThoughts = this.getAllThoughts(sessionId);
-     if (sessionThoughts.length === 0) {
-       return [{
-         description: "Commencez par définir le problème ou la question à explorer dans cette session",
-         type: 'regular',
-         confidence: 0.9,
-         reasoning: "Une définition claire du problème est essentielle pour un raisonnement efficace"
-       }];
-     }
+     // Removed the initial check for sessionThoughts.length === 0
 
      const suggestions: NextStepSuggestion[] = [];
      // Use session-specific recent thoughts
@@ -1382,17 +1506,6 @@ export class ThoughtGraph {
          reasoning: "L'analyse des relations multi-nœuds peut révéler des insights cachés"
        });
      }
-
-     // Si aucune suggestion spécifique n'a été faite, proposer une continuation simple
-     if (suggestions.length === 0) {
-       suggestions.push({
-         description: "Continuez votre raisonnement en développant vos idées actuelles",
-         type: 'regular',
-         confidence: 0.6,
-         reasoning: "Approfondir les pensées existantes peut révéler de nouvelles perspectives"
-       });
-     }
-
      // Assurer de ne pas dépasser la limite
      return suggestions.slice(0, limit);
   }
