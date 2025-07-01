@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/leghis-smart-thinking-badge.png)](https://mseep.ai/app/leghis-smart-thinking)
+
 # Smart-Thinking
 
 [![smithery badge](https://smithery.ai/badge/@Leghis/smart-thinking)](https://smithery.ai/server/@Leghis/smart-thinking)
