@@ -156,7 +156,7 @@ function parseArgs(argv: string[]): CliOptions {
 async function startStdIoServer(options: CliOptions): Promise<void> {
   configureStdoutFiltering();
   if (options.mode === 'connector') {
-    console.log('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
+    console.error('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
   const { server } = createSmartThinkingServer(undefined, {
     includeSmartThinkingTool: options.mode !== 'connector'
@@ -176,7 +176,7 @@ async function startHttpServer(options: CliOptions): Promise<void> {
   app.use(createCorsMiddleware(options));
 
   if (options.mode === 'connector') {
-    console.log('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
+    console.error('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
 
   const sessions = new Map<string, SessionState>();
@@ -349,19 +349,19 @@ async function startHttpServer(options: CliOptions): Promise<void> {
 
   await new Promise<void>((resolve, reject) => {
     const httpServer = app.listen(options.port, options.host, () => {
-      console.log(`Smart-Thinking: serveur MCP HTTP lancé sur http://${options.host}:${options.port}`);
+      console.error(`Smart-Thinking: serveur MCP HTTP lancé sur http://${options.host}:${options.port}`);
       if (options.enableStream) {
-        console.log('  • Endpoint streamable HTTP : /mcp');
+        console.error('  • Endpoint streamable HTTP : /mcp');
       }
       if (options.enableSse) {
-        console.log('  • Endpoint SSE (legacy)    : /sse + /messages');
+        console.error('  • Endpoint SSE (legacy)    : /sse + /messages');
       }
     });
 
     httpServer.on('error', reject);
 
     const shutdown = async () => {
-      console.log('Smart-Thinking: arrêt du serveur HTTP en cours...');
+      console.error('Smart-Thinking: arrêt du serveur HTTP en cours...');
       for (const [sessionId] of sessions) {
         await cleanupSession(sessions, sessionId);
       }
