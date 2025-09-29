@@ -3,11 +3,13 @@
   "version": "11.0.1",
   "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
   "main": "build/index.js",
+  "module": "./src/index.ts",
   "bin": {
     "smart-thinking-mcp": "build/index.js"
   },
   "files": [
-    "build"
+    "build",
+    "scripts"
   ],
   "scripts": {
     "build": "tsc && node scripts/make-executable.js",
