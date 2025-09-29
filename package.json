@@ -1,11 +1,11 @@
 {
   "name": "smart-thinking-mcp",
   "version": "11.0.5",
-  "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
+  "description": "Un serveur MCP avanc\u00e9 pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
   "main": "build/index.js",
   "module": "./src/index.ts",
   "bin": {
-    "smart-thinking-mcp": "build/index.js"
+    "smart-thinking-mcp": "build/cli.js"
   },
   "files": [
     "build",
@@ -14,11 +14,11 @@
   "scripts": {
     "build": "tsc && node scripts/make-executable.js",
     "prestart": "npm run build",
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node src/cli.ts",
     "watch": "tsc --watch",
-    "start": "node build/index.js",
-    "start:http": "node build/index.js --transport=http",
-    "start:sse": "node build/index.js --transport=sse",
+    "start": "node build/cli.js",
+    "start:http": "node build/cli.js --transport=http",
+    "start:sse": "node build/cli.js --transport=sse",
     "lint": "eslint --max-warnings=0 --ext .ts src",
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage",

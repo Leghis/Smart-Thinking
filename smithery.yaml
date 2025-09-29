@@ -1,16 +1,2 @@
-# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
-
+# Smithery configuration file: https://smithery.ai/docs/build/deployments/typescript
 runtime: "typescript"
-
-startCommand:
-  type: stdio
-  configSchema:
-    # JSON Schema defining the configuration options for the MCP.
-    type: object
-    default: {}
-    description: No configuration required for Smart-Thinking MCP server.
-  commandFunction:
-    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
-    |-
-    (config) => ({ command: 'node', args: ['build/index.js'] })
-  exampleConfig: {}
