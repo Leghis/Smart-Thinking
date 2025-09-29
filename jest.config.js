@@ -6,6 +6,7 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
   clearMocks: true,
+  setupFilesAfterEnv: ['<rootDir>/src/test-utils/logger-setup.ts'],
   coverageThreshold: {
     './src/memory-manager.ts': {
       statements: 80,

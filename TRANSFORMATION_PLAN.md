@@ -67,4 +67,4 @@ Ce document détaille les six phases de travail pour retirer les intégrations I
 ### Suivi qualité courant
 - Tests `npm run test:coverage` et `npm run lint` à exécuter avant chaque fusion majeure.
 - Surveillance des consoles de test : maintenir les logs explicites dans les assertions au lieu de `console.*` bruyant.
-- Couverture globale (février 2025) : statements 40 %, ciblées persistance ≥80 % (statements/lines) et ≥60 % (branches).
+- Couverture globale (septembre 2025) : statements ≈60 %, ciblées persistance ≥80 % (statements/lines) et ≥60 % (branches).

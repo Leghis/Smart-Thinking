@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+/* istanbul ignore file -- Point d'entrée CLI difficile à tester automatiquement */
 
+import './utils/logger';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { EnhancedStdioServerTransport } from './utils/platform-stdio';
 import { z } from 'zod';
