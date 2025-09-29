@@ -208,7 +208,10 @@ export class ThoughtGraph {
               attributes: connection.attributes,
               inferred: connection.inferred,
               inferenceConfidence: connection.inferenceConfidence,
-              bidirectional: connection.bidirectional
+              bidirectional: connection.bidirectional,
+              createdByStepId: connection.createdByStepId,
+              justification: connection.justification,
+              heuristicWeights: connection.heuristicWeights
             });
         }
       }
@@ -1002,6 +1005,17 @@ export class ThoughtGraph {
     }
 
     // Créer la connexion avec marquage d'inférence
+    const inferenceJustification = {
+      summary: 'Connexion inférée automatiquement par SimilarityEngine',
+      heuristics: [{
+        metric: 'similarity',
+        weight: confidence,
+        score: confidence,
+        rationale: 'Score de similarité calculé lors de l’inférence automatique'
+      }],
+      timestamp: new Date().toISOString()
+    };
+
     const connection: Connection = {
       targetId,
       type,
@@ -1010,7 +1024,10 @@ export class ThoughtGraph {
       inferenceConfidence: confidence,
       attributes: {
         certainty: this.mapConfidenceToCertainty(confidence)
-      }
+      },
+      createdByStepId: 'auto-inference',
+      justification: inferenceJustification,
+      heuristicWeights: inferenceJustification.heuristics
     };
 
     // Ajouter la connexion à la pensée source
@@ -1028,7 +1045,10 @@ export class ThoughtGraph {
         inferenceConfidence: confidence,
         attributes: {
           certainty: this.mapConfidenceToCertainty(confidence)
-        }
+        },
+        createdByStepId: 'auto-inference',
+        justification: inferenceJustification,
+        heuristicWeights: inferenceJustification.heuristics
       });
     }
 

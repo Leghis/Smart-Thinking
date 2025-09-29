@@ -43,6 +43,46 @@ export interface ConnectionAttributes {
 }
 
 // Interface pour un nœud dans le graphe de pensées
+export type ReasoningStepKind =
+  'context'
+  | 'verification'
+  | 'graph'
+  | 'evaluation'
+  | 'suggestion'
+  | 'memory'
+  | 'visualization'
+  | 'persistence'
+  | 'planning';
+
+export type ReasoningStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+
+export interface HeuristicTrace {
+  metric: string;
+  weight: number;
+  score?: number;
+  rationale?: string;
+}
+
+export interface ReasoningJustification {
+  summary: string;
+  heuristics?: HeuristicTrace[];
+  references?: string[];
+  timestamp?: string;
+}
+
+export interface ReasoningStep {
+  id: string;
+  label: string;
+  kind: ReasoningStepKind;
+  description: string;
+  status: ReasoningStepStatus;
+  timestamp: string;
+  parents: string[];
+  details?: Record<string, any>;
+  justifications?: ReasoningJustification[];
+  durationMs?: number;
+}
+
 export interface ThoughtNode {
   id: string;
   content: string;
@@ -51,6 +91,12 @@ export interface ThoughtNode {
   connections: Connection[];
   metrics: ThoughtMetrics;
   metadata: Record<string, any>;
+  reasoning?: {
+    createdByStepId?: string;
+    updatedAt?: string;
+    justifications?: ReasoningJustification[];
+    heuristicWeights?: HeuristicTrace[];
+  };
 }
 
 // Interface pour une connexion entre des nœuds de pensée
@@ -64,6 +110,9 @@ export interface Connection {
   inferred?: boolean; // Si la connexion a été inférée automatiquement
   inferenceConfidence?: number; // Confiance dans l'inférence (0 à 1)
   bidirectional?: boolean; // Si la relation est intrinsèquement bidirectionnelle
+  createdByStepId?: string;
+  justification?: ReasoningJustification;
+  heuristicWeights?: HeuristicTrace[];
 }
 
 // Interface pour un hyperlien (connexion entre multiples pensées)
@@ -232,6 +281,7 @@ export interface VisualizationLink {
   highlighted?: boolean;    // Mise en évidence
   tooltip?: string;         // Texte info-bulle
   hidden?: boolean;         // Lien caché mais existant
+  justifications?: ReasoningJustification[];
 }
 
 // Élément de mémoire
@@ -286,6 +336,7 @@ export interface SmartThinkingResponse {
   thought: string;
   thoughtType: ThoughtType;
   qualityMetrics: ThoughtMetrics;
+  sessionId?: string;
   suggestedTools?: SuggestedTool[];
   visualization?: Visualization;
   relevantMemories?: MemoryItem[];
@@ -297,4 +348,11 @@ export interface SmartThinkingResponse {
   verificationStatus?: VerificationDetailedStatus; // Statut détaillé de la vérification
   certaintySummary: string; // Résumé en langage naturel du niveau de certitude
   reliabilityScore: number; // Score global de fiabilité (0 à 1)
+  reasoningTrace?: ReasoningStep[];
+  reasoningTimeline?: Array<{
+    stepId: string;
+    label: string;
+    status: ReasoningStepStatus;
+    timestamp: string;
+  }>;
 }

@@ -26,20 +26,22 @@ const createThought = (id: string, content: string, type: ThoughtNode['type'] = 
 });
 
 describe('VerificationService heuristics integration', () => {
-  const toolIntegrator = new SilentToolIntegrator();
-  const metricsCalculator = new MetricsCalculator();
-  const verificationMemory = VerificationMemory.getInstance();
-  verificationMemory.setSimilarityEngine(new SimilarityEngine());
-
-  const service = new VerificationService(toolIntegrator, metricsCalculator, verificationMemory);
+  let service: VerificationService;
+  let verificationMemory: VerificationMemory;
 
   beforeEach(() => {
-    (verificationMemory as any).verifications?.clear?.();
-    (verificationMemory as any).sessionIndex?.clear?.();
+    VerificationMemory.resetInstance();
+    verificationMemory = VerificationMemory.getInstance();
+    verificationMemory.setSimilarityEngine(new SimilarityEngine());
+
+    const toolIntegrator = new SilentToolIntegrator();
+    const metricsCalculator = new MetricsCalculator();
+    service = new VerificationService(toolIntegrator, metricsCalculator, verificationMemory);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     verificationMemory.stopCleanupTasks();
+    VerificationMemory.resetInstance();
   });
 
   it('returns a coherent verification status without external tools', async () => {

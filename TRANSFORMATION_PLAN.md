@@ -36,12 +36,12 @@ Ce document détaille les six phases de travail pour retirer les intégrations I
 ## Phase 4 — Orchestration du raisonnement progressif en toile
 - **Objectifs** : structurer le moteur de raisonnement pour qu’il évolue étape par étape en exploitant le graphe de pensées existant.
 - **Tâches clés** :
-  - Formaliser un pipeline `ReasoningOrchestrator` coordonnant `ThoughtGraph`, `SimilarityEngine`, `VerificationService` et la mémoire.
-  - Ajouter un suivi d’étapes (journalisation structurée + visualisation) décrivant l’enchaînement des raisonnements.
-  - Étendre le format des nœuds/connexions pour capturer les justifications et poids issus des heuristiques.
+  - [x] Formaliser un pipeline `ReasoningOrchestrator` coordonnant `ThoughtGraph`, `SimilarityEngine`, `VerificationService` et la mémoire.
+  - [x] Ajouter un suivi d’étapes (journalisation structurée + visualisation) décrivant l’enchaînement des raisonnements.
+  - [x] Étendre le format des nœuds/connexions pour capturer les justifications et poids issus des heuristiques.
 - **Tests & validations** :
-  - Tests scénarisés (Jest) simulant une session complète et vérifiant la progression étape par étape.
-  - Vérification snapshot/logs pour s’assurer que chaque étape référence ses parents et justifications.
+  - [x] Tests scénarisés (Jest) simulant une session complète et vérifiant la progression étape par étape.
+  - [x] Vérification snapshot/logs pour s’assurer que chaque étape référence ses parents et justifications.
 
 ## Phase 5 — Renforcement de la persistance, de la sécurité et de la couverture de tests
 - **Objectifs** : fiabiliser les stockages (`MemoryManager`, `VerificationMemory`) et garantir une couverture de tests représentative.

@@ -91,6 +91,12 @@ export class Visualizer {
       // Obtenir la couleur en fonction du type de pensée
       const color = this.thoughtTypeColors[thought.type] || '#757575';
       
+      const primaryJustification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (primaryJustification?.summary) {
+        tooltipSegments.push(`— ${primaryJustification.summary}`);
+      }
+
       return {
         id: thought.id,
         label: this.truncateText(thought.content, 40),
@@ -98,7 +104,7 @@ export class Visualizer {
         metrics: thought.metrics,
         size,
         color,
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         highlighted: thought.id === centerThoughtId
       };
     });
@@ -122,6 +128,11 @@ export class Visualizer {
           // Obtenir la couleur en fonction du type de connexion
           const color = this.connectionTypeColors[connection.type] || '#757575';
           
+          const justification = connection.justification;
+          const justificationSummary = justification?.summary
+            ? `\n— ${justification.summary}`
+            : '';
+
           links.push({
             source: thought.id,
             target: connection.targetId,
@@ -129,7 +140,8 @@ export class Visualizer {
             strength: connection.strength,
             width,
             color,
-            tooltip: connection.description
+            tooltip: connection.description ? `${connection.description}${justificationSummary}` : justificationSummary.trim() || undefined,
+            justifications: justification ? [justification] : undefined
           });
         }
       }
@@ -195,6 +207,12 @@ export class Visualizer {
       // Obtenir la couleur en fonction du type de pensée
       const color = this.thoughtTypeColors[thought.type] || '#757575';
       
+      const justification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (justification?.summary) {
+        tooltipSegments.push(`— ${justification.summary}`);
+      }
+
       return {
         id: thought.id,
         label: this.truncateText(thought.content, 40),
@@ -202,7 +220,7 @@ export class Visualizer {
         metrics: thought.metrics,
         size,
         color,
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         level: index
       };
     });
@@ -239,6 +257,11 @@ export class Visualizer {
           // Obtenir la couleur en fonction du type de connexion
           const color = this.connectionTypeColors[connection.type] || '#757575';
           
+          const justification = connection.justification;
+          const justificationSummary = justification?.summary
+            ? `\n— ${justification.summary}`
+            : '';
+
           links.push({
             source: thought.id,
             target: connection.targetId,
@@ -246,7 +269,8 @@ export class Visualizer {
             strength: connection.strength,
             width,
             color,
-            tooltip: connection.description || `Connexion de type ${connection.type}`
+            tooltip: connection.description ? `${connection.description}${justificationSummary}` : justificationSummary.trim() || `Connexion de type ${connection.type}`,
+            justifications: justification ? [justification] : undefined
           });
         }
       }
@@ -328,6 +352,12 @@ export class Visualizer {
       // La taille dépend du nombre de thèmes associés
       const themeCount = thoughtThemes[thought.id].length;
       const size = 10 + Math.min(themeCount * 2, 15);
+
+      const justification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (justification?.summary) {
+        tooltipSegments.push(`— ${justification.summary}`);
+      }
       
       return {
         id: thought.id,
@@ -336,7 +366,7 @@ export class Visualizer {
         metrics: thought.metrics,
         size,
         color,
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         metadata: {
           themes: thoughtThemes[thought.id]
         }
@@ -648,6 +678,12 @@ export class Visualizer {
       if (visited.has(thought.id)) continue;
       visited.add(thought.id);
       
+      const justification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (justification?.summary) {
+        tooltipSegments.push(`— ${justification.summary}`);
+      }
+
       // Ajouter le nœud avec son niveau hiérarchique
       nodes.push({
         id: thought.id,
@@ -657,7 +693,7 @@ export class Visualizer {
         size: 10 + Math.min(thought.connections.length * 2, 15),
         color: this.thoughtTypeColors[thought.type] || '#757575',
         level,
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         collapsed: level > 2 // Replier automatiquement les niveaux profonds
       });
       
@@ -687,6 +723,11 @@ export class Visualizer {
           );
           
           if (!linkExists) {
+            const justification = connection.justification;
+            const justificationSummary = justification?.summary
+              ? `\n— ${justification.summary}`
+              : '';
+
             links.push({
               source: thought.id,
               target: connection.targetId,
@@ -695,7 +736,8 @@ export class Visualizer {
               width: 1 + connection.strength * 3,
               color: this.connectionTypeColors[connection.type] || '#757575',
               dashed: connection.type === 'associates', // Ligne pointillée pour les liens faibles
-              tooltip: connection.description
+              tooltip: connection.description ? `${connection.description}${justificationSummary}` : justificationSummary.trim() || undefined,
+              justifications: justification ? [justification] : undefined
             });
           }
         }
@@ -786,6 +828,12 @@ export class Visualizer {
       
       // Assigner une importance basée sur la métrique de qualité
       const importance = 0.5 + (thought.metrics.quality * 0.5);
+
+      const justification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (justification?.summary) {
+        tooltipSegments.push(`— ${justification.summary}`);
+      }
       
       return {
         id: thought.id,
@@ -794,7 +842,7 @@ export class Visualizer {
         metrics: thought.metrics,
         size,
         color,
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         highlighted: thought.id === options.centerNode,
         metadata: {
           importance,
@@ -825,6 +873,11 @@ export class Visualizer {
           // Obtenir la couleur en fonction du type de connexion
           const color = this.connectionTypeColors[connection.type] || '#757575';
           
+          const justification = connection.justification;
+          const justificationSummary = justification?.summary
+            ? `\n— ${justification.summary}`
+            : '';
+
           links.push({
             source: thought.id,
             target: connection.targetId,
@@ -835,7 +888,8 @@ export class Visualizer {
             weight,
             dashed: connection.type === 'associates',
             bidirectional: connection.type === 'contradicts',
-            tooltip: connection.description || `Connexion de type ${connection.type}`
+            tooltip: connection.description ? `${connection.description}${justificationSummary}` : justificationSummary.trim() || `Connexion de type ${connection.type}`,
+            justifications: justification ? [justification] : undefined
           });
         }
       }
@@ -973,6 +1027,12 @@ export class Visualizer {
     const levelAngles: Record<string, number> = {};
     
     // Ajouter le nœud central
+    const centerJustification = centerThought.reasoning?.justifications?.[0];
+    const centerTooltipSegments = [this.truncateText(centerThought.content, 120)];
+    if (centerJustification?.summary) {
+      centerTooltipSegments.push(`— ${centerJustification.summary}`);
+    }
+
     nodes.push({
       id: centerThought.id,
       label: this.truncateText(centerThought.content, 40),
@@ -981,7 +1041,7 @@ export class Visualizer {
       size: 15, // Nœud central plus grand
       color: this.thoughtTypeColors[centerThought.type] || '#757575',
       position: { x: 0, y: 0 }, // Au centre
-      tooltip: centerThought.content,
+      tooltip: centerTooltipSegments.join('\n'),
       highlighted: true
     });
     
@@ -1004,6 +1064,12 @@ export class Visualizer {
       const x = radius * Math.cos(angle);
       const y = radius * Math.sin(angle);
       
+      const justification = thought.reasoning?.justifications?.[0];
+      const tooltipSegments = [this.truncateText(thought.content, 120)];
+      if (justification?.summary) {
+        tooltipSegments.push(`— ${justification.summary}`);
+      }
+
       nodes.push({
         id: thought.id,
         label: this.truncateText(thought.content, 40),
@@ -1012,7 +1078,7 @@ export class Visualizer {
         size: 10 + Math.min(thought.connections.length, 8),
         color: this.thoughtTypeColors[thought.type] || '#757575',
         position: { x, y },
-        tooltip: thought.content,
+        tooltip: tooltipSegments.join('\n'),
         level
       });
     }
@@ -1043,6 +1109,11 @@ export class Visualizer {
             const levelDifference = Math.abs(sourceLevel - targetLevel);
             const width = 1 + (3 / (levelDifference || 1)) * connection.strength;
             
+            const justification = connection.justification;
+            const justificationSummary = justification?.summary
+              ? `\n— ${justification.summary}`
+              : '';
+
             links.push({
               source: thought.id,
               target: connection.targetId,
@@ -1052,7 +1123,8 @@ export class Visualizer {
               color: this.connectionTypeColors[connection.type] || '#757575',
               dashed: levelDifference > 1, // Ligne pointillée pour les liens traversant plusieurs niveaux
               animated: thought.id === centerThought.id || connection.targetId === centerThought.id,
-              tooltip: connection.description || `Connexion de type ${connection.type}`
+              tooltip: connection.description ? `${connection.description}${justificationSummary}` : justificationSummary.trim() || `Connexion de type ${connection.type}`,
+              justifications: justification ? [justification] : undefined
             });
           }
         }

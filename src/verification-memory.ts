@@ -2,6 +2,8 @@ import { VerificationStatus } from './types';
 import { SimilarityEngine } from './similarity-engine';
 import { VerificationConfig, SystemConfig } from './config';
 
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+
 /**
  * Interface pour les entrées de vérification
  */
@@ -35,7 +37,7 @@ export interface VerificationSearchResult {
  * AMÉLIORÉ: Meilleure gestion des similarités et persistance des vérifications
  */
 export class VerificationMemory {
-  private static instance: VerificationMemory;
+  private static instance: VerificationMemory | null = null;
   private similarityEngine?: SimilarityEngine;
   
   // Structure pour stocker les vérifications avec index pour recherche efficace
@@ -49,6 +51,13 @@ export class VerificationMemory {
 
   private cleanupTimers: NodeJS.Timeout[] = [];
   
+  private emit(level: 'log' | 'warn' | 'error', ...args: unknown[]): void {
+    if (isTestEnvironment) {
+      return;
+    }
+    (console[level] as (...messages: unknown[]) => void)(...args);
+  }
+  
   /**
    * Méthode statique pour implémenter le singleton
    * 
@@ -59,6 +68,13 @@ export class VerificationMemory {
       VerificationMemory.instance = new VerificationMemory();
     }
     return VerificationMemory.instance;
+  }
+
+  public static resetInstance(): void {
+    if (VerificationMemory.instance) {
+      VerificationMemory.instance.stopCleanupTasks();
+      VerificationMemory.instance = null;
+    }
   }
   
   /**
@@ -71,7 +87,7 @@ export class VerificationMemory {
     // NOUVEAU: Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
     this.cleanupTimers.push(setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION));
     
-    console.log('VerificationMemory: Système de mémoire de vérification initialisé');
+    this.emit('log', 'VerificationMemory: Système de mémoire de vérification initialisé');
   }
   
   public stopCleanupTasks(): void {
@@ -88,7 +104,7 @@ export class VerificationMemory {
    */
   public setSimilarityEngine(similarityEngine: SimilarityEngine): void {
     this.similarityEngine = similarityEngine;
-    console.log('VerificationMemory: SimilarityEngine configuré');
+    this.emit('log', 'VerificationMemory: SimilarityEngine configuré');
   }
   
   /**
@@ -111,12 +127,12 @@ export class VerificationMemory {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
     ttl: number = VerificationConfig.MEMORY.DEFAULT_SESSION_TTL
   ): Promise<string> {
-    console.error(`VerificationMemory: Ajout d'une vérification avec statut ${status}, confiance ${confidence.toFixed(2)}`);
+    this.emit('error', `VerificationMemory: Ajout d'une vérification avec statut ${status}, confiance ${confidence.toFixed(2)}`);
     
     // Vérifier si une entrée très similaire existe déjà dans cette session
     const existingEntry = await this.findExactDuplicate(text, sessionId);
     if (existingEntry) {
-      console.error(`VerificationMemory: Entrée similaire trouvée, mise à jour plutôt que création`);
+      this.emit('error', `VerificationMemory: Entrée similaire trouvée, mise à jour plutôt que création`);
       
       // Mettre à jour l'entrée existante au lieu d'en créer une nouvelle
       this.verifications.set(existingEntry.id, {
@@ -157,7 +173,7 @@ export class VerificationMemory {
     }
     this.sessionIndex.get(sessionId)!.add(id);
     
-    console.error(`VerificationMemory: Vérification ajoutée avec succès, ID: ${id}`);
+    this.emit('error', `VerificationMemory: Vérification ajoutée avec succès, ID: ${id}`);
     
     return id;
   }
@@ -174,22 +190,22 @@ export class VerificationMemory {
     text: string,
     sessionId: string
   ): Promise<VerificationEntry | null> {
-    console.error(`VerificationMemory: Recherche de duplicata pour "${text.substring(0, 30)}..."`);
+    this.emit('error', `VerificationMemory: Recherche de duplicata pour "${text.substring(0, 30)}..."`);
     const sessionEntries = this.getSessionEntriesArray(sessionId);
 
     if (sessionEntries.length === 0) {
-      console.error('VerificationMemory: Aucun duplicata trouvé');
+      this.emit('error', 'VerificationMemory: Aucun duplicata trouvé');
       return null;
     }
 
     const exactMatch = sessionEntries.find(entry => entry.text === text);
     if (exactMatch) {
-      console.error('VerificationMemory: Duplicata exact trouvé');
+      this.emit('error', 'VerificationMemory: Duplicata exact trouvé');
       return exactMatch;
     }
 
     if (!this.similarityEngine) {
-      console.error('VerificationMemory: SimilarityEngine indisponible, impossible de comparer sémantiquement');
+      this.emit('error', 'VerificationMemory: SimilarityEngine indisponible, impossible de comparer sémantiquement');
       return null;
     }
 
@@ -206,15 +222,15 @@ export class VerificationMemory {
         const bestMatch = sessionEntries.find(entry => entry.text === results[0].text);
         if (bestMatch) {
           this.setCachedSimilarity(`${text.substring(0, 50)}_${bestMatch.id}`, results[0].score);
-          console.error(`VerificationMemory: Duplicata trouvé avec similarité ${results[0].score.toFixed(3)}`);
+          this.emit('error', `VerificationMemory: Duplicata trouvé avec similarité ${results[0].score.toFixed(3)}`);
           return bestMatch;
         }
       }
     } catch (error) {
-      console.error('VerificationMemory: Erreur lors de la recherche de duplicata via SimilarityEngine:', error);
+      this.emit('error', 'VerificationMemory: Erreur lors de la recherche de duplicata via SimilarityEngine:', error);
     }
 
-    console.error('VerificationMemory: Aucun duplicata trouvé');
+    this.emit('error', 'VerificationMemory: Aucun duplicata trouvé');
     return null;
   }
   
@@ -263,21 +279,21 @@ export class VerificationMemory {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
     similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY * 0.9 // Réduction supplémentaire de 10%
   ): Promise<VerificationSearchResult | null> {
-    console.error(`VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
+    this.emit('error', `VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
     
     // Obtenir les ID des vérifications pour cette session
     const sessionIds = this.sessionIndex.get(sessionId);
     
     if (!sessionIds || sessionIds.size === 0) {
-      console.error(`VerificationMemory: Aucune vérification pour la session ${sessionId}`);
+      this.emit('error', `VerificationMemory: Aucune vérification pour la session ${sessionId}`);
       return null;
     }
     
-    console.error(`VerificationMemory: ${sessionIds.size} vérifications disponibles pour cette session`);
+    this.emit('error', `VerificationMemory: ${sessionIds.size} vérifications disponibles pour cette session`);
     const sessionEntries = this.getSessionEntriesArray(sessionId);
 
     if (!this.similarityEngine) {
-      console.error('VerificationMemory: SimilarityEngine indisponible, utilisation de la recherche textuelle');
+      this.emit('error', 'VerificationMemory: SimilarityEngine indisponible, utilisation de la recherche textuelle');
       return this.fallbackToTextSearch(text, sessionId);
     }
 
@@ -291,7 +307,7 @@ export class VerificationMemory {
       );
 
       if (results.length === 0) {
-        console.error('VerificationMemory: Aucune correspondance dépassant le seuil via SimilarityEngine');
+        this.emit('error', 'VerificationMemory: Aucune correspondance dépassant le seuil via SimilarityEngine');
         return this.fallbackToTextSearch(text, sessionId);
       }
 
@@ -300,7 +316,7 @@ export class VerificationMemory {
 
       if (bestEntry) {
         this.setCachedSimilarity(`${text.substring(0, 50)}_${bestEntry.id}`, results[0].score);
-        console.error(`VerificationMemory: Vérification trouvée avec similarité ${results[0].score.toFixed(3)}`);
+        this.emit('error', `VerificationMemory: Vérification trouvée avec similarité ${results[0].score.toFixed(3)}`);
         return {
           id: bestEntry.id,
           status: bestEntry.status,
@@ -312,11 +328,11 @@ export class VerificationMemory {
         };
       }
     } catch (error) {
-      console.error('VerificationMemory: Erreur lors de la recherche via SimilarityEngine:', error);
+      this.emit('error', 'VerificationMemory: Erreur lors de la recherche via SimilarityEngine:', error);
       return this.fallbackToTextSearch(text, sessionId);
     }
 
-    console.error('VerificationMemory: Aucune vérification trouvée');
+    this.emit('error', 'VerificationMemory: Aucune vérification trouvée');
     return null;
   }
   
@@ -332,7 +348,7 @@ export class VerificationMemory {
     text: string,
     sessionId: string
   ): VerificationSearchResult | null {
-    console.error('VerificationMemory: Utilisation de la recherche textuelle');
+    this.emit('error', 'VerificationMemory: Utilisation de la recherche textuelle');
     
     // Obtenir les entrées pour cette session
     const sessionEntries = this.getSessionEntriesArray(sessionId);
@@ -340,7 +356,7 @@ export class VerificationMemory {
     // Recherche exacte par texte
     const exactMatch = sessionEntries.find(entry => entry.text === text);
     if (exactMatch) {
-      console.error('VerificationMemory: Correspondance exacte trouvée');
+      this.emit('error', 'VerificationMemory: Correspondance exacte trouvée');
       return {
         id: exactMatch.id,
         status: exactMatch.status,
@@ -397,7 +413,7 @@ export class VerificationMemory {
     
     if (keywordsMatches.length > 0 && keywordsMatches[0].similarity >= textSimilarityThreshold) {
       const bestMatch = keywordsMatches[0].entry;
-      console.error(`VerificationMemory: Correspondance textuelle trouvée avec similarité ${keywordsMatches[0].similarity.toFixed(3)}`);
+      this.emit('error', `VerificationMemory: Correspondance textuelle trouvée avec similarité ${keywordsMatches[0].similarity.toFixed(3)}`);
       
       return {
         id: bestMatch.id,
@@ -410,7 +426,7 @@ export class VerificationMemory {
       };
     }
     
-    console.error('VerificationMemory: Aucune correspondance textuelle trouvée');
+    this.emit('error', 'VerificationMemory: Aucune correspondance textuelle trouvée');
     return null;
   }
   
@@ -448,11 +464,11 @@ export class VerificationMemory {
    * @returns Tableau des entrées pour cette session
    */
   private getSessionEntriesArray(sessionId: string): VerificationEntry[] {
-    console.error(`VerificationMemory: Récupération des entrées pour la session ${sessionId}`);
+    this.emit('error', `VerificationMemory: Récupération des entrées pour la session ${sessionId}`);
     
     const sessionIds = this.sessionIndex.get(sessionId);
     if (!sessionIds) {
-      console.error(`VerificationMemory: Aucune entrée pour cette session`);
+      this.emit('error', `VerificationMemory: Aucune entrée pour cette session`);
       return [];
     }
     
@@ -464,7 +480,7 @@ export class VerificationMemory {
       }
     }
     
-    console.error(`VerificationMemory: ${entries.length} entrées récupérées`);
+    this.emit('error', `VerificationMemory: ${entries.length} entrées récupérées`);
     return entries;
   }
   
@@ -566,7 +582,7 @@ export class VerificationMemory {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
     } catch (error) {
-      console.error('Erreur lors de la recherche de vérifications similaires via SimilarityEngine:', error);
+      this.emit('error', 'Erreur lors de la recherche de vérifications similaires via SimilarityEngine:', error);
       return [];
     }
   }
@@ -588,7 +604,7 @@ export class VerificationMemory {
     // Supprimer l'index de session
     this.sessionIndex.delete(sessionId);
     
-    console.error(`VerificationMemory: Session ${sessionId} nettoyée`);
+    this.emit('error', `VerificationMemory: Session ${sessionId} nettoyée`);
   }
   
   /**
@@ -626,7 +642,7 @@ export class VerificationMemory {
       }
     }
     
-    console.error(`VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
+    this.emit('error', `VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
   }
   
   /**
@@ -641,7 +657,7 @@ export class VerificationMemory {
     // Vider le cache
     this.similarityCache.clear();
     
-    console.error(`VerificationMemory: Cache de similarité nettoyé (${cacheSize} entrées)`);
+    this.emit('error', `VerificationMemory: Cache de similarité nettoyé (${cacheSize} entrées)`);
   }
   
   /**
@@ -651,7 +667,7 @@ export class VerificationMemory {
     this.verifications.clear();
     this.sessionIndex.clear();
     this.similarityCache.clear();
-    console.error('VerificationMemory: Mémoire de vérification entièrement nettoyée');
+    this.emit('error', 'VerificationMemory: Mémoire de vérification entièrement nettoyée');
   }
   
   /**
