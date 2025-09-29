@@ -3,11 +3,15 @@ FROM node:lts-alpine
 # Create and set working directory
 WORKDIR /app
 
-# FIRST copy all files to ensure scripts directory is available
-COPY . .
+# Copy dependency files first for better caching
+COPY package*.json ./
+COPY tsconfig.json ./
 
-# THEN install dependencies
-RUN npm install
+# Install dependencies
+RUN npm ci
+
+# Copy the rest of the source
+COPY . .
 
 # Build the project
 RUN npm run build
