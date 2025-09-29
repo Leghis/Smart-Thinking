@@ -3,6 +3,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { SimilarityEngine } from './similarity-engine';
 import { PathUtils } from './utils/path-utils';
+import {
+  prepareMemoryForStorage,
+  sanitizeKnowledgeBase,
+  sanitizeMemoryItem,
+} from './utils/persistence-utils';
 
 // Constante pour contrôler l'affichage des logs de débogage
 const DEBUG_MODE = false;
@@ -46,6 +51,12 @@ export class MemoryManager {
     if (DEBUG_MODE) {
       console.error(`Smart-Thinking Debug: ${message}`);
     }
+  }
+
+  private requestSave(): void {
+    this.saveToStorage().catch(error => {
+      console.error('Smart-Thinking: Échec de la sauvegarde asynchrone:', error);
+    });
   }
   
   /**
@@ -115,21 +126,23 @@ export class MemoryManager {
         
         if (savedMemories.length > 0) {
           for (const memory of savedMemories) {
-            this.memories.set(memory.id, {
-              ...memory,
-              timestamp: new Date(memory.timestamp)
-            });
+            const sanitizedMemory = sanitizeMemoryItem(memory);
+            if (!sanitizedMemory) {
+              continue;
+            }
+
+            this.memories.set(sanitizedMemory.id, sanitizedMemory);
           }
         }
       }
       
       // Essayer de charger la base de connaissances depuis le fichier knowledge.json
       const knowledgeLoaded = await this.loadKnowledgeFromFile();
-      
+
       // Si la base de connaissances n'a pas été chargée, utiliser les exemples prédéfinis
       if (!knowledgeLoaded) {
-        const savedKnowledge = this.getSavedKnowledge();
-        
+        const savedKnowledge = sanitizeKnowledgeBase(this.getSavedKnowledge());
+
         if (Object.keys(savedKnowledge).length > 0) {
           for (const [key, value] of Object.entries(savedKnowledge)) {
             this.knowledgeBase.set(key, value);
@@ -147,15 +160,17 @@ export class MemoryManager {
       
       if (savedMemories.length > 0) {
         for (const memory of savedMemories) {
-          this.memories.set(memory.id, {
-            ...memory,
-            timestamp: new Date(memory.timestamp)
-          });
+          const sanitizedMemory = sanitizeMemoryItem(memory);
+          if (!sanitizedMemory) {
+            continue;
+          }
+
+          this.memories.set(sanitizedMemory.id, sanitizedMemory);
         }
       }
-      
-      const savedKnowledge = this.getSavedKnowledge();
-      
+
+      const savedKnowledge = sanitizeKnowledgeBase(this.getSavedKnowledge());
+
       if (Object.keys(savedKnowledge).length > 0) {
         for (const [key, value] of Object.entries(savedKnowledge)) {
           this.knowledgeBase.set(key, value);
@@ -197,15 +212,16 @@ export class MemoryManager {
         try {
           const filePath = path.join(this.memoriesDir, file);
           const content = await fs.readFile(filePath, 'utf8');
-          const memoryItems = JSON.parse(content) as MemoryItem[];
-          
-          // Traiter chaque élément de mémoire dans le fichier
-          for (const item of memoryItems) {
-            // Convertir la chaîne de date en objet Date
-            this.memories.set(item.id, {
-              ...item,
-              timestamp: new Date(item.timestamp)
-            });
+          const parsedContent = JSON.parse(content);
+          const memoryItems = Array.isArray(parsedContent) ? parsedContent : [];
+
+          for (const rawItem of memoryItems) {
+            const sanitizedItem = sanitizeMemoryItem(rawItem);
+            if (!sanitizedItem) {
+              continue;
+            }
+
+            this.memories.set(sanitizedItem.id, sanitizedItem);
             memoryLoaded = true;
           }
         } catch (fileError) {
@@ -240,8 +256,8 @@ export class MemoryManager {
       
       // Lire le fichier knowledge.json
       const content = await fs.readFile(this.knowledgeFilePath, 'utf8');
-      const knowledge = JSON.parse(content) as Record<string, any>;
-      
+      const knowledge = sanitizeKnowledgeBase(JSON.parse(content));
+
       // Traiter chaque entrée de la base de connaissances
       for (const [key, value] of Object.entries(knowledge)) {
         this.knowledgeBase.set(key, value);
@@ -310,7 +326,7 @@ export class MemoryManager {
       await this.ensureDirectoriesExist();
       
       // Préparer les mémoires par session pour la sauvegarde
-      const memoriesBySession = new Map<string, MemoryItem[]>();
+      const memoriesBySession = new Map<string, ReturnType<typeof prepareMemoryForStorage>[]>();
       
       // Regrouper les mémoires par session
       for (const memory of this.memories.values()) {
@@ -320,8 +336,8 @@ export class MemoryManager {
         if (!memoriesBySession.has(sessionId)) {
           memoriesBySession.set(sessionId, []);
         }
-        
-        memoriesBySession.get(sessionId)!.push(memory);
+
+        memoriesBySession.get(sessionId)!.push(prepareMemoryForStorage(memory));
       }
       
       // Sauvegarder chaque groupe de mémoires dans un fichier par session
@@ -336,9 +352,11 @@ export class MemoryManager {
       }
       
       // Sauvegarder la base de connaissances
+      const knowledgePayload = sanitizeKnowledgeBase(Object.fromEntries(this.knowledgeBase));
+
       await fs.writeFile(
         this.knowledgeFilePath,
-        JSON.stringify(Object.fromEntries(this.knowledgeBase), null, 2),
+        JSON.stringify(knowledgePayload, null, 2),
         'utf8'
       );
       
@@ -375,7 +393,7 @@ export class MemoryManager {
     };
     
     this.memories.set(id, memory);
-    this.saveToStorage();
+    this.requestSave();
     
     return id;
   }
@@ -555,8 +573,14 @@ export class MemoryManager {
    * @param value La valeur de l'élément
    */
   setKnowledge(key: string, value: any): void {
-    this.knowledgeBase.set(key, value);
-    this.saveToStorage();
+    const sanitizedRecord = sanitizeKnowledgeBase({ [key]: value });
+
+    if (Object.prototype.hasOwnProperty.call(sanitizedRecord, key)) {
+      this.knowledgeBase.set(key, sanitizedRecord[key]);
+    } else {
+      this.knowledgeBase.delete(key);
+    }
+    this.requestSave();
   }
   
   /**
@@ -575,7 +599,7 @@ export class MemoryManager {
   clear(): void {
     this.memories.clear();
     this.knowledgeBase.clear();
-    this.saveToStorage();
+    this.requestSave();
   }
 
   /**

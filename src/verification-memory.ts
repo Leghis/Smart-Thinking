@@ -1,6 +1,14 @@
+import { promises as fs } from 'fs';
+import path from 'path';
 import { VerificationStatus } from './types';
 import { SimilarityEngine } from './similarity-engine';
 import { VerificationConfig, SystemConfig } from './config';
+import { PathUtils } from './utils/path-utils';
+import {
+  PersistedVerificationEntry,
+  prepareVerificationForStorage,
+  sanitizeVerificationEntry,
+} from './utils/persistence-utils';
 
 const isTestEnvironment = process.env.NODE_ENV === 'test';
 
@@ -50,6 +58,10 @@ export class VerificationMemory {
   private similarityCache: Map<string, Map<string, number>> = new Map();
 
   private cleanupTimers: NodeJS.Timeout[] = [];
+  private dataDir: string;
+  private storageFilePath: string;
+  private initialization: Promise<void>;
+  private initialized = false;
   
   private emit(level: 'log' | 'warn' | 'error', ...args: unknown[]): void {
     if (isTestEnvironment) {
@@ -81,6 +93,16 @@ export class VerificationMemory {
    * Constructeur privé pour empêcher l'instanciation directe
    */
   private constructor() {
+    this.dataDir = PathUtils.getDataDirectory();
+    this.storageFilePath = path.join(this.dataDir, 'verifications.json');
+    this.initialization = this.loadFromStorage()
+      .catch((error) => {
+        this.emit('error', 'VerificationMemory: Erreur lors du chargement du stockage persistant', error);
+      })
+      .finally(() => {
+        this.initialized = true;
+      });
+
     // Configurer le nettoyage périodique des entrées expirées
     this.cleanupTimers.push(setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2));
     
@@ -89,12 +111,93 @@ export class VerificationMemory {
     
     this.emit('log', 'VerificationMemory: Système de mémoire de vérification initialisé');
   }
-  
+
   public stopCleanupTasks(): void {
     for (const timer of this.cleanupTimers) {
       clearInterval(timer);
     }
     this.cleanupTimers = [];
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    try {
+      await this.initialization;
+    } catch (error) {
+      this.emit('error', 'VerificationMemory: Erreur lors de l\'initialisation', error);
+    } finally {
+      this.initialized = true;
+    }
+  }
+
+  private async loadFromStorage(): Promise<void> {
+    await PathUtils.ensureDirectoryExists(this.dataDir);
+
+    const exists = await fs.stat(this.storageFilePath)
+      .then(() => true)
+      .catch(() => false);
+
+    if (!exists) {
+      return;
+    }
+
+    const content = await fs.readFile(this.storageFilePath, 'utf8');
+    const parsed = JSON.parse(content) as { verifications?: unknown } | unknown[];
+    const entries = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { verifications?: unknown }).verifications)
+        ? ((parsed as { verifications: unknown[] }).verifications)
+        : [];
+
+    this.verifications.clear();
+    this.sessionIndex.clear();
+
+    for (const rawEntry of entries) {
+      const sanitized = sanitizeVerificationEntry(rawEntry, {
+        defaultSessionId: SystemConfig.DEFAULT_SESSION_ID,
+        defaultTtlMs: VerificationConfig.MEMORY.DEFAULT_SESSION_TTL,
+      });
+
+      if (!sanitized) {
+        continue;
+      }
+
+      this.verifications.set(sanitized.id, sanitized);
+
+      if (!this.sessionIndex.has(sanitized.sessionId)) {
+        this.sessionIndex.set(sanitized.sessionId, new Set());
+      }
+      this.sessionIndex.get(sanitized.sessionId)!.add(sanitized.id);
+    }
+
+    if (this.verifications.size > 0) {
+      this.emit('log', `VerificationMemory: ${this.verifications.size} entrées restaurées depuis le stockage`);
+    }
+  }
+
+  private async persistToStorage(): Promise<void> {
+    const payload: { version: number; updatedAt: string; verifications: PersistedVerificationEntry[] } = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      verifications: Array.from(this.verifications.values()).map((entry) =>
+        prepareVerificationForStorage(entry)
+      ),
+    };
+
+    await PathUtils.ensureDirectoryExists(this.dataDir);
+    await fs.writeFile(this.storageFilePath, JSON.stringify(payload, null, 2), 'utf8');
+  }
+
+  private requestPersist(): void {
+    Promise.resolve(this.initialization)
+      .catch(() => undefined)
+      .then(() => this.persistToStorage())
+      .catch((error) => {
+        this.emit('error', 'VerificationMemory: Erreur lors de la sauvegarde du stockage persistant', error);
+      });
   }
   
   /**
@@ -127,6 +230,7 @@ export class VerificationMemory {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
     ttl: number = VerificationConfig.MEMORY.DEFAULT_SESSION_TTL
   ): Promise<string> {
+    await this.ensureInitialized();
     this.emit('error', `VerificationMemory: Ajout d'une vérification avec statut ${status}, confiance ${confidence.toFixed(2)}`);
     
     // Vérifier si une entrée très similaire existe déjà dans cette session
@@ -143,6 +247,7 @@ export class VerificationMemory {
         timestamp: new Date(),
         expiresAt: new Date(Date.now() + ttl)
       });
+      this.requestPersist();
       return existingEntry.id;
     }
     
@@ -174,6 +279,7 @@ export class VerificationMemory {
     this.sessionIndex.get(sessionId)!.add(id);
     
     this.emit('error', `VerificationMemory: Vérification ajoutée avec succès, ID: ${id}`);
+    this.requestPersist();
     
     return id;
   }
@@ -190,6 +296,7 @@ export class VerificationMemory {
     text: string,
     sessionId: string
   ): Promise<VerificationEntry | null> {
+    await this.ensureInitialized();
     this.emit('error', `VerificationMemory: Recherche de duplicata pour "${text.substring(0, 30)}..."`);
     const sessionEntries = this.getSessionEntriesArray(sessionId);
 
@@ -279,6 +386,7 @@ export class VerificationMemory {
     sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
     similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY * 0.9 // Réduction supplémentaire de 10%
   ): Promise<VerificationSearchResult | null> {
+    await this.ensureInitialized();
     this.emit('error', `VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
     
     // Obtenir les ID des vérifications pour cette session
@@ -546,6 +654,7 @@ export class VerificationMemory {
     limit: number = 5,
     minSimilarity: number = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY
   ): Promise<VerificationSearchResult[]> {
+    await this.ensureInitialized();
     if (!this.similarityEngine) {
       return [];
     }
@@ -605,6 +714,7 @@ export class VerificationMemory {
     this.sessionIndex.delete(sessionId);
     
     this.emit('error', `VerificationMemory: Session ${sessionId} nettoyée`);
+    this.requestPersist();
   }
   
   /**
@@ -643,6 +753,7 @@ export class VerificationMemory {
     }
     
     this.emit('error', `VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
+    this.requestPersist();
   }
   
   /**
@@ -668,6 +779,7 @@ export class VerificationMemory {
     this.sessionIndex.clear();
     this.similarityCache.clear();
     this.emit('error', 'VerificationMemory: Mémoire de vérification entièrement nettoyée');
+    this.requestPersist();
   }
   
   /**

@@ -46,12 +46,12 @@ Ce document détaille les six phases de travail pour retirer les intégrations I
 ## Phase 5 — Renforcement de la persistance, de la sécurité et de la couverture de tests
 - **Objectifs** : fiabiliser les stockages (`MemoryManager`, `VerificationMemory`) et garantir une couverture de tests représentative.
 - **Tâches clés** :
-  - Revoir la sérialisation/désérialisation pour éviter les reliquats d’anciens champs IA et assurer la migration de données.
-  - Ajouter des tests de persistence (mock FS) validant les scénarios de lecture/écriture et de cache.
-  - Mettre en place un rapport de couverture (Jest + `--coverage`) et intégrer des checks automatiques.
+  - [x] Revoir la sérialisation/désérialisation pour éviter les reliquats d’anciens champs IA et assurer la migration de données.
+  - [x] Ajouter des tests de persistence (mock FS) validant les scénarios de lecture/écriture et de cache.
+  - [x] Mettre en place un rapport de couverture (Jest + `--coverage`) et intégrer des checks automatiques.
 - **Tests & validations** :
-  - Tests unitaires sur les modules de persistence.
-  - Rapport de couverture > 80 % sur les modules refactorés.
+  - [x] Tests unitaires sur les modules de persistence.
+  - [x] Rapport de couverture > 80 % sur les modules refactorés (statements/lines).
 
 ## Phase 6 — Documentation, DX et préparation release
 - **Objectifs** : documenter la nouvelle architecture “raisonnement interne”, faciliter l’usage et préparer une release propre.

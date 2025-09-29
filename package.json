@@ -15,6 +15,7 @@
     "watch": "tsc --watch",
     "start": "node build/index.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "postinstall": "node scripts/make-executable.js"
