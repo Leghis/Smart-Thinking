@@ -32,6 +32,14 @@ Each step is logged with structured metadata so you can visualize the reasoning 
 ## Installation
 Smart-Thinking ships as an npm package compatible with Windows, macOS, and Linux.
 
+### Installing via Smithery
+
+To install smart-thinking automatically via [Smithery](https://smithery.ai/server/@Leghis/smart-thinking):
+
+```bash
+npx -y @smithery/cli install @Leghis/smart-thinking
+```
+
 ### Global install (recommended)
 ```bash
 npm install -g smart-thinking-mcp
@@ -40,11 +48,6 @@ npm install -g smart-thinking-mcp
 ### Run with npx
 ```bash
 npx -y smart-thinking-mcp
-```
-
-### Install via Smithery
-```bash
-npx -y @smithery/cli install @Leghis/smart-thinking --client claude
 ```
 
 ### From source
