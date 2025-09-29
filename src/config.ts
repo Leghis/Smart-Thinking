@@ -38,17 +38,6 @@ export const VerificationConfig = {
 };
 
 /**
- * Configuration pour le service d'embeddings
- */
-export const EmbeddingConfig = {
-  MODEL: 'embed-multilingual-v3.0',  // Modèle d'embedding à utiliser
-  INPUT_TYPE: 'search_document',      // Type d'entrée pour l'API d'embeddings
-  BATCH_SIZE: 20,                     // Taille maximale des lots pour les requêtes d'embedding
-  RETRY_ATTEMPTS: 3,                  // Nombre de tentatives en cas d'échec
-  RETRY_DELAY: 1000                   // Délai entre les tentatives en milliseconds
-};
-
-/**
  * Constantes générales du système
  */
 export const SystemConfig = {

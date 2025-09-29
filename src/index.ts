@@ -9,6 +9,7 @@ import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
 import { EmbeddingService } from './embedding-service';
+import { FeatureFlags } from './feature-flags';
 import { MetricsCalculator } from './metrics-calculator';
 import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, ThoughtMetrics, Connection, ThoughtNode } from './types';
 import { VerificationMemory } from './verification-memory';
@@ -118,8 +119,10 @@ const version = packageInfo.version || '1.0.3';
 // `);
 
 // Initialisation des services
-const COHERE_API_KEY = 'DckObDtnnRkPQQK6dwooI7mAB60HmmhNh1OBD23K';
-const embeddingService = new EmbeddingService(COHERE_API_KEY);
+if (FeatureFlags.externalEmbeddingEnabled) {
+  console.warn('FeatureFlags.externalEmbeddingEnabled est activé mais aucun fournisseur externe n\'est disponible.');
+}
+const embeddingService = new EmbeddingService();
 const metricsCalculator = new MetricsCalculator();
 const qualityEvaluator = new QualityEvaluator();
 const toolIntegrator = new ToolIntegrator();

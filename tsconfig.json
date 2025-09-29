@@ -10,6 +10,7 @@
     "declaration": true,
     "sourceMap": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],
