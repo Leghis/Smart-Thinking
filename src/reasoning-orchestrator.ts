@@ -13,7 +13,7 @@ import { VerificationResult, VerificationStatus, VerificationDetailedStatus } fr
 interface MemoryManagerLike {
   loadGraphState(sessionId: string): Promise<string | null>;
   saveGraphState(sessionId: string, graphState: string): Promise<void>;
-  addMemory(content: string, tags: string[], sessionId: string): Promise<void> | void;
+  addMemory(content: string, tags: string[], sessionId: string): Promise<void | string> | string | void;
   getRelevantMemories(content: string, limit: number, sessionId: string): Promise<MemoryItem[]>;
 }
 

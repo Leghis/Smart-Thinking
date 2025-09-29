@@ -514,7 +514,7 @@ export class Visualizer {
         });
         
         // Créer un cluster pour chaque thème
-        Object.entries(themeGroups).forEach(([theme, nodeIds], _index) => {
+        Object.entries(themeGroups).forEach(([theme, nodeIds], index) => {
           clusters.push({
             id: `cluster-theme-${index}`,
             label: `Thème: ${theme}`,

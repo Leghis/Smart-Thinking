@@ -56,13 +56,13 @@ Ce document détaille les six phases de travail pour retirer les intégrations I
 ## Phase 6 — Documentation, DX et préparation release
 - **Objectifs** : documenter la nouvelle architecture “raisonnement interne”, faciliter l’usage et préparer une release propre.
 - **Tâches clés** :
-  - Mettre à jour `README.md`, `GUIDE_INSTALLATION.md` et ajouter une section “Reasoning Flow”.
-  - Fournir des exemples CLIs / scripts démontrant le raisonnement progressif.
-  - Configurer les scripts npm (`lint`, `test`, `start`) pour refléter le nouvel état.
-  - Préparer les notes de version et la checklist de déploiement.
+  - [x] Mettre à jour `README.md`, `GUIDE_INSTALLATION.md` et ajouter une section “Reasoning Flow”.
+  - [x] Fournir des exemples CLIs / scripts démontrant le raisonnement progressif.
+  - [x] Configurer les scripts npm (`lint`, `test`, `start`) pour refléter le nouvel état.
+  - [x] Préparer les notes de version et la checklist de déploiement.
 - **Tests & validations** :
-  - Relecture technique (lint + tests + build) pour la release candidate.
-  - Vérification manuelle des exemples fournis (exécution CLI, génération de rapport de raisonnement).
+  - [x] Relecture technique (lint + tests + build) pour la release candidate.
+  - [x] Vérification manuelle des exemples fournis (exécution CLI, génération de rapport de raisonnement).
 
 ### Suivi qualité courant
 - Tests `npm run test:coverage` et `npm run lint` à exécuter avant chaque fusion majeure.
