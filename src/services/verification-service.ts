@@ -1,5 +1,5 @@
 import { ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, SuggestedTool } from '../types';
-import { VerificationMemory, VerificationSearchResult } from '../verification-memory';
+import { VerificationMemory } from '../verification-memory';
 import { ToolIntegrator } from '../tool-integrator';
 import { MetricsCalculator } from '../metrics-calculator';
 import { MathEvaluator } from '../utils/math-evaluator';
@@ -917,11 +917,6 @@ export class VerificationService implements IVerificationService {
     let annotatedThought = content;
     
     // Extraire les notations de fonctions pour les traiter différemment
-    const notationVerifications = verifications.filter(v => 
-      v.verified.includes("Notation de fonction")
-    );
-    
-    // Extraire les calculs standards
     const calcVerifications = verifications.filter(v => 
       !v.verified.includes("Notation de fonction")
     );

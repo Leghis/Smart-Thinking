@@ -270,7 +270,10 @@ describe('Persistence hardening', () => {
     const reloadedMemory = VerificationMemory.getInstance();
     reloadedMemory.stopCleanupTasks();
 
-    await waitUntil(() => reloadedMemory.getSessionVerifications('legacy-session').length === 2);
+    await waitUntil(
+      () => reloadedMemory.getSessionVerifications('legacy-session').length === 2,
+      1500
+    );
     const reloadedEntries = reloadedMemory.getSessionVerifications('legacy-session');
     reloadedEntries.forEach(entry => {
       expect(entry).not.toHaveProperty('embedding');

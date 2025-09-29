@@ -341,7 +341,7 @@ export class ReasoningOrchestrator {
   private buildHeuristicTraces(thoughtId: string, metrics: ThoughtMetrics): HeuristicTrace[] {
     const breakdown = this.deps.metricsCalculator.getMetricBreakdown(thoughtId);
     const traces: HeuristicTrace[] = [];
-    const pushBreakdown = (metric: string, score?: number) => {
+    const pushBreakdown = (metric: string, _score?: number) => {
       const metricBreakdown = breakdown?.[metric as keyof typeof breakdown];
       if (!metricBreakdown) return;
       for (const contribution of metricBreakdown.contributions) {

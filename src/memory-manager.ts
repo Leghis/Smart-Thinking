@@ -190,8 +190,8 @@ export class MemoryManager {
       // Vérifie si le répertoire existe
       try {
         await fs.access(this.memoriesDir, fs.constants.R_OK);
-      } catch (accessError) {
-        this.debugLog(`Répertoire de mémoires inaccessible: ${accessError}`);
+      } catch (_accessError) {
+        this.debugLog(`Répertoire de mémoires inaccessible: ${_accessError}`);
         return false;
       }
       
@@ -632,7 +632,7 @@ export class MemoryManager {
       // Vérifier si le fichier existe avant de tenter de le lire
       try {
         await fs.access(filePath, fs.constants.R_OK);
-      } catch (accessError) {
+      } catch {
         this.debugLog(`Aucun état de graphe sauvegardé trouvé pour la session ${sessionId} à ${filePath}`);
         return null; // Fichier non trouvé ou inaccessible
       }

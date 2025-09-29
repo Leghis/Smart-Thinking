@@ -5,7 +5,6 @@
  * Contient les seuils, paramètres et constantes utilisés dans tout le système
  */
 import { platform } from 'os';
-import * as fs from 'fs';
 import * as path from 'path';
 
 /**

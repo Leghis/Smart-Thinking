@@ -557,7 +557,7 @@ export class MathEvaluator {
       this.expressionCache.set(cleanExpr, result);
       
       return result;
-    } catch (error) {
+    } catch {
       throw new Error(`Impossible d'évaluer l'expression: ${expr}`);
     }
   }

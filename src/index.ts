@@ -14,7 +14,7 @@ import { SmartThinkingParams } from './types';
 import { VerificationMemory } from './verification-memory';
 import { ServiceContainer } from './services/service-container';
 import path from 'path';
-import { promises as fs } from 'fs';
+import { constants as fsConstants, promises as fs } from 'fs';
 import { PlatformConfig } from './config';
 import { PathUtils } from './utils/path-utils';
 import { ReasoningOrchestrator } from './reasoning-orchestrator';
@@ -89,7 +89,7 @@ function isValidJSON(str: string): boolean {
   try {
     JSON.parse(trimmed);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -438,13 +438,13 @@ async function ensureDataDirExists() {
     if (PlatformConfig.IS_WINDOWS) {
       try {
         // Vérifier l'accès en écriture
-        await fs.access(dataDir, fs.constants.W_OK);
-      } catch (accessError) {
+        await fs.access(dataDir, fsConstants.W_OK);
+      } catch {
         // console.error(`Smart-Thinking: AVERTISSEMENT - Problème de permissions sur le répertoire data: ${accessError instanceof Error ? accessError.message : String(accessError)}`);
         // console.error('Smart-Thinking: Essayez d\'exécuter l\'application avec des droits d\'administrateur ou choisissez un autre emplacement.');
       }
     }
-  } catch (error) {
+  } catch {
     // Erreur ignorée, utiliser un répertoire par défaut sans message
     // Essayer un répertoire alternatif sur Windows en cas d'échec
     if (PlatformConfig.IS_WINDOWS) {
@@ -452,7 +452,7 @@ async function ensureDataDirExists() {
       try {
         await fs.mkdir(altDataDir, { recursive: true });
         // Log supprimé pour éviter les messages sur Cline
-      } catch (altError) {
+      } catch {
         // Log d'erreur supprimé
       }
     }
@@ -467,7 +467,7 @@ async function start() {
     // Démarrage silencieux pour éviter les messages en rouge sur Cline
     // console.error('Smart-Thinking MCP Server démarré avec succès.');
     // console.error('L\'outil "smartthinking" est maintenant disponible pour Claude.');
-  } catch (error) {
+  } catch {
     // Sortie silencieuse en cas d'erreur pour éviter les messages en rouge
     process.exit(1);
   }

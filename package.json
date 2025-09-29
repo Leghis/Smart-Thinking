@@ -14,6 +14,7 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "start": "node build/index.js",
+    "lint": "eslint --ext .ts src",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "prepare": "npm run build",
@@ -41,6 +42,9 @@
   "devDependencies": {
     "@types/jest": "^29.5.3",
     "@types/node": "^20.4.8",
+    "@typescript-eslint/eslint-plugin": "^8.44.1",
+    "@typescript-eslint/parser": "^8.44.1",
+    "eslint": "^9.36.0",
     "jest": "^29.6.2",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",

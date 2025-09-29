@@ -936,7 +936,6 @@ export class MetricsCalculator {
     let contradictedCount = 0;
     let uncertainCount = 0;
     let absenceCount = 0;
-    let inconclusiveCount = 0;
     let totalConfidence = 0;
     
     // OPTIMISATION: Une seule passe pour tous les comptages
@@ -953,8 +952,6 @@ export class MetricsCalculator {
         uncertainCount += confidence;
       } else if (isValid === 'absence_of_information') {
         absenceCount += confidence;
-      } else {
-        inconclusiveCount += confidence;
       }
     }
     

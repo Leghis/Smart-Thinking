@@ -433,7 +433,7 @@ export class ToolIntegrator {
    * @param content Le contenu à vérifier
    * @returns Une raison explicative pour la vérification
    */
-  private generateVerificationReason(tool: any, content: string): string {
+  private generateVerificationReason(tool: any, _content: string): string {
     // ... (implementation unchanged) ...
      switch (tool.name) {
       case 'perplexity_search_web':
@@ -592,8 +592,6 @@ export class ToolIntegrator {
     const isTopic = content.length < 50 && !isQuestion;
     const isComplex = content.length > 200;
     const mentionsUrl = /https?:\/\/[^\s]+/.test(content);
-    const mentionsFilePath = /[\/\\][^\s\/\\]+[\/\\][^\s\/\\]+/.test(content);
-    const mentionsCode = /(code|javascript|python|script|fonction|algorithm)/i.test(content);
 
     // Raisons spécifiques pour chaque outil
     switch (tool.name) {

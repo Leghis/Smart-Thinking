@@ -485,7 +485,7 @@ export class Visualizer {
         });
         
         // Créer un cluster pour chaque type
-        Object.entries(typeGroups).forEach(([type, nodeIds], index) => {
+        Object.entries(typeGroups).forEach(([type, nodeIds], _index) => {
           clusters.push({
             id: `cluster-${type}`,
             label: `Pensées de type ${type}`,
@@ -514,7 +514,7 @@ export class Visualizer {
         });
         
         // Créer un cluster pour chaque thème
-        Object.entries(themeGroups).forEach(([theme, nodeIds], index) => {
+        Object.entries(themeGroups).forEach(([theme, nodeIds], _index) => {
           clusters.push({
             id: `cluster-theme-${index}`,
             label: `Thème: ${theme}`,
@@ -1525,7 +1525,8 @@ export class Visualizer {
     );
     
     // Prendre les nœuds les plus importants
-    const nodesTop = nodesSorted.slice(0, maxNodes);
+    const nodesAboveThreshold = nodesSorted.filter(node => (nodeImportance.get(node.id) || 0) >= minNodeImportance);
+    const nodesTop = (nodesAboveThreshold.length > 0 ? nodesAboveThreshold : nodesSorted).slice(0, maxNodes);
     const topNodeIds = new Set(nodesTop.map(n => n.id));
     
     // Filtrer les liens qui concernent uniquement les nœuds conservés

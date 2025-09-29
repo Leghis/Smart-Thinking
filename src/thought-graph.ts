@@ -6,8 +6,7 @@ import {
   ThoughtMetrics,
   NextStepSuggestion,
   Hyperlink,
-  ConnectionAttributes,
-  CalculationVerificationResult
+  ConnectionAttributes
 } from './types';
 import { SimilarityEngine, TermVector } from './similarity-engine';
 import { QualityEvaluator } from './quality-evaluator';

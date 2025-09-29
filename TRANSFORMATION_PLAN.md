@@ -63,3 +63,8 @@ Ce document détaille les six phases de travail pour retirer les intégrations I
 - **Tests & validations** :
   - Relecture technique (lint + tests + build) pour la release candidate.
   - Vérification manuelle des exemples fournis (exécution CLI, génération de rapport de raisonnement).
+
+### Suivi qualité courant
+- Tests `npm run test:coverage` et `npm run lint` à exécuter avant chaque fusion majeure.
+- Surveillance des consoles de test : maintenir les logs explicites dans les assertions au lieu de `console.*` bruyant.
+- Couverture globale (février 2025) : statements 40 %, ciblées persistance ≥80 % (statements/lines) et ≥60 % (branches).

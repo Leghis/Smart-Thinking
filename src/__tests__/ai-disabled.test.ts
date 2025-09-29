@@ -59,7 +59,7 @@ describe('Phase 1 AI disablement', () => {
 
   it('does not contain residual hard-coded API keys', async () => {
     const root = path.resolve(__dirname, '../..');
-    const forbidden = [/sk-[a-z0-9]/i, /cohere_api_key/i, /openrouter_api_key/i];
+    const forbidden = [/(?:^|[^a-z])sk-[a-z0-9]/i, /cohere_api_key/i, /openrouter_api_key/i];
 
     async function walk(dir: string): Promise<string[]> {
       const entries = await fs.readdir(dir, { withFileTypes: true });

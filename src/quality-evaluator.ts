@@ -1,4 +1,4 @@
-import { ThoughtMetrics, ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult } from './types';
+import { ThoughtMetrics, ThoughtNode, VerificationResult, CalculationVerificationResult } from './types';
 import { ThoughtGraph } from './thought-graph';
 import { MetricsCalculator } from './metrics-calculator';
 import { VerificationConfig, SystemConfig } from './config';
