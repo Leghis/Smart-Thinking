@@ -97,7 +97,8 @@ function write(payload: LogPayload, stream: NodeJS.WriteStream): void {
   stream.write(`[${payload.timestamp}] ${payload.level.toUpperCase()}${contextInfo}: ${payload.message}\n`);
 }
 
-function buildConsoleMethod(level: LogLevel, stream: NodeJS.WriteStream): ConsoleMethod {
+function buildConsoleMethod(level: LogLevel): ConsoleMethod {
+  const stream = process.stderr;
   return (...args: unknown[]) => {
     if (!shouldLog(level)) {
       return;
@@ -123,11 +124,11 @@ function patchConsole(): void {
 
   const originalConsole = { ...console };
 
-  console.error = buildConsoleMethod('error', process.stderr) as typeof console.error;
-  console.warn = buildConsoleMethod('warn', process.stderr) as typeof console.warn;
-  console.info = buildConsoleMethod('info', process.stdout) as typeof console.info;
-  console.log = buildConsoleMethod('info', process.stdout) as typeof console.log;
-  console.debug = buildConsoleMethod('debug', process.stdout) as typeof console.debug;
+  console.error = buildConsoleMethod('error') as typeof console.error;
+  console.warn = buildConsoleMethod('warn') as typeof console.warn;
+  console.info = buildConsoleMethod('info') as typeof console.info;
+  console.log = buildConsoleMethod('info') as typeof console.log;
+  console.debug = buildConsoleMethod('debug') as typeof console.debug;
   console.trace = ((...args: unknown[]) => {
     if (!shouldLog('debug')) {
       return;
