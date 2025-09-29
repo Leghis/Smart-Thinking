@@ -5,7 +5,6 @@ import { MetricsCalculator } from '../metrics-calculator';
 import { MathEvaluator } from '../utils/math-evaluator';
 import { VerificationConfig, SystemConfig } from '../config';
 import { IVerificationService, PreliminaryVerificationResult, PreviousVerificationResult } from './verification-service.interface';
-import { verifyWithLlm } from '../utils/openrouter-client'; // Import LLM verification utility
 
 /**
  * Classe LRUCache optimisée pour la mise en cache des résultats
@@ -682,31 +681,29 @@ export class VerificationService implements IVerificationService {
   ): Promise<VerificationResult> {
     console.error('Smart-Thinking: Analyse et agrégation des résultats');
 
-    let llmVerificationResult: { status: 'verified' | 'contradicted' | 'unverified', confidence: number, notes: string } | null = null;
+    let heuristicVerificationResult: { status: VerificationStatus; confidence: number; notes: string; keyFactors: string[] } | null = null;
 
     // Call internal LLM for verification if results are sparse or inconclusive, or if forced
     const initialStatusCheck = this.determineVerificationStatusAndConfidence(verificationResults, thought);
-    const needsLlmCheck = verificationResults.length < 2 || ['unverified', 'uncertain'].includes(initialStatusCheck.status);
+    const needsHeuristicCheck = verificationResults.length < 2 || ['unverified', 'uncertain'].includes(initialStatusCheck.status);
 
-    if (needsLlmCheck) {
-        console.error('Smart-Thinking: Tentative de vérification supplémentaire avec le LLM interne...');
-        llmVerificationResult = await verifyWithLlm(thought.content);
-        if (llmVerificationResult) {
-            console.error(`Smart-Thinking: Résultat de la vérification LLM: ${llmVerificationResult.status}, Confiance: ${llmVerificationResult.confidence}`);
-            // Add LLM result as if it came from a tool
-            verificationResults.push({
-                toolName: 'internal_llm',
-                result: {
-                    isValid: llmVerificationResult.status === 'verified' ? true : (llmVerificationResult.status === 'contradicted' ? false : undefined),
-                    details: llmVerificationResult.notes,
-                    source: 'Internal LLM Analysis'
-                },
-                confidence: llmVerificationResult.confidence,
-                stage: 'secondary' // Mark as secondary verification stage
-            });
-        } else {
-             console.error('Smart-Thinking: Échec de la vérification LLM interne.');
-        }
+    if (needsHeuristicCheck) {
+        console.error('Smart-Thinking: Évaluation heuristique interne supplémentaire...');
+        heuristicVerificationResult = this.metricsCalculator.evaluateVerificationHeuristics(thought);
+        verificationResults.push({
+          toolName: 'heuristic_analysis',
+          result: {
+            isValid: heuristicVerificationResult.status === 'verified'
+              ? true
+              : heuristicVerificationResult.status === 'contradicted'
+                ? false
+                : undefined,
+            details: heuristicVerificationResult.notes,
+            source: 'Analyse heuristique locale'
+          },
+          confidence: heuristicVerificationResult.confidence,
+          stage: 'secondary'
+        });
     }
 
     // Déterminer le statut et le niveau de confiance de manière optimisée (now includes potential LLM result)
@@ -732,22 +729,24 @@ export class VerificationService implements IVerificationService {
       ...verificationStages.map(stage => `Étape de ${stage}`),
       ...verificationResults.map(r => `Vérifié avec ${r.toolName} (${r.stage || 'primary'})`) // Ensure stage exists
     ];
-    if (llmVerificationResult) {
-        steps.push('Vérifié avec internal_llm (secondary)');
+    if (heuristicVerificationResult) {
+        steps.push('Évaluation heuristique interne (secondary)');
     }
 
     // Détecter les contradictions
     const contradictions = this.detectContradictions(verificationResults);
     // Générer des notes de vérification
     let notes = this.generateVerificationNotes(verificationResults, verifiedCalculations);
-    if (llmVerificationResult) {
-        notes += ` | LLM Notes: ${llmVerificationResult.notes}`;
+    if (heuristicVerificationResult) {
+        notes += ` | Analyse heuristique: ${heuristicVerificationResult.notes}`;
     }
 
     // IMPORTANT: Mettre à jour les métadonnées de la pensée
     thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
     thought.metadata.verificationTimestamp = new Date();
-    thought.metadata.verificationSource = verificationResults.some(r => r.toolName !== 'internal_llm') ? 'tools' : (llmVerificationResult ? 'internal_llm' : 'internal');
+    thought.metadata.verificationSource = verificationResults.some(r => r.toolName !== 'heuristic_analysis')
+      ? 'tools'
+      : (heuristicVerificationResult ? 'heuristic' : 'internal');
     thought.metadata.verificationSessionId = sessionId;
     thought.metadata.verificationToolsUsed = verificationResults.map(r => r.toolName); // Store all tool names
     thought.metadata.verificationStages = verificationStages;

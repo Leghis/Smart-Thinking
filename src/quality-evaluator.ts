@@ -4,7 +4,6 @@ import { MetricsCalculator } from './metrics-calculator';
 import { VerificationConfig, SystemConfig } from './config';
 import { IVerificationService } from './services/verification-service.interface';
 import { ServiceContainer } from './services/service-container';
-import { suggestLlmImprovements } from './utils/openrouter-client'; // Corrected import path
 
 /**
  * Classe qui évalue la qualité des pensées
@@ -176,6 +175,11 @@ export class QualityEvaluator {
       quality
     };
 
+    const breakdown = this.metricsCalculator.getMetricBreakdown(thought.id);
+    if (breakdown) {
+      thought.metadata.metricBreakdown = breakdown;
+    }
+
     // Mettre en cache le résultat
     this.evaluationCache.set(cacheKey, { ...metrics });
 
@@ -268,19 +272,10 @@ export class QualityEvaluator {
       return [...this.suggestionCache.get(cacheKey)!];
     }
 
-    // Attempt LLM-based suggestions first
-    const llmSuggestions = await suggestLlmImprovements(thought.content);
-    if (llmSuggestions !== null && llmSuggestions.length > 0) {
-        this.suggestionCache.set(cacheKey, [...llmSuggestions]);
-        return llmSuggestions;
-    } else if (llmSuggestions === null) {
-         console.warn(`LLM analysis failed for suggestions on thought ${thought.id}. Falling back to heuristic.`);
-    }
-    // If LLM fails or returns no suggestions, fallback to heuristic method
-
     // Obtenir les métriques et les pensées connectées (evaluate est maintenant async)
     const metrics = await this.evaluate(thought.id, thoughtGraph); // Await the async evaluate call
     const connectedThoughts = thoughtGraph.getConnectedThoughts(thought.id);
+    const metricBreakdown = this.metricsCalculator.getMetricBreakdown(thought.id);
 
     const suggestions: string[] = [];
 
@@ -299,6 +294,35 @@ export class QualityEvaluator {
       suggestions.push('Développez davantage cette pensée, elle est trop courte pour être complète.');
     } else if (wordCount > SystemConfig.MAX_THOUGHT_LENGTH / 50) { // Assuming MAX_THOUGHT_LENGTH exists in SystemConfig
       suggestions.push('Considérez diviser cette pensée en plusieurs parties plus ciblées.');
+    }
+
+    if (metricBreakdown?.confidence?.score && metricBreakdown.confidence.score < 0.55) {
+      const modalisateur = metricBreakdown.confidence.contributions.find(c => c.label.startsWith('Modalisateurs'));
+      if (modalisateur && modalisateur.value < 0.5) {
+        suggestions.push('Clarifiez les affirmations ambiguës et réduisez les modalisateurs d\'incertitude.');
+      }
+      const structure = metricBreakdown.confidence.contributions.find(c => c.label === 'Structure factuelle');
+      if (structure && structure.value < 0.6) {
+        suggestions.push('Ajoutez des éléments factuels (chiffres, références) pour renforcer la crédibilité.');
+      }
+    }
+
+    if (metricBreakdown?.quality?.score && metricBreakdown.quality.score < 0.6) {
+      const structureQual = metricBreakdown.quality.contributions.find(c => c.label === 'Structure');
+      if (structureQual && structureQual.value < 0.6) {
+        suggestions.push('Réorganisez la pensée pour qu\'elle soit plus structurée et facile à suivre.');
+      }
+      const coherence = metricBreakdown.quality.contributions.find(c => c.label === 'Cohérence');
+      if (coherence && coherence.value < 0.6) {
+        suggestions.push('Reliez explicitement cette pensée aux éléments antérieurs pour améliorer la cohérence.');
+      }
+    }
+
+    if (metricBreakdown?.relevance?.score && metricBreakdown.relevance.score < 0.55) {
+      const overlap = metricBreakdown.relevance.contributions.find(c => c.label.startsWith('Recoupement lexical'));
+      if (overlap && overlap.value < 0.5) {
+        suggestions.push('Réutilisez les concepts clés des pensées reliées pour augmenter la pertinence.');
+      }
     }
 
     // Vérifier la présence de biais (detectBiases est maintenant async)
@@ -325,10 +349,12 @@ export class QualityEvaluator {
       suggestions.push('Résolvez ou clarifiez les contradictions avec d\'autres pensées.');
     }
 
-    // Mettre en cache les suggestions (heuristiques)
-    this.suggestionCache.set(cacheKey, [...suggestions]);
+    const uniqueSuggestions = Array.from(new Set(suggestions));
 
-    return suggestions; // Return heuristic suggestions if LLM failed
+    // Mettre en cache les suggestions (heuristiques)
+    this.suggestionCache.set(cacheKey, [...uniqueSuggestions]);
+
+    return uniqueSuggestions;
   }
 
   /**

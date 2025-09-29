@@ -87,6 +87,26 @@ export interface ThoughtMetrics {
   // Peut être étendu avec d'autres métriques
 }
 
+export interface MetricContribution {
+  label: string;
+  weight: number;
+  value: number;
+  impact: number;
+  rationale: string;
+}
+
+export interface MetricBreakdown {
+  score: number;
+  contributions: MetricContribution[];
+  summary: string;
+}
+
+export interface ThoughtMetricBreakdown {
+  confidence?: MetricBreakdown;
+  relevance?: MetricBreakdown;
+  quality?: MetricBreakdown;
+}
+
 // Interface pour les résultats de vérification de calculs
 export interface CalculationVerificationResult {
   original: string; // Expression originale

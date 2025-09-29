@@ -2,7 +2,9 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { FeatureFlags } from '../feature-flags';
 import { SimilarityEngine } from '../similarity-engine';
-import { analyzeForMetric, callInternalLlm, suggestLlmImprovements, verifyWithLlm } from '../utils/openrouter-client';
+import { callInternalLlm } from '../utils/openrouter-client';
+import { MetricsCalculator } from '../metrics-calculator';
+import { ThoughtNode } from '../types';
 
 describe('Phase 1 AI disablement', () => {
   it('keeps external feature flags disabled by default', () => {
@@ -31,20 +33,28 @@ describe('Phase 1 AI disablement', () => {
     const llmResult = await callInternalLlm('system', 'user');
     expect(llmResult).toBeNull();
 
-    const confidence = await analyzeForMetric('Cette affirmation est claire et précise.', 'confidence');
-    expect(confidence).not.toBeNull();
-    if (confidence !== null) {
-      expect(confidence).toBeGreaterThanOrEqual(0);
-      expect(confidence).toBeLessThanOrEqual(1);
-    }
+    const calculator = new MetricsCalculator();
+    const baseThought: ThoughtNode = {
+      id: 't-heuristic',
+      content: 'Cette affirmation est claire et étayée par deux études publiées en 2023.',
+      type: 'regular',
+      timestamp: new Date(),
+      connections: [],
+      metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 },
+      metadata: {}
+    };
 
-    const suggestions = await suggestLlmImprovements('Proposition courte et incertaine');
-    expect(suggestions).toBeInstanceOf(Array);
-    expect(suggestions?.length).toBeGreaterThan(0);
+    const confidence = await calculator.calculateConfidence(baseThought, []);
+    expect(confidence).toBeGreaterThanOrEqual(0);
+    expect(confidence).toBeLessThanOrEqual(1);
 
-    const verification = await verifyWithLlm('Il est certain que 2+2=4.');
-    expect(verification).not.toBeNull();
-    expect(verification?.status).toBeDefined();
+    const quality = await calculator.calculateQuality(baseThought, []);
+    expect(quality).toBeGreaterThanOrEqual(0);
+    expect(quality).toBeLessThanOrEqual(1);
+
+    const breakdown = calculator.getMetricBreakdown(baseThought.id);
+    expect(breakdown?.confidence).toBeDefined();
+    expect(breakdown?.quality).toBeDefined();
   });
 
   it('does not contain residual hard-coded API keys', async () => {

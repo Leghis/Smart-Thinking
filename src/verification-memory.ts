@@ -46,6 +46,8 @@ export class VerificationMemory {
   
   // NOUVEAU: Cache de similarité pour éviter de recalculer les similitudes entre les mêmes textes
   private similarityCache: Map<string, Map<string, number>> = new Map();
+
+  private cleanupTimers: NodeJS.Timeout[] = [];
   
   /**
    * Méthode statique pour implémenter le singleton
@@ -64,12 +66,19 @@ export class VerificationMemory {
    */
   private constructor() {
     // Configurer le nettoyage périodique des entrées expirées
-    setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2);
+    this.cleanupTimers.push(setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2));
     
     // NOUVEAU: Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
-    setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION);
+    this.cleanupTimers.push(setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION));
     
     console.log('VerificationMemory: Système de mémoire de vérification initialisé');
+  }
+  
+  public stopCleanupTasks(): void {
+    for (const timer of this.cleanupTimers) {
+      clearInterval(timer);
+    }
+    this.cleanupTimers = [];
   }
   
   /**
