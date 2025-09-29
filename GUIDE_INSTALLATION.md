@@ -164,6 +164,44 @@ The build step compiles TypeScript, generates the `build/` artifacts, and runs `
    }
    ```
 
+### ChatGPT Connectors & Deep Research (remote SSE)
+1. Build the project (`npm run build`) or install from npm so that `build/index.js` is available on your server or workstation.
+2. Launch Smart-Thinking in connector mode so only the `search` and `fetch` tools are exposed, as required by the OpenAI connector specification:[^openai-mcp-doc]
+   ```bash
+   SMART_THINKING_MODE=connector \
+   node build/index.js --transport=http --host 0.0.0.0 --port 8000 \
+     --allow-origin https://chatgpt.com --allow-origin https://chat.openai.com
+   ```
+3. Expose the `/sse` endpoint over HTTPS (for example with nginx, Caddy, fly.io, Render, Railway, or Cloudflare Tunnels). The connector URL should end with `/sse`.
+4. In ChatGPT → Settings → Connectors → **Add custom connector**, paste the public `https://<domain>/sse` URL. Approve the tool permissions (`search` and `fetch`).
+5. Optional: if you offer an authenticated deployment, configure OAuth or bearer headers via the connector UI. Smart-Thinking will pass through headers and origin checks configured with `--allow-origin/--allow-host`.
+
+### Codex CLI & Agents SDK (OpenAI)
+Use streamable HTTP or SSE transports when wiring Smart-Thinking into Codex or the OpenAI Agents SDK:[^openai-agents-doc]
+
+```ts
+import { MCPServerStreamableHttp } from '@modelcontextprotocol/client';
+
+const server = await MCPServerStreamableHttp.create({
+  name: 'smart-thinking',
+  params: {
+    url: 'http://localhost:3000/mcp',
+    headers: { Authorization: `Bearer ${process.env.MCP_TOKEN}` }
+  }
+});
+```
+
+Start Smart-Thinking with:
+
+```bash
+SMART_THINKING_MODE=connector node build/index.js --transport=stream --port 3000
+```
+
+### Cursor, Cline, Kilo Code and other desktop clients
+- **Cursor**: add Smart-Thinking to `~/.cursor/mcp.json` or per-project `.cursor/mcp.json`. Cursor supports stdio, SSE and streamable HTTP transports, so you can run `smart-thinking-mcp` directly or point to a remote deployment.[^cursor-doc]
+- **Cline (VS Code)** and **Kilo Code**: both consume stdio commands registered via their MCP marketplace/directories. Configure `smart-thinking-mcp` (or `npx -y smart-thinking-mcp`) as the command.[^mcp-clients-doc]
+- **Claude Code/Desktop**: see the OS-specific JSON samples above.
+
 ## 4. Post-install Validation
 
 ### 4.1 Quick smoke test
@@ -221,3 +259,8 @@ These commands must pass with no warnings prior to tagging a release. Coverage t
 - `src/__tests__/` — reference implementations for persistence, heuristics, and orchestrator scenarios.
 
 For further assistance, open an issue on GitHub or reach out via the MCP community channels.
+
+[^openai-mcp-doc]: OpenAI, “Building MCP servers for ChatGPT and API integrations,” specifies that connectors must expose `search` and `fetch`. (https://platform.openai.com/docs/mcp)
+[^openai-agents-doc]: OpenAI Agents SDK reference for MCP transports (stdio, streamable HTTP, SSE). (https://openai.github.io/openai-agents-python/mcp/)
+[^cursor-doc]: Cursor documentation on configuring MCP servers and supported transports. (https://cursor.com/docs/context/mcp)
+[^mcp-clients-doc]: Model Context Protocol client catalogue covering Cline, Kilo Code, Claude, and others. (https://modelcontextprotocol.io/clients)

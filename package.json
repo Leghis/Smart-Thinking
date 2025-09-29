@@ -17,6 +17,8 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "start": "node build/index.js",
+    "start:http": "node build/index.js --transport=http",
+    "start:sse": "node build/index.js --transport=sse",
     "lint": "eslint --max-warnings=0 --ext .ts src",
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage",
@@ -42,11 +44,13 @@
     "@types/uuid": "^10.0.0",
     "mkdirp": "^3.0.1",
     "uuid": "^11.1.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "express": "^5.0.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.3",
     "@types/node": "^20.4.8",
+    "@types/express": "^5.0.0",
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.44.1",
     "eslint": "^9.36.0",

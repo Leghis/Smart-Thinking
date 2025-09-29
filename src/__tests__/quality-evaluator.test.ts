@@ -124,7 +124,7 @@ describe('QualityEvaluator', () => {
 
     const thought = graph.getThought(thoughtId)!;
     const biasesFirst = await evaluator.detectBiases(thought);
-    const biasesSecond = await evaluator.detectBiases(thought);
+    await evaluator.detectBiases(thought);
 
     expect(biasesFirst.length).toBeGreaterThan(0);
     expect(metricsCalculatorMock.detectBiases).toHaveBeenCalledTimes(1);

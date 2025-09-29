@@ -11,11 +11,14 @@ afterEach(() => {
 
 describe('EnhancedStdioServerTransport', () => {
   it('applique une configuration spécifique à Windows', async () => {
-    const setBlockingStdout = jest.fn();
-    const setBlockingStderr = jest.fn();
-
-    (process.stdout as any)._handle = { setBlocking: setBlockingStdout };
-    (process.stderr as any)._handle = { setBlocking: setBlockingStderr };
+    const stdoutHandle = (process.stdout as any)._handle;
+    const stderrHandle = (process.stderr as any)._handle;
+    const setBlockingStdout = stdoutHandle
+      ? jest.spyOn(stdoutHandle, 'setBlocking')
+      : jest.fn();
+    const setBlockingStderr = stderrHandle
+      ? jest.spyOn(stderrHandle, 'setBlocking')
+      : jest.fn();
 
     const setEncoding = jest.spyOn(process.stdin, 'setEncoding').mockImplementation(() => process.stdin);
     const setDefaultEncoding = jest
@@ -44,11 +47,19 @@ describe('EnhancedStdioServerTransport', () => {
 
     setEncoding.mockRestore();
     setDefaultEncoding.mockRestore();
+    if ('mockRestore' in setBlockingStdout) {
+      (setBlockingStdout as jest.SpyInstance).mockRestore();
+    }
+    if ('mockRestore' in setBlockingStderr) {
+      (setBlockingStderr as jest.SpyInstance).mockRestore();
+    }
   });
 
   it('ne force pas la configuration Windows sur Linux', async () => {
-    const setBlockingStdout = jest.fn();
-    (process.stdout as any)._handle = { setBlocking: setBlockingStdout };
+    const stdoutHandle = (process.stdout as any)._handle;
+    const setBlockingStdout = stdoutHandle
+      ? jest.spyOn(stdoutHandle, 'setBlocking')
+      : jest.fn();
 
     jest.resetModules();
     jest.doMock('os', () => ({ platform: jest.fn(() => 'linux') }));
@@ -56,5 +67,9 @@ describe('EnhancedStdioServerTransport', () => {
     new EnhancedStdioServerTransport();
 
     expect(setBlockingStdout).not.toHaveBeenCalled();
+
+    if ('mockRestore' in setBlockingStdout) {
+      (setBlockingStdout as jest.SpyInstance).mockRestore();
+    }
   });
 });

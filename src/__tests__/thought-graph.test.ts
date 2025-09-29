@@ -79,7 +79,6 @@ describe('ThoughtGraph', () => {
     graph.getThought(calcId)!.timestamp = new Date(now - 1000);
 
     const suggestions = await graph.suggestNextSteps(6, sessionId);
-    const recentContent = graph.getRecentThoughts(3, sessionId).map((t) => t.content).join(' ');
 
     expect(suggestions.map((s) => s.description)).toEqual(
       expect.arrayContaining([

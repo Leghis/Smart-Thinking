@@ -103,11 +103,13 @@ export class VerificationMemory {
         this.initialized = true;
       });
 
-    // Configurer le nettoyage périodique des entrées expirées
-    this.cleanupTimers.push(setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2));
-    
-    // NOUVEAU: Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
-    this.cleanupTimers.push(setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION));
+    if (!isTestEnvironment) {
+      // Configurer le nettoyage périodique des entrées expirées uniquement hors tests pour éviter les handles ouverts
+      this.cleanupTimers.push(setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2));
+      
+      // Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
+      this.cleanupTimers.push(setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION));
+    }
     
     this.emit('log', 'VerificationMemory: Système de mémoire de vérification initialisé');
   }

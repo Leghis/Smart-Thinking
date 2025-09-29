@@ -66,6 +66,20 @@ npm link
 
 The demo script showcases how the orchestrator adds nodes, evaluates heuristics, and records verification feedback step by step.
 
+## MCP Client Compatibility
+Smart-Thinking is validated across the most popular MCP clients and operating systems. Use the new connector mode (`--mode=connector` or `SMART_THINKING_MODE=connector`) when a client only accepts the `search` and `fetch` tools required by ChatGPT connectors.[^openai-mcp]
+
+| Client | Transport | Notes |
+| --- | --- | --- |
+| **ChatGPT Connectors & Deep Research** | HTTP + SSE | Deploy with `SMART_THINKING_MODE=connector node build/index.js --transport=http --host 0.0.0.0 --port 8000`. Point ChatGPT to `https://<host>/sse` and keep only `search`/`fetch` enabled, aligning with OpenAI’s remote MCP guidance.[^openai-mcp] |
+| **OpenAI Codex CLI & Agents SDK** | Streamable HTTP / SSE | Configure the Codex agent with `http://localhost:3000/mcp` or `http://localhost:3000/sse` and set `SMART_THINKING_MODE=connector` when only knowledge retrieval is needed.[^openai-agents] |
+| **Claude Desktop / Claude Code** | stdio | Add `"command": "smart-thinking-mcp"` (or an `npx` command) to `claude_desktop_config.json`. Full toolset is available.[^mcp-clients] |
+| **Cursor IDE** | stdio / SSE / Streamable HTTP | Add the server to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`. Cursor supports prompts, roots, elicitation, and streaming.[^cursor-mcp] |
+| **Cline (VS Code)** | stdio | Place the command in `~/Documents/Cline/MCP/smart-thinking.json` or use the in-app marketplace to register the toolset.[^mcp-clients] |
+| **Kilo Code** | stdio | Register via the MCP marketplace and run the server locally; Smart-Thinking exposes deterministic tooling for autonomous edits.[^mcp-clients] |
+
+> Need a minimal deployment footprint? Combine `--transport=http --mode=connector` with a reverse proxy (ngrok, fly.io, render, etc.) so remote clients can consume the server without exposing the full toolset.
+
 ## Configuration & Feature Flags
 - `feature-flags.ts` toggles advanced behaviours such as external integrations (disabled by default) and verbose tracing.
 - `config.ts` aligns platform-specific paths and verification thresholds.
@@ -92,3 +106,8 @@ Contributions are welcome. Please open an issue or pull request describing the c
 
 ## License
 [MIT](./LICENSE)
+
+[^openai-mcp]: OpenAI, “Building MCP servers for ChatGPT and API integrations,” highlights that connectors require `search` and `fetch` tools for remote use. (https://platform.openai.com/docs/mcp)
+[^openai-agents]: OpenAI Agents SDK documentation on MCP transports (stdio, SSE, streamable HTTP). (https://openai.github.io/openai-agents-python/mcp/)
+[^mcp-clients]: Model Context Protocol client catalogue listing Claude, Cline, Kilo Code, and other MCP-compatible applications. (https://modelcontextprotocol.io/clients)
+[^cursor-mcp]: Cursor documentation for configuring MCP servers via stdio/SSE/HTTP transports. (https://cursor.com/docs/context/mcp)
