@@ -44,7 +44,7 @@ npx -y smart-thinking-mcp
 
 ### Install via Smithery
 ```bash
-npx -y @smithery/cli install @Leghis/smart-thinking --client claude
+npx -y @smithery/cli install @Leghis/smart-thinking
 ```
 
 ### From source
