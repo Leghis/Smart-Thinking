@@ -4,7 +4,7 @@
   "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
   "main": "build/index.js",
   "bin": {
-    "smart-thinking-mcp": "./build/index.js"
+    "smart-thinking-mcp": "build/index.js"
   },
   "files": [
     "build"
