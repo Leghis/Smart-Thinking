@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { FeatureFlags } from '../feature-flags';
-import { EmbeddingService } from '../embedding-service';
+import { SimilarityEngine } from '../similarity-engine';
 import { analyzeForMetric, callInternalLlm, suggestLlmImprovements, verifyWithLlm } from '../utils/openrouter-client';
 
 describe('Phase 1 AI disablement', () => {
@@ -10,15 +10,21 @@ describe('Phase 1 AI disablement', () => {
     expect(FeatureFlags.externalLlmEnabled).toBe(false);
   });
 
-  it('provides deterministic local embeddings without external calls', async () => {
-    const service = new EmbeddingService();
-    const vector = await service.getEmbedding('Texte de test pour le mode local.');
-    expect(Array.isArray(vector)).toBe(true);
-    expect(vector.length).toBeGreaterThan(0);
-    expect(vector.every(value => typeof value === 'number')).toBe(true);
+  it('expose un moteur de similarité local déterministe', async () => {
+    const engine = new SimilarityEngine();
+    const [vector] = await engine.generateVectors(['Texte de test pour le mode local.']);
+    expect(vector).toBeDefined();
+    expect(Object.keys(vector).length).toBeGreaterThan(0);
 
-    const comparison = await service.findSimilarTexts('test local', ['autre texte', 'test local ici'], 2, 0);
+    const comparison = await engine.findSimilarTexts('test local', ['autre texte', 'test local ici'], 2, 0);
     expect(comparison.length).toBeGreaterThan(0);
+    comparison.forEach(result => {
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(1);
+    });
+
+    const similarity = await engine.calculateTextSimilarity('Machine learning', 'Apprentissage automatique machine');
+    expect(similarity).toBeGreaterThan(0);
   });
 
   it('replaces LLM-dependent utilities with heuristics', async () => {

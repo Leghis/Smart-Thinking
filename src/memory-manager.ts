@@ -1,7 +1,7 @@
 import { MemoryItem } from './types';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { EmbeddingService } from './embedding-service';
+import { SimilarityEngine } from './similarity-engine';
 import { PathUtils } from './utils/path-utils';
 
 // Constante pour contrôler l'affichage des logs de débogage
@@ -13,15 +13,15 @@ const DEBUG_MODE = false;
 export class MemoryManager {
   private memories: Map<string, MemoryItem> = new Map();
   private knowledgeBase: Map<string, any> = new Map();
-  private embeddingService?: EmbeddingService;
+  private similarityEngine?: SimilarityEngine;
   
   // Chemins pour les fichiers de persistance
   private dataDir: string;
   private memoriesDir: string;
   private knowledgeFilePath: string;
   
-  constructor(embeddingService?: EmbeddingService) {
-    this.embeddingService = embeddingService;
+  constructor(similarityEngine?: SimilarityEngine) {
+    this.similarityEngine = similarityEngine;
     
     // Initialiser les chemins de fichiers - utiliser des chemins absolus
     this.dataDir = PathUtils.getDataDirectory();
@@ -429,27 +429,27 @@ export class MemoryManager {
       this.debugLog('Aucune mémoire disponible pour la recherche de pertinence');
       return [];
     }
-    // Si nous n'avons pas de service d'embeddings, utiliser l'algorithme de base sur les mémoires de la session
-    if (!this.embeddingService) {
-      this.debugLog('Service d\'embeddings non disponible, utilisation de l\'algorithme de mots-clés pour la session');
+    // Si nous n'avons pas de SimilarityEngine, utiliser l'algorithme de base sur les mémoires de la session
+    if (!this.similarityEngine) {
+      this.debugLog('SimilarityEngine non disponible, utilisation de l\'algorithme de mots-clés pour la session');
       return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
     }
 
     try {
-      // Utiliser le service d'embeddings pour trouver les mémoires similaires DANS LA SESSION
+      // Utiliser SimilarityEngine pour trouver les mémoires similaires DANS LA SESSION
       const memoryTexts = sessionMemories.map(memory => memory.content);
       
-      this.debugLog(`Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec embeddings`);
+      this.debugLog(`Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec SimilarityEngine`);
       
       // Utiliser un seuil de similarité plus bas pour augmenter les chances de trouver des correspondances
       const threshold = 0.3; // Seuil de similarité plus bas
       
-      const similarResults = await this.embeddingService.findSimilarTexts(context, memoryTexts, limit, threshold);
+      const similarResults = await this.similarityEngine.findSimilarTexts(context, memoryTexts, limit, threshold);
       
-      this.debugLog(`${similarResults.length} résultats similaires trouvés avec embeddings`);
+      this.debugLog(`${similarResults.length} résultats similaires trouvés avec SimilarityEngine`);
       if (similarResults.length === 0) {
-        // Aucun résultat avec embeddings dans la session, essayer avec mots-clés pour la session
-        this.debugLog('Aucun résultat avec embeddings pour la session, utilisation des mots-clés pour la session');
+        // Aucun résultat via SimilarityEngine dans la session, essayer avec mots-clés pour la session
+        this.debugLog('Aucun résultat trouvé par SimilarityEngine pour la session, utilisation des mots-clés pour la session');
         return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
       }
 
@@ -472,7 +472,7 @@ export class MemoryManager {
       return memoryResults;
     } catch (error) {
       // Log d'erreur important - garder
-      console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec embeddings:', error);
+      console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec SimilarityEngine:', error);
       // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés pour la session
       return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
     }

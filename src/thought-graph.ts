@@ -9,7 +9,7 @@ import {
   ConnectionAttributes,
   CalculationVerificationResult
 } from './types';
-import { EmbeddingService } from './embedding-service';
+import { SimilarityEngine, TermVector } from './similarity-engine';
 import { QualityEvaluator } from './quality-evaluator';
 import { EventEmitter } from 'events';
 import { callInternalLlm } from './utils/openrouter-client'; // Import LLM utility
@@ -21,13 +21,13 @@ export class ThoughtGraph {
   private nodes: Map<string, ThoughtNode> = new Map();
   private hyperlinks: Map<string, Hyperlink> = new Map();
   private sessionId: string;
-  private embeddingService?: EmbeddingService;
+  private similarityEngine?: SimilarityEngine;
   private qualityEvaluator?: QualityEvaluator;
   private eventEmitter: EventEmitter;
 
-  constructor(sessionId?: string, embeddingService?: EmbeddingService, qualityEvaluator?: QualityEvaluator) {
+  constructor(sessionId?: string, similarityEngine?: SimilarityEngine, qualityEvaluator?: QualityEvaluator) {
     this.sessionId = sessionId || this.generateUniqueId();
-    this.embeddingService = embeddingService;
+    this.similarityEngine = similarityEngine;
     this.qualityEvaluator = qualityEvaluator;
     this.eventEmitter = new EventEmitter();
 
@@ -342,16 +342,16 @@ export class ThoughtGraph {
   async getRelevantThoughts(context: string, limit: number = 5, sessionId?: string): Promise<ThoughtNode[]> {
     const allThoughts = this.getAllThoughts(sessionId); // Use the session-filtered list
 
-    // Si pas de pensées ou pas de service d'embeddings, utiliser l'algorithme de base
-    if (allThoughts.length === 0 || !this.embeddingService) {
-      console.warn("Embedding service not available or no thoughts in graph. Falling back to keyword relevance.");
+    // Si pas de pensées ou pas de SimilarityEngine, utiliser l'algorithme de base
+    if (allThoughts.length === 0 || !this.similarityEngine) {
+      console.warn("SimilarityEngine not available or no thoughts in graph. Falling back to keyword relevance.");
       return this.getRelevantThoughtsWithKeywords(context, limit);
     }
 
     try {
-      // Utiliser le service d'embeddings pour trouver les pensées similaires
+      // Utiliser SimilarityEngine pour trouver les pensées similaires
       const thoughtTexts = allThoughts.map(thought => thought.content);
-      const similarResults = await this.embeddingService.findSimilarTexts(context, thoughtTexts, limit);
+      const similarResults = await this.similarityEngine.findSimilarTexts(context, thoughtTexts, limit);
 
       // Convertir les résultats en pensées
       return similarResults.map(result => {
@@ -498,8 +498,8 @@ export class ThoughtGraph {
    * @returns Le nombre de nouvelles relations inférées
    */
   async inferRelations(confidenceThreshold: number = 0.7): Promise<number> {
-    if (!this.embeddingService) {
-      console.error('Service d\'embeddings non disponible pour l\'inférence de relations');
+    if (!this.similarityEngine) {
+      console.error('SimilarityEngine non disponible pour l\'inférence de relations');
       return 0;
     }
 
@@ -531,36 +531,33 @@ export class ThoughtGraph {
     thoughts: ThoughtNode[],
     confidenceThreshold: number
   ): Promise<number> {
-    if (thoughts.length < 2 || !this.embeddingService) return 0;
+    if (thoughts.length < 2 || !this.similarityEngine) return 0;
 
     let newRelationsCount = 0;
     const thoughtTexts = thoughts.map(t => t.content);
-    const thoughtIds = thoughts.map(t => t.id);
 
-    // Get embeddings for all thoughts (potentially batch this if service supports it)
-    let embeddings: number[][] = [];
+    let vectors: TermVector[] = [];
     try {
-        embeddings = await this.embeddingService.getEmbeddings(thoughtTexts);
-        if (embeddings.length !== thoughts.length) {
-             console.error("Mismatch between number of thoughts and embeddings received.");
-             return 0;
-        }
-    } catch (error) {
-        console.error("Failed to get embeddings for similarity inference:", error);
+      vectors = await this.similarityEngine.generateVectors(thoughtTexts);
+      if (vectors.length !== thoughts.length) {
+        console.error('Mismatch between number of thoughts and vectors received.');
         return 0;
+      }
+    } catch (error) {
+      console.error('Failed to compute vectors for similarity inference:', error);
+      return 0;
     }
-
 
     // Calculer les similarités entre toutes les paires de pensées
     for (let i = 0; i < thoughts.length; i++) {
       const sourceThought = thoughts[i];
-      const sourceEmbedding = embeddings[i];
+      const sourceVector = vectors[i];
 
       for (let j = i + 1; j < thoughts.length; j++) {
           const targetThought = thoughts[j];
-          const targetEmbedding = embeddings[j];
+          const targetVector = vectors[j];
 
-          const similarityScore = this.embeddingService.calculateCosineSimilarity(sourceEmbedding, targetEmbedding);
+          const similarityScore = this.similarityEngine.calculateCosineSimilarity(sourceVector, targetVector);
 
           if (similarityScore >= confidenceThreshold) {
               // Éviter les doublons

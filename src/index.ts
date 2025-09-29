@@ -8,7 +8,7 @@ import { MemoryManager } from './memory-manager';
 import { ToolIntegrator } from './tool-integrator';
 import { QualityEvaluator } from './quality-evaluator';
 import { Visualizer } from './visualizer';
-import { EmbeddingService } from './embedding-service';
+import { SimilarityEngine } from './similarity-engine';
 import { FeatureFlags } from './feature-flags';
 import { MetricsCalculator } from './metrics-calculator';
 import { SmartThinkingParams, SmartThinkingResponse, FilterOptions, InteractivityOptions, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, ThoughtMetrics, Connection, ThoughtNode } from './types';
@@ -122,29 +122,29 @@ const version = packageInfo.version || '1.0.3';
 if (FeatureFlags.externalEmbeddingEnabled) {
   console.warn('FeatureFlags.externalEmbeddingEnabled est activé mais aucun fournisseur externe n\'est disponible.');
 }
-const embeddingService = new EmbeddingService();
+const similarityEngine = new SimilarityEngine();
 const metricsCalculator = new MetricsCalculator();
 const qualityEvaluator = new QualityEvaluator();
 const toolIntegrator = new ToolIntegrator();
 // Note: ThoughtGraph and MemoryManager instances are typically created per request or session
 // For simplicity in this example, we'll manage session context within the handler.
 // A more robust implementation might use a factory or manage instances per session ID.
-const globalEmbeddingService = embeddingService; // Keep a global instance
+const globalSimilarityEngine = similarityEngine; // Keep a global instance
 const globalQualityEvaluator = qualityEvaluator; // Keep a global instance
 const globalToolIntegrator = toolIntegrator; // Keep a global instance
 const globalMetricsCalculator = metricsCalculator; // Keep a global instance
 // Get ServiceContainer instance first
 const serviceContainer = ServiceContainer.getInstance();
 // Initialize services if not already done (assuming initializeServices handles idempotency or is called only once)
-serviceContainer.initializeServices(globalToolIntegrator, globalMetricsCalculator, globalEmbeddingService);
+serviceContainer.initializeServices(globalToolIntegrator, globalMetricsCalculator, globalSimilarityEngine);
 // Now get the verification service
 const globalVerificationService = serviceContainer.getVerificationService();
-const globalMemoryManager = new MemoryManager(globalEmbeddingService); // Global memory manager for persistence
+const globalMemoryManager = new MemoryManager(globalSimilarityEngine); // Global memory manager for persistence
 const visualizer = new Visualizer(); // Visualizer can likely remain global
 const verificationMemory = VerificationMemory.getInstance(); // Singleton
 
 // Configuration des dépendances (assurez-vous que les services globaux sont configurés)
-verificationMemory.setEmbeddingService(globalEmbeddingService);
+verificationMemory.setSimilarityEngine(globalSimilarityEngine);
 // Ensure quality evaluator uses the correct verification service instance
 globalQualityEvaluator.setVerificationService(globalVerificationService);
 
@@ -415,7 +415,7 @@ generateVisualization: true
       const memoryManager = globalMemoryManager; // Use global manager for persistence
 
       // Create a new graph instance for the session
-      const sessionThoughtGraph = new ThoughtGraph(currentSessionId, globalEmbeddingService, globalQualityEvaluator);
+      const sessionThoughtGraph = new ThoughtGraph(currentSessionId, globalSimilarityEngine, globalQualityEvaluator);
 
       // Attempt to load previous graph state for this session
       const loadedStateJson = await memoryManager.loadGraphState(currentSessionId);

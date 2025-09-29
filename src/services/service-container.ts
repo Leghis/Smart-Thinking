@@ -4,7 +4,7 @@ import { VerificationMemory } from '../verification-memory';
 // Importer le service de vérification standard (sans le suffixe -improved)
 import { VerificationService } from './verification-service';
 import { IVerificationService } from './verification-service.interface';
-import { EmbeddingService } from '../embedding-service';
+import { SimilarityEngine } from '../similarity-engine';
 
 /**
  * Conteneur de services amélioré pour l'injection de dépendances
@@ -37,24 +37,24 @@ export class ServiceContainer {
    * 
    * @param toolIntegrator L'intégrateur d'outils existant
    * @param metricsCalculator Le calculateur de métriques existant
-   * @param embeddingService Le service d'embeddings existant
+   * @param similarityEngine Le moteur de similarité existant
    */
   public initializeServices(
     toolIntegrator: ToolIntegrator,
     metricsCalculator: MetricsCalculator,
-    embeddingService: EmbeddingService
+    similarityEngine: SimilarityEngine
   ): void {
     // Enregistrer les services existants
     this.services.set('toolIntegrator', toolIntegrator);
     this.services.set('metricsCalculator', metricsCalculator);
-    this.services.set('embeddingService', embeddingService);
+    this.services.set('similarityEngine', similarityEngine);
     
     // Obtenir l'instance singleton de VerificationMemory
     const verificationMemory = VerificationMemory.getInstance();
     this.services.set('verificationMemory', verificationMemory);
     
-    // Injecter le service d'embeddings dans VerificationMemory
-    verificationMemory.setEmbeddingService(embeddingService);
+    // Injecter le moteur de similarité dans VerificationMemory
+    verificationMemory.setSimilarityEngine(similarityEngine);
     
     // Créer le service de vérification amélioré avec ses dépendances
     const verificationService = new VerificationService(
