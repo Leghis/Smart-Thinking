@@ -76,4 +76,123 @@ describe('MetricsCalculator heuristics', () => {
     expect(result.status === 'verified' || result.status === 'unverified' || result.status === 'uncertain' || result.status === 'contradicted').toBe(true);
     expect(result.confidence).toBeGreaterThan(0);
   });
+
+  it('calculates relevance and stores metric breakdown for connected thoughts', async () => {
+    const base = createThought('base', 'Analyse détaillée de capteurs thermiques industriels', 'regular');
+    const related = createThought('related', 'Ces capteurs thermiques produisent des données fiables', 'revision');
+    base.connections.push({
+      targetId: related.id,
+      type: 'supports',
+      strength: 0.8,
+    });
+
+    const relevance = await calculator.calculateRelevance(base, [related]);
+    expect(relevance).toBeGreaterThan(0.3);
+
+    const breakdown = calculator.getMetricBreakdown(base.id);
+    expect(breakdown?.relevance?.summary).toContain('pertinence');
+    expect((breakdown?.relevance?.contributions.length || 0)).toBeGreaterThan(1);
+  });
+
+  it('covers reliability score variants and smoothing', () => {
+    const metrics: ThoughtMetrics = { confidence: 0.9, relevance: 0.7, quality: 0.8 };
+    const withCalcs = calculator.calculateReliabilityScore(metrics, 'verified', [
+      { original: '2+2', verified: '4', isCorrect: true, confidence: 0.95 },
+      { original: '3+3', verified: '6', isCorrect: true, confidence: 0.95 },
+    ]);
+    const withoutCalcs = calculator.calculateReliabilityScore(metrics, 'absence_of_information');
+    const smoothed = calculator.calculateReliabilityScore(metrics, 'verified', undefined, 0.4);
+
+    expect(withCalcs).toBeGreaterThan(withoutCalcs);
+    expect(smoothed).toBeGreaterThan(0.4);
+    expect(smoothed).toBeLessThanOrEqual(0.95);
+  });
+
+  it('covers relevance score, keyword extraction and weighted context extraction', () => {
+    const thought = createThought(
+      'relevance',
+      'capteurs capteurs thermiques maintenance prédictive industrielle avancée',
+      'hypothesis'
+    );
+    thought.connections.push({
+      targetId: 'x',
+      type: 'supports',
+      strength: 0.9,
+    });
+
+    const keywords = calculator.extractKeywords(thought.content);
+    const weighted = calculator.extractAndWeightContextKeywords('maintenance capteurs thermiques énergie');
+    const score = calculator.calculateRelevanceScore(thought, 'maintenance capteurs thermiques énergie');
+
+    expect(keywords.length).toBeGreaterThan(0);
+    expect(Object.keys(weighted).length).toBeGreaterThan(0);
+    expect(score).toBeGreaterThan(0.1);
+  });
+
+  it('covers status determination from confidence and result arrays', () => {
+    expect(calculator.determineVerificationStatus(0.9)).toBe('verified');
+    expect(calculator.determineVerificationStatus(0.6)).toBe('partially_verified');
+    expect(calculator.determineVerificationStatus(0.1)).toBe('unverified');
+    expect(calculator.determineVerificationStatus(0.1, true)).toBe('contradictory');
+    expect(calculator.determineVerificationStatus(0.4, true)).toBe('uncertain');
+    expect(calculator.determineVerificationStatus(0.8, false, false)).toBe('absence_of_information');
+
+    const contradictoryResults = [
+      { confidence: 0.9, result: { isValid: false } },
+      { confidence: 0.8, result: { isValid: false } },
+      { confidence: 0.7, result: { isValid: true } },
+    ];
+    expect(calculator.determineVerificationStatus(contradictoryResults)).toBe('contradictory');
+
+    const uncertainResults = [
+      { confidence: 0.5, result: { isValid: 'uncertain' } },
+      { confidence: 0.5, result: { isValid: 'uncertain' } },
+    ];
+    expect(calculator.determineVerificationStatus(uncertainResults)).toBe('uncertain');
+
+    const absenceResults = [
+      { confidence: 0.8, result: { isValid: 'absence_of_information' } },
+      { confidence: 0.7, result: { isValid: 'absence_of_information' } },
+    ];
+    expect(calculator.determineVerificationStatus(absenceResults)).toBe('absence_of_information');
+  });
+
+  it('generates certainty summaries and connection weights', () => {
+    const verified = calculator.generateCertaintySummary('verified', 0.92);
+    const uncertain = calculator.generateCertaintySummary('uncertain', 0.22);
+
+    expect(verified).toContain('fiable');
+    expect(uncertain).toContain('spéculative');
+    expect(calculator.getConnectionTypeWeight('supports')).toBeGreaterThan(0.5);
+    expect(calculator.getConnectionTypeWeight('associates')).toBeGreaterThan(0);
+  });
+
+  it('evaluates verification confidence from mixed tool results', () => {
+    const confidence = calculator.calculateVerificationConfidence([
+      { toolType: 'search', confidence: 0.8, result: { isValid: true } },
+      { toolType: 'database', confidence: 0.9, result: { isValid: true } },
+      { toolType: 'external_api', confidence: 0.6, result: { isValid: false } },
+    ]);
+
+    const neutral = calculator.calculateVerificationConfidence([]);
+    expect(confidence).toBeGreaterThan(neutral);
+    expect(confidence).toBeLessThanOrEqual(0.95);
+  });
+
+  it('clears metric breakdowns globally and per thought', async () => {
+    const t1 = createThought('clear-1', 'Contenu de test', 'regular');
+    const t2 = createThought('clear-2', 'Contenu de test 2', 'meta');
+
+    await calculator.calculateConfidence(t1, []);
+    await calculator.calculateQuality(t2, []);
+    expect(calculator.getMetricBreakdown(t1.id)).toBeDefined();
+    expect(calculator.getMetricBreakdown(t2.id)).toBeDefined();
+
+    calculator.clearMetricBreakdown(t1.id);
+    expect(calculator.getMetricBreakdown(t1.id)).toBeUndefined();
+    expect(calculator.getMetricBreakdown(t2.id)).toBeDefined();
+
+    calculator.clearMetricBreakdown();
+    expect(calculator.getMetricBreakdown(t2.id)).toBeUndefined();
+  });
 });

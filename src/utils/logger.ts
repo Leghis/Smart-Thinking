@@ -34,7 +34,10 @@ function resolveInitialLevel(): LogLevel {
   if (envLevel && envLevel in LEVELS) {
     return envLevel as LogLevel;
   }
-  return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+  if (process.env.NODE_ENV === 'test') {
+    return 'silent';
+  }
+  return 'info';
 }
 
 function resolveInitialFormat(): boolean {

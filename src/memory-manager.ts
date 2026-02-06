@@ -11,6 +11,7 @@ import {
 
 // Constante pour contrôler l'affichage des logs de débogage
 const DEBUG_MODE = false;
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 
 /**
  * Classe qui gère la mémoire persistante des sessions précédentes
@@ -24,6 +25,8 @@ export class MemoryManager {
   private dataDir: string;
   private memoriesDir: string;
   private knowledgeFilePath: string;
+  private initialization: Promise<void>;
+  private saveQueue: Promise<void> = Promise.resolve();
   
   constructor(similarityEngine?: SimilarityEngine) {
     this.similarityEngine = similarityEngine;
@@ -40,7 +43,7 @@ export class MemoryManager {
     - knowledgeFilePath: ${this.knowledgeFilePath}`);
     
     // Charger les mémoires et la base de connaissances depuis le stockage persistant
-    this.loadFromStorage();
+    this.initialization = this.loadFromStorage();
   }
   
   /**
@@ -54,9 +57,39 @@ export class MemoryManager {
   }
 
   private requestSave(): void {
-    this.saveToStorage().catch(error => {
+    if (isTestEnvironment) {
+      return;
+    }
+    this.enqueueSave().catch(error => {
       console.error('Smart-Thinking: Échec de la sauvegarde asynchrone:', error);
     });
+  }
+
+  private enqueueSave(): Promise<void> {
+    this.saveQueue = this.saveQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await this.initialization.catch(() => undefined);
+        await this.saveToStorageInternal();
+      });
+
+    return this.saveQueue;
+  }
+
+  private async writeFileAtomic(filePath: string, content: string): Promise<void> {
+    const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    try {
+      await fs.writeFile(tempPath, content, 'utf8');
+      await fs.rename(tempPath, filePath);
+    } catch (error) {
+      await fs.unlink(tempPath).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async writeJsonAtomic(filePath: string, payload: unknown): Promise<void> {
+    await this.writeFileAtomic(filePath, JSON.stringify(payload, null, 2));
   }
   
   /**
@@ -320,7 +353,7 @@ export class MemoryManager {
   /**
    * Sauvegarde l'état actuel dans le stockage persistant
    */
-  private async saveToStorage(): Promise<void> {
+  private async saveToStorageInternal(): Promise<void> {
     try {
       // S'assurer que les répertoires existent
       await this.ensureDirectoriesExist();
@@ -343,22 +376,14 @@ export class MemoryManager {
       // Sauvegarder chaque groupe de mémoires dans un fichier par session
       for (const [sessionId, memories] of memoriesBySession.entries()) {
         const filePath = path.join(this.memoriesDir, `${sessionId}.json`);
-        
-        await fs.writeFile(
-          filePath,
-          JSON.stringify(memories, null, 2),
-          'utf8'
-        );
+
+        await this.writeJsonAtomic(filePath, memories);
       }
       
       // Sauvegarder la base de connaissances
       const knowledgePayload = sanitizeKnowledgeBase(Object.fromEntries(this.knowledgeBase));
 
-      await fs.writeFile(
-        this.knowledgeFilePath,
-        JSON.stringify(knowledgePayload, null, 2),
-        'utf8'
-      );
+      await this.writeJsonAtomic(this.knowledgeFilePath, knowledgePayload);
       
       this.debugLog('Données sauvegardées avec succès');
     } catch (error) {
@@ -369,6 +394,10 @@ export class MemoryManager {
       this.debugLog('Mémoires qui auraient dû être sauvegardées: ' + this.memories.size + ' éléments');
       this.debugLog('Base de connaissances qui aurait dû être sauvegardée: ' + this.knowledgeBase.size + ' éléments');
     }
+  }
+
+  private async saveToStorage(): Promise<void> {
+    await this.enqueueSave();
   }
   
   /**
@@ -611,7 +640,7 @@ export class MemoryManager {
     try {
       await this.ensureDirectoriesExist(); // Assure que le répertoire data existe
       const filePath = path.join(this.dataDir, `graph_state_${sessionId}.json`);
-      await fs.writeFile(filePath, graphStateJson, 'utf8');
+      await this.writeFileAtomic(filePath, graphStateJson);
       this.debugLog(`État du graphe pour la session ${sessionId} sauvegardé dans ${filePath}`);
     } catch (error) {
       console.error(`Smart-Thinking: Erreur lors de la sauvegarde de l'état du graphe pour la session ${sessionId}:`, error);

@@ -4,7 +4,7 @@
 import './utils/logger';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
-import { constants as fsConstants, promises as fs } from 'fs';
+import { constants as fsConstants, promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -13,6 +13,9 @@ import { EnhancedStdioServerTransport } from './utils/platform-stdio';
 import { PathUtils } from './utils/path-utils';
 import { PlatformConfig } from './config';
 import { createSmartThinkingServer } from './server/smart-thinking-server';
+
+const PROJECT_HOMEPAGE = 'https://github.com/Leghis/Smart-Thinking';
+const PROJECT_ICON = 'https://raw.githubusercontent.com/Leghis/Smart-Thinking/main/logoSmart-thinking.png';
 
 interface CliOptions {
   transport: 'stdio' | 'http' | 'sse' | 'stream';
@@ -31,6 +34,170 @@ interface SessionState {
   transport: SessionTransport;
   serverClose: () => Promise<void>;
   type: 'stream' | 'sse';
+}
+
+function parseCsvEnv(name: string): string[] {
+  const raw = process.env[name];
+  if (!raw) {
+    return [];
+  }
+  return raw.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function resolveDefaultAllowedHosts(host: string, port: number): string[] {
+  const hosts = new Set<string>([
+    'localhost',
+    `localhost:${port}`,
+    '127.0.0.1',
+    `127.0.0.1:${port}`
+  ]);
+
+  if (host && host !== '0.0.0.0' && host !== '::') {
+    hosts.add(host);
+    hosts.add(`${host}:${port}`);
+  }
+
+  return Array.from(hosts);
+}
+
+function resolveDefaultAllowedOrigins(host: string, port: number): string[] {
+  const origins = new Set<string>([
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+    `https://localhost:${port}`,
+    `https://127.0.0.1:${port}`
+  ]);
+
+  if (host && host !== '0.0.0.0' && host !== '::') {
+    origins.add(`http://${host}:${port}`);
+    origins.add(`https://${host}:${port}`);
+  }
+
+  return Array.from(origins);
+}
+
+function loadPackageVersion(): string {
+  try {
+    const packageJsonPath = path.join(__dirname, '..', 'package.json');
+    const raw = readFileSync(packageJsonPath, 'utf8');
+    const parsed = JSON.parse(raw) as { version?: string };
+    return parsed.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+function buildServerCard(options: CliOptions): Record<string, unknown> {
+  const version = loadPackageVersion();
+  const tools: Array<Record<string, unknown>> = [
+    {
+      name: 'search',
+      description: 'Recherche semantique dans les memoires locales Smart-Thinking.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Requete de recherche.' },
+          limit: { type: 'integer', minimum: 1, maximum: 20, default: 5, description: 'Nombre maximal de resultats.' },
+          sessionId: { type: 'string', description: 'Session cible optionnelle.' },
+        },
+        required: ['query'],
+      },
+    },
+    {
+      name: 'fetch',
+      description: 'Recupere une memoire complete par identifiant.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Identifiant de la memoire.' },
+          sessionId: { type: 'string', description: 'Session cible optionnelle.' },
+        },
+        required: ['id'],
+      },
+    },
+  ];
+
+  if (options.mode !== 'connector') {
+    tools.unshift({
+      name: 'smartthinking',
+      description: 'Pipeline de raisonnement graphe local, deterministe et persistant.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          thought: { type: 'string', description: 'Pensee a analyser.' },
+          thoughtType: {
+            type: 'string',
+            enum: ['regular', 'revision', 'meta', 'hypothesis', 'conclusion'],
+            default: 'regular',
+            description: 'Type de pensee.',
+          },
+          sessionId: { type: 'string', description: 'Identifiant de session optionnel.' },
+          requestSuggestions: { type: 'boolean', default: false, description: 'Demande des suggestions d amelioration.' },
+          requestVerification: { type: 'boolean', default: false, description: 'Active la verification explicite.' },
+          containsCalculations: { type: 'boolean', default: false, description: 'Indique la presence de calculs.' },
+          generateVisualization: { type: 'boolean', default: false, description: 'Active la visualisation.' },
+          help: { type: 'boolean', default: false, description: 'Retourne le guide d utilisation.' },
+        },
+      },
+    });
+  }
+
+  return {
+    serverInfo: {
+      name: 'smart-thinking-mcp',
+      title: 'Smart-Thinking',
+      version,
+      websiteUrl: PROJECT_HOMEPAGE,
+      icons: [
+        {
+          src: PROJECT_ICON,
+          mimeType: 'image/png',
+          sizes: ['512x512'],
+        },
+      ],
+    },
+    tools,
+    prompts: [
+      {
+        name: 'smartthinking-reasoning-plan',
+        description: 'Construit un plan de raisonnement testable avant execution.',
+        arguments: [
+          { name: 'objective', required: true, description: 'Objectif principal.' },
+          { name: 'constraints', required: false, description: 'Contraintes.' },
+          { name: 'depth', required: false, description: 'Niveau de profondeur (fast|balanced|deep).' },
+        ],
+      },
+      {
+        name: 'smartthinking-verify-claim',
+        description: 'Genere une checklist de verification factuelle.',
+        arguments: [
+          { name: 'claim', required: true, description: 'Affirmation a verifier.' },
+        ],
+      },
+    ],
+    resources: [
+      {
+        uri: 'smart-thinking://docs/about',
+        name: 'smartthinking-about',
+        description: 'Documentation du serveur.',
+      },
+      {
+        uri: 'smart-thinking://runtime/status',
+        name: 'smartthinking-runtime-status',
+        description: 'Etat runtime du serveur.',
+      },
+      {
+        uriTemplate: 'smart-thinking://sessions/{sessionId}/recent',
+        name: 'smartthinking-session-recent',
+        description: 'Memoires recentes par session.',
+      },
+      {
+        uriTemplate: 'smart-thinking://memories/{memoryId}',
+        name: 'smartthinking-memory-by-id',
+        description: 'Memoire complete par identifiant.',
+      },
+    ],
+  };
 }
 
 (async () => {
@@ -56,9 +223,9 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     transport: 'stdio',
     port: process.env.PORT ? Number(process.env.PORT) : 3000,
-    host: process.env.HOST ?? '0.0.0.0',
-    allowOrigins: [],
-    allowHosts: [],
+    host: process.env.HOST ?? '127.0.0.1',
+    allowOrigins: parseCsvEnv('SMART_THINKING_ALLOWED_ORIGINS'),
+    allowHosts: parseCsvEnv('SMART_THINKING_ALLOWED_HOSTS'),
     enableSse: true,
     enableStream: true,
     mode: defaultMode
@@ -150,13 +317,21 @@ function parseArgs(argv: string[]): CliOptions {
     options.enableStream = true;
   }
 
+  if (options.allowHosts.length === 0) {
+    options.allowHosts = resolveDefaultAllowedHosts(options.host, options.port);
+  }
+
+  if (options.allowOrigins.length === 0) {
+    options.allowOrigins = resolveDefaultAllowedOrigins(options.host, options.port);
+  }
+
   return options;
 }
 
 async function startStdIoServer(options: CliOptions): Promise<void> {
   configureStdoutFiltering();
   if (options.mode === 'connector') {
-    console.error('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
+    console.info('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
   const { server } = createSmartThinkingServer(undefined, {
     includeSmartThinkingTool: options.mode !== 'connector'
@@ -173,14 +348,18 @@ async function startStdIoServer(options: CliOptions): Promise<void> {
 async function startHttpServer(options: CliOptions): Promise<void> {
   const app = express();
   app.use(express.json({ limit: '4mb' }));
+  app.use(createHostValidationMiddleware(options));
   app.use(createCorsMiddleware(options));
+  app.get('/.well-known/mcp/server-card.json', (_req, res) => {
+    res.json(buildServerCard(options));
+  });
 
   if (options.mode === 'connector') {
-    console.error('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
+    console.info('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
 
   const sessions = new Map<string, SessionState>();
-  const dnsProtectionEnabled = options.allowHosts.length > 0 || options.allowOrigins.length > 0;
+  const dnsProtectionEnabled = true;
 
   if (options.enableStream) {
     app.all('/mcp', async (req, res) => {
@@ -349,19 +528,19 @@ async function startHttpServer(options: CliOptions): Promise<void> {
 
   await new Promise<void>((resolve, reject) => {
     const httpServer = app.listen(options.port, options.host, () => {
-      console.error(`Smart-Thinking: serveur MCP HTTP lancé sur http://${options.host}:${options.port}`);
+      console.info(`Smart-Thinking: serveur MCP HTTP lance sur http://${options.host}:${options.port}`);
       if (options.enableStream) {
-        console.error('  • Endpoint streamable HTTP : /mcp');
+        console.info('  • Endpoint streamable HTTP : /mcp');
       }
       if (options.enableSse) {
-        console.error('  • Endpoint SSE (legacy)    : /sse + /messages');
+        console.info('  • Endpoint SSE (legacy)    : /sse + /messages');
       }
     });
 
     httpServer.on('error', reject);
 
     const shutdown = async () => {
-      console.error('Smart-Thinking: arrêt du serveur HTTP en cours...');
+      console.info('Smart-Thinking: arret du serveur HTTP en cours...');
       for (const [sessionId] of sessions) {
         await cleanupSession(sessions, sessionId);
       }
@@ -380,15 +559,15 @@ function createCorsMiddleware(options: CliOptions) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const originHeader = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
     res.header('Vary', 'Origin');
-    if (options.allowOrigins.length > 0) {
-      if (originHeader && options.allowOrigins.includes(originHeader)) {
-        res.header('Access-Control-Allow-Origin', originHeader);
+
+    if (originHeader) {
+      if (!options.allowOrigins.includes(originHeader)) {
+        res.status(403).json({ error: 'Origin non autorisee' });
+        return;
       }
-    } else if (originHeader) {
       res.header('Access-Control-Allow-Origin', originHeader);
-    } else {
-      res.header('Access-Control-Allow-Origin', '*');
     }
+
     res.header('Access-Control-Allow-Headers', 'Content-Type, MCP-Session-Id');
     res.header('Access-Control-Expose-Headers', 'Mcp-Session-Id');
     res.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
@@ -396,6 +575,27 @@ function createCorsMiddleware(options: CliOptions) {
       res.status(204).end();
       return;
     }
+    next();
+  };
+}
+
+function createHostValidationMiddleware(options: CliOptions) {
+  const allowedHosts = new Set(options.allowHosts.map(host => host.toLowerCase()));
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const hostHeader = Array.isArray(req.headers.host) ? req.headers.host[0] : req.headers.host;
+    if (!hostHeader) {
+      next();
+      return;
+    }
+
+    const normalizedHost = hostHeader.toLowerCase();
+    const hostOnly = normalizedHost.split(':')[0];
+    if (!allowedHosts.has(normalizedHost) && !allowedHosts.has(hostOnly)) {
+      res.status(403).json({ error: 'Host non autorise' });
+      return;
+    }
+
     next();
   };
 }

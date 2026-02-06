@@ -1,19 +1,32 @@
 import { SuggestedTool } from './types';
 import { callInternalLlm } from './utils/openrouter-client'; // Import LLM utility
 
+interface KnownTool {
+  name: string;
+  description: string;
+  keywords: string[];
+  useCase: string;
+  external?: boolean;
+}
+
 /**
  * Classe qui gère l'intégration avec d'autres outils MCP
  */
 export class ToolIntegrator {
+  private static readonly EXTERNAL_TOOL_NAMES = new Set([
+    'perplexity_search_web',
+    'brave_web_search',
+    'brave_local_search',
+    'tavily-search',
+    'tavily-extract'
+  ]);
+
   // Registre des outils connus
-  private knownTools: Map<string, {
-    name: string;
-    description: string;
-    keywords: string[];
-    useCase: string;
-  }> = new Map();
+  private knownTools: Map<string, KnownTool> = new Map();
+  private readonly externalToolsEnabled: boolean;
 
   constructor() {
+    this.externalToolsEnabled = process.env.SMART_THINKING_ENABLE_EXTERNAL_TOOLS === 'true';
     // Initialiser avec des outils MCP courants
     this.initializeKnownTools();
   }
@@ -27,35 +40,40 @@ export class ToolIntegrator {
       name: 'perplexity_search_web',
       description: 'Recherche web avancée avec Perplexity AI et filtrage de récence',
       keywords: ['recherche', 'web', 'internet', 'information', 'récent', 'actualité', 'perplexity', 'temps réel', 'fraîcheur'],
-      useCase: 'Utiliser pour obtenir des informations récentes et pertinentes du web avec filtrage de récence configurable'
+      useCase: 'Utiliser pour obtenir des informations récentes et pertinentes du web avec filtrage de récence configurable',
+      external: true
     });
 
     this.knownTools.set('brave_web_search', {
       name: 'brave_web_search',
       description: 'Recherche web générale avec l\'API Brave Search',
       keywords: ['recherche', 'web', 'internet', 'information', 'brave', 'articles', 'nouvelles', 'contenu'],
-      useCase: 'Utiliser pour des requêtes générales, articles, actualités et recherche de contenu en ligne avec pagination'
+      useCase: 'Utiliser pour des requêtes générales, articles, actualités et recherche de contenu en ligne avec pagination',
+      external: true
     });
 
     this.knownTools.set('brave_local_search', {
       name: 'brave_local_search',
       description: 'Recherche locale de commerces et lieux avec l\'API Brave Local Search',
       keywords: ['recherche', 'local', 'entreprise', 'lieu', 'adresse', 'proximité', 'restaurant', 'magasin', 'localisation'],
-      useCase: 'Idéal pour trouver des entreprises, restaurants, services et lieux à proximité d\'une localisation'
+      useCase: 'Idéal pour trouver des entreprises, restaurants, services et lieux à proximité d\'une localisation',
+      external: true
     });
 
     this.knownTools.set('tavily-search', {
       name: 'tavily-search',
       description: 'Outil de recherche web puissant avec Tavily AI Search Engine',
       keywords: ['recherche', 'web', 'internet', 'information', 'tavily', 'ai', 'détaillé', 'avancé', 'domaine'],
-      useCase: 'Recherche web complète et détaillée avec filtrage par domaines, contrôle de fraîcheur et résultats contextuels'
+      useCase: 'Recherche web complète et détaillée avec filtrage par domaines, contrôle de fraîcheur et résultats contextuels',
+      external: true
     });
 
     this.knownTools.set('tavily-extract', {
       name: 'tavily-extract',
       description: 'Extraction de contenu web avec Tavily',
       keywords: ['extraction', 'contenu', 'web', 'page', 'url', 'tavily', 'texte', 'analyse', 'scraping'],
-      useCase: 'Utiliser pour extraire et traiter du contenu à partir d\'URLs spécifiques, idéal pour l\'analyse de documents web'
+      useCase: 'Utiliser pour extraire et traiter du contenu à partir d\'URLs spécifiques, idéal pour l\'analyse de documents web',
+      external: true
     });
 
     // Outils pour les fichiers système locaux (via les outils Cline standard)
@@ -189,6 +207,10 @@ export class ToolIntegrator {
       availableTools = availableTools.filter(tool => toolFilter.includes(tool.name));
     }
 
+    if (!this.externalToolsEnabled) {
+      availableTools = availableTools.filter(tool => !tool.external);
+    }
+
     if (availableTools.length === 0) {
         console.warn("Aucun outil disponible pour la suggestion.");
         return [];
@@ -297,6 +319,10 @@ export class ToolIntegrator {
       relevantTools = relevantTools.filter(tool => toolFilter.includes(tool.name));
     }
 
+    if (!this.externalToolsEnabled) {
+      relevantTools = relevantTools.filter(tool => !tool.external);
+    }
+
      if (relevantTools.length === 0) return []; // Retourner vide si aucun outil pertinent
 
     // Convertir le contenu en mots-clés
@@ -398,8 +424,16 @@ export class ToolIntegrator {
     // Outil par défaut si aucun n'est trouvé
     if (suggestedTools.length === 0 && relevantTools.length > 0) {
       const defaultConfidence = verificationMode ? 0.5 * stageFactor : 0.3 * stageFactor;
-      const defaultToolName = verificationMode ? 'tavily-search' : 'smartthinking'; // Default to smartthinking if not verification
-      const defaultTool = this.knownTools.get(defaultToolName) || this.knownTools.get('tavily-search')!; // Fallback to tavily
+      const defaultToolName = verificationMode
+        ? (this.externalToolsEnabled ? 'tavily-search' : 'executePython')
+        : 'smartthinking';
+      const defaultTool = this.knownTools.get(defaultToolName)
+        || this.knownTools.get('executePython')
+        || this.knownTools.get('smartthinking');
+
+      if (!defaultTool) {
+        return suggestedTools;
+      }
 
       suggestedTools.push({
         name: defaultTool.name,
@@ -433,8 +467,7 @@ export class ToolIntegrator {
    * @param content Le contenu à vérifier
    * @returns Une raison explicative pour la vérification
    */
-  private generateVerificationReason(tool: any, _content: string): string {
-    // ... (implementation unchanged) ...
+  private generateVerificationReason(tool: KnownTool, _content: string): string {
      switch (tool.name) {
       case 'perplexity_search_web':
         return 'Vérification via Perplexity pour obtenir des informations récentes et factuelles';
@@ -461,7 +494,15 @@ export class ToolIntegrator {
    * @returns Le résultat de la vérification
    */
   public async executeVerificationTool(toolName: string, content: string): Promise<any> {
-    // ... (implementation unchanged) ...
+    if (!this.externalToolsEnabled && ToolIntegrator.EXTERNAL_TOOL_NAMES.has(toolName)) {
+      return {
+        isValid: 'uncertain',
+        confidence: 0.35,
+        source: 'Local fallback (external tools disabled)',
+        details: `L'outil externe ${toolName} est désactivé; utiliser les heuristiques locales ou la vérification interne.`,
+      };
+    }
+
      switch (toolName) {
       case 'perplexity_search_web':
         return this.executePerplexitySearch(content);
@@ -480,7 +521,7 @@ export class ToolIntegrator {
     }
   }
 
-  // ... (Private methods for executing specific tools remain unchanged) ...
+  // Private methods for executing specific tools.
    private async executePerplexitySearch(content: string): Promise<any> {
     // Note: Dans une implémentation réelle, ceci ferait un appel à l'API Perplexity
     console.log(`Exécution de perplexity_search_web pour vérifier: ${content}`);
@@ -586,8 +627,7 @@ export class ToolIntegrator {
    * @param content Le contenu pour lequel l'outil est suggéré
    * @returns Une raison explicative
    */
-  private generateReason(tool: any, content: string): string {
-    // ... (implementation unchanged) ...
+  private generateReason(tool: KnownTool, content: string): string {
      const isQuestion = content.includes('?');
     const isTopic = content.length < 50 && !isQuestion;
     const isComplex = content.length > 200;
@@ -720,7 +760,7 @@ export class ToolIntegrator {
    *
    * @returns Un tableau de tous les outils
    */
-  getAllTools(): any[] {
+  getAllTools(): KnownTool[] {
     return Array.from(this.knownTools.values());
   }
 }

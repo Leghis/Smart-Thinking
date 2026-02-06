@@ -62,6 +62,8 @@ export class VerificationMemory {
   private storageFilePath: string;
   private initialization: Promise<void>;
   private initialized = false;
+  private persistenceQueue: Promise<void> = Promise.resolve();
+  private persistenceDisabled = false;
   
   private emit(level: 'log' | 'warn' | 'error', ...args: unknown[]): void {
     if (isTestEnvironment) {
@@ -84,6 +86,7 @@ export class VerificationMemory {
 
   public static resetInstance(): void {
     if (VerificationMemory.instance) {
+      VerificationMemory.instance.disablePersistence();
       VerificationMemory.instance.stopCleanupTasks();
       VerificationMemory.instance = null;
     }
@@ -119,6 +122,10 @@ export class VerificationMemory {
       clearInterval(timer);
     }
     this.cleanupTimers = [];
+  }
+
+  private disablePersistence(): void {
+    this.persistenceDisabled = true;
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -180,7 +187,7 @@ export class VerificationMemory {
     }
   }
 
-  private async persistToStorage(): Promise<void> {
+  private async persistToStorageInternal(): Promise<void> {
     const payload: { version: number; updatedAt: string; verifications: PersistedVerificationEntry[] } = {
       version: 1,
       updatedAt: new Date().toISOString(),
@@ -190,13 +197,40 @@ export class VerificationMemory {
     };
 
     await PathUtils.ensureDirectoryExists(this.dataDir);
-    await fs.writeFile(this.storageFilePath, JSON.stringify(payload, null, 2), 'utf8');
+    const tmpPath = `${this.storageFilePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    try {
+      await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
+      await fs.rename(tmpPath, this.storageFilePath);
+    } catch (error) {
+      await fs.unlink(tmpPath).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private enqueuePersist(): Promise<void> {
+    this.persistenceQueue = this.persistenceQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await this.initialization.catch(() => undefined);
+        if (this.persistenceDisabled) {
+          return;
+        }
+        await this.persistToStorageInternal();
+      });
+
+    return this.persistenceQueue;
+  }
+
+  private async persistToStorage(): Promise<void> {
+    await this.enqueuePersist();
   }
 
   private requestPersist(): void {
-    Promise.resolve(this.initialization)
-      .catch(() => undefined)
-      .then(() => this.persistToStorage())
+    if (isTestEnvironment) {
+      return;
+    }
+    this.enqueuePersist()
       .catch((error) => {
         this.emit('error', 'VerificationMemory: Erreur lors de la sauvegarde du stockage persistant', error);
       });

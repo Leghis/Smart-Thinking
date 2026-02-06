@@ -80,10 +80,26 @@ Smart-Thinking is validated across the most popular MCP clients and operating sy
 
 > Need a minimal deployment footprint? Combine `--transport=http --mode=connector` with a reverse proxy (ngrok, fly.io, render, etc.) so remote clients can consume the server without exposing the full toolset.
 
+For registry scanners and fallback metadata extraction, Smart-Thinking also exposes:
+
+- `GET /.well-known/mcp/server-card.json`
+
 ## Configuration & Feature Flags
 - `feature-flags.ts` toggles advanced behaviours such as external integrations (disabled by default) and verbose tracing.
 - `config.ts` aligns platform-specific paths and verification thresholds.
 - `memory-manager.ts` and `verification-memory.ts` store session graphs, metrics, and calculation results using deterministic JSON snapshots.
+
+## Zero-API-Key Mode (Default)
+- Smart-Thinking runs fully in local deterministic mode without any API key.
+- External verification/search connectors are disabled by default in `ToolIntegrator`.
+- To explicitly enable external connectors, set:
+
+```bash
+export SMART_THINKING_ENABLE_EXTERNAL_TOOLS=true
+```
+
+- If external connectors are disabled (default), verification suggestions stay local (`executePython`, `executeJavaScript`) and external tool calls return a local fallback result.
+- `FeatureFlags.externalLlmEnabled` and `FeatureFlags.externalEmbeddingEnabled` remain disabled by default, so no remote LLM/embedding provider is required.
 
 ## Development Workflow
 ```bash
@@ -94,11 +110,11 @@ npm run test:coverage   # Jest coverage report
 npm run watch           # Incremental TypeScript compilation
 ```
 
-See `TRANSFORMATION_PLAN.md` for the full transformation history and the checklist that drives ongoing hardening.
+See `docs/modernisation-smart-thinking-v12-plan.md` for the modernization checklist and rollout tracking.
 
 ## Quality & Support
 - Deterministic heuristics and verification eliminate dependency on remote LLMs.
-- Coverage targets: ≥80 % on persistence modules, ≥60 % branch coverage across orchestrator logic.
+- Latest validation (February 6, 2026): `80.47%` statements, `81.59%` lines, `84.34%` functions, `63.48%` branches.
 - CI recommendations: run `npm run lint` and `npm run test:coverage` before each release candidate.
 
 ## Contributing

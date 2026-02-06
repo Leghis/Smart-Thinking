@@ -585,7 +585,7 @@ export class VerificationService implements IVerificationService {
                 result.details);
               
               if (isValidResult) {
-                console.error(`Smart-Thinking: Vérification avec "${tool.name}" terminée avec succès`);
+                console.info(`Smart-Thinking: Vérification avec "${tool.name}" terminee avec succes`);
                 return {
                   toolName: tool.name,
                   result,
