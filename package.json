@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "12.0.0",
+  "version": "12.0.1",
   "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
   "main": "build/index.js",
   "module": "./src/index.ts",
@@ -40,7 +40,6 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "@smithery/sdk": "^4.0.1",
     "@types/uuid": "^10.0.0",
     "express": "^5.2.1",
     "mkdirp": "^3.0.1",

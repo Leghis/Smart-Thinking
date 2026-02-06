@@ -29,11 +29,11 @@ npx -y smart-thinking-mcp
 ```
 Ideal for quick experiments without touching global packages.
 
-### Option C — Install via Smithery automation
+### Option C — Remove global install (use npx)
 ```bash
-npx -y @smithery/cli install @Leghis/smart-thinking --client claude
+npx -y smart-thinking-mcp
 ```
-Smithery generates the platform-specific wiring for Claude Desktop and keeps the server up to date.
+This is the easiest path when you do not want to install anything globally.
 
 ### Option D — Build from source
 ```bash
@@ -251,7 +251,7 @@ These commands must pass with no warnings prior to tagging a release. Coverage t
    git push origin v<version>
    npm publish --access public
    ```
-6. Notify stakeholders and update marketplace listings (MCP directories, Smithery, etc.).
+6. Notify stakeholders and update marketplace listings (MCP directories, etc.).
 
 ## 7. Additional Resources
 - `README.md` — quick overview, reasoning flow, and developer commands.

@@ -2,7 +2,6 @@
 
 # Smart-Thinking
 
-[![smithery badge](https://smithery.ai/badge/@Leghis/smart-thinking)](https://smithery.ai/server/@Leghis/smart-thinking)
 [![npm version](https://img.shields.io/npm/v/smart-thinking-mcp.svg)](https://www.npmjs.com/package/smart-thinking-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.1.6-blue)](https://www.typescriptlang.org/)
@@ -40,11 +39,6 @@ npm install -g smart-thinking-mcp
 ### Run with npx
 ```bash
 npx -y smart-thinking-mcp
-```
-
-### Install via Smithery
-```bash
-npx -y @smithery/cli install @Leghis/smart-thinking --client claude
 ```
 
 ### From source

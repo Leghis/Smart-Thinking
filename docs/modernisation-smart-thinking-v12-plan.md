@@ -247,10 +247,9 @@ flowchart LR
 - OpenAI MCP / Deep Research:
   - https://platform.openai.com/docs/mcp
   - https://platform.openai.com/docs/guides/deep-research
-- Smithery (build + session config + publishing):
-  - https://smithery.ai/docs/build/project-config
-  - https://smithery.ai/docs/build/session-config
-  - https://smithery.ai/docs/build/publish
+- Marketplace distribution notes:
+  - Keep MCP metadata strong (tools/prompts/resources + annotations) to improve directory scanners.
+  - Prefer stdio-first distribution via npm; external hosting is optional.
 - Node.js performance (event loop / workers):
   - https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
   - https://nodejs.org/api/worker_threads.html
