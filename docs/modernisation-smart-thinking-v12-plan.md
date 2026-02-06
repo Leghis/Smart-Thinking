@@ -33,6 +33,7 @@
 - [x] Tests passants: `100/100` (20 suites).
 - [x] Audit runtime: `0` vulnérabilité (`high/critical/moderate/low`).
 - [x] Validation qualité exécutée: `npm run test`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm audit --omit=dev`.
+- [x] Publication npm: `smart-thinking-mcp@12.0.0` (dist-tag `latest`) + tag GitHub `v12.0.0`.
 
 ## 2. Analyse de l’existant
 ### 2.1 Frontend
@@ -180,7 +181,8 @@ flowchart LR
 - [ ] Déploiement par paliers : `canary` -> `staging` -> `production`.
 - [ ] Monitoring/alerting : erreurs, latence p95, taux fallback, saturation CPU/mémoire.
 - [ ] Plan de rollback versionné (artefacts + schéma de données).
-- [ ] Vérification release “no-key compliant” avant publication npm.
+- [x] Vérification release “no-key compliant” avant publication npm.
+- [x] Publication npm `smart-thinking-mcp@12.0.0` + push GitHub (`main` + tag `v12.0.0`).
 
 ## 7. Stratégie d’exécution en 5 vagues
 1. **Vague A — Baseline & filets de sécurité**
