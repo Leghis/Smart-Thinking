@@ -394,7 +394,7 @@ async function runProblem(
   }
 
   const guidedPrelude =
-    options.mode === 'guided'
+    options.mode === 'guided' && protocol.variant === 'standard'
       ? [
           `PROTOCOLE STANDARD (domaine détecté: ${protocol.domain}):`,
           ...protocol.steps,
@@ -419,11 +419,16 @@ async function runProblem(
   let answer = '';
   let iterations = 0;
   let continuations = 0;
+  const mcpGuidance = client.getInstructions?.();
+  const baseSystem =
+    options.mode === 'autonomous' && mcpGuidance
+      ? `${SYSTEM_PROMPT}\n\nGUIDAGE MCP (instructions du serveur):\n${mcpGuidance}`
+      : SYSTEM_PROMPT;
 
   for (let i = 0; i < options.iterations; i += 1) {
     iterations = i + 1;
     const remaining = options.iterations - i;
-    let system = SYSTEM_PROMPT;
+    let system = baseSystem;
     let tools = toolSchemas;
 
     if (remaining <= Math.max(6, Math.round(options.iterations * 0.25))) {
@@ -461,7 +466,7 @@ async function runProblem(
         break;
       }
       const retry = await provider.chat({
-        system: `${SYSTEM_PROMPT}\nRédige maintenant la réponse finale complète.`,
+        system: `${baseSystem}\nRédige maintenant la réponse finale complète.`,
         messages: [...messages, { role: 'user', content: 'Rédige la réponse finale complète.' }],
         tools: [],
       });

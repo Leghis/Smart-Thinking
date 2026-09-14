@@ -9,6 +9,7 @@ export const SMART_THINKING_INSTRUCTIONS = [
   'RÈGLES D\'USAGE:',
   '0. Problème de recherche/ingénierie complexe: commence par protocol(problem) et suis le protocole standard (classer le domaine, plan, compute exact, certificats, checklist des pièges, limites). Utilise compute pour écrire des scripts exacts (sympy/numpy/scipy) qui produisent des certificats.',
   '0bis. Certifie CHAQUE résultat avec claim(statement, value, method, evidence) et lance audit() avant la réponse finale: aucune affirmation ne doit rester sans méthode ni preuve.',
+  '0ter. Bornes, intervalles, optima, cardinaux, structures minimales: énumère l\'espace complet des configurations avec compute et certifie min/max/comptage avec témoins. Avant la réponse finale, reprends chaque quantité demandée avec audit(requirements=[...]): toute exigence sans certificat doit être calculée puis claim.',
   '1. Tâche complexe (plus de 2 étapes): commence par plan(goal) puis exécute les étapes.',
   '2. Utilise calculate pour TOUT calcul non trivial (ex: calculate("(120*0.45)")) au lieu de calculer de tête. Passe "expression = résultat" pour vérifier une valeur.',
   '2bis. Puzzle d\'ordre/classement (avant/après, plus rapide/lent, >/<) : utilise solve_logic. Équations ou systèmes : solve_math. Ces solveurs sont exacts : ne les remplace jamais par du calcul mental.',
