@@ -1,0 +1,746 @@
+{
+  "label": "ds-v41f-levier",
+  "provider": "openai:deepseek-flash",
+  "mode": "live",
+  "seed": 1337,
+  "generatedAt": "2026-09-14T06:57:45.106Z",
+  "tasks": 7,
+  "conditions": [
+    "baseline",
+    "tool"
+  ],
+  "delta": {
+    "absolutePp": 14.29,
+    "relativePct": 18.2,
+    "wins": 1,
+    "losses": 0,
+    "ties": 6,
+    "signTestPValue": 1
+  },
+  "stats": [
+    {
+      "condition": "baseline",
+      "tasks": 7,
+      "runs": 7,
+      "accuracy": 0.7857,
+      "exactMatchRate": 0.7143,
+      "meanLatencyMs": 1729.29,
+      "p50LatencyMs": 1590,
+      "p95LatencyMs": 2763,
+      "inputTokens": 733,
+      "outputTokens": 1179,
+      "wins": 1,
+      "losses": 0,
+      "ties": 6,
+      "hallucinations": 0,
+      "contradictions": 2
+    },
+    {
+      "condition": "tool",
+      "tasks": 7,
+      "runs": 7,
+      "accuracy": 0.9286,
+      "exactMatchRate": 0.8571,
+      "meanLatencyMs": 2745,
+      "p50LatencyMs": 2554,
+      "p95LatencyMs": 3656,
+      "inputTokens": 21206,
+      "outputTokens": 1559,
+      "wins": 1,
+      "losses": 0,
+      "ties": 6,
+      "hallucinations": 0,
+      "contradictions": 2
+    }
+  ],
+  "results": [
+    {
+      "taskId": "levier-mult",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "47 253 × 86 = 4 063 758  \n19 402 × 7 = 135 814  \n4 063 758 + 135 814 = 4 199 572  \n\n**Réponse finale : 4 199 572**",
+      "latencyMs": 1709,
+      "inputTokens": 92,
+      "outputTokens": 205,
+      "seed": 493899722
+    },
+    {
+      "taskId": "levier-percent",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Le prix final est \\(84\\,559 \\times 1{,}17 \\times 0{,}91 = 90\\,029{,}9673\\) €, soit **90 030 €** arrondi à l’euro.\n\n**Réponse finale : 90 030 €**",
+      "latencyMs": 2763,
+      "inputTokens": 102,
+      "outputTokens": 266,
+      "seed": 2774052435
+    },
+    {
+      "taskId": "levier-units",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Distance = \\(83 \\times \\frac{15}{4} = \\frac{1245}{4} = 311{,}25\\) km.\n\n**Réponse finale : 311,25 km.**",
+      "latencyMs": 1590,
+      "inputTokens": 101,
+      "outputTokens": 124,
+      "seed": 7111745
+    },
+    {
+      "taskId": "levier-chain",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "((2 457 + 5 643) × 12 − 8 400) / 6 = 14 800.\n\n**Réponse finale : 14 800**",
+      "latencyMs": 1297,
+      "inputTokens": 99,
+      "outputTokens": 86,
+      "seed": 2040141179
+    },
+    {
+      "taskId": "levier-division",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "(987 654 − 123 456) = 864 198  \n864 198 / 6 = 144 033  \n\n**Réponse finale : 144 033**",
+      "latencyMs": 1284,
+      "inputTokens": 90,
+      "outputTokens": 104,
+      "seed": 3968752767
+    },
+    {
+      "taskId": "levier-invalid-chain",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Le calcul de départ est correct : \\((845 + 1\\,255) \\times 12 = 2\\,100 \\times 12 = 25\\,200\\).\n\nMais ensuite : \\(25\\,200 / 5 = 5\\,040\\), et non \\(4\\,800\\).\n\n**Résultat correct : 5 040.**",
+      "latencyMs": 1511,
+      "inputTokens": 123,
+      "outputTokens": 127,
+      "seed": 3259836673
+    },
+    {
+      "taskId": "levier-contradiction",
+      "category": "logic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Non : pour une même production et une même période (2025), une hausse de 12 % et une baisse de 3 % sont contradictoires. Elles ne seraient compatibles que si les documents portent sur des productions, périmètres ou indicateurs différents.\n\nRéponse finale : NON.",
+      "latencyMs": 1951,
+      "inputTokens": 126,
+      "outputTokens": 267,
+      "seed": 2101513267
+    },
+    {
+      "taskId": "levier-mult",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Détail : 47 253 × 86 = 4 063 758 ; 19 402 × 7 = 135 814 ; somme = 4 063 758 + 135 814 = 4 199 572.\n\n**Réponse finale : 4 199 572.**",
+      "latencyMs": 2554,
+      "inputTokens": 3284,
+      "outputTokens": 196,
+      "toolCalls": 1,
+      "seed": 2361379965,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Calcule 47 253 × 86 + 19 402 × 7. Donne le résultat exact.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_DNVKXc1sOeJpkDU4PYzZ9695",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "47253*86 + 19402*7"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"47253*86+19402*7\",\"value\":4199572}",
+            "toolCallId": "call_00_DNVKXc1sOeJpkDU4PYzZ9695"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-percent",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "- Hausse de 17 % : 84 559 × 1,17 = 98 934,03 €\n- Baisse de 9 % : 98 934,03 × 0,91 = 90 029,97 €\n\n**Prix final arrondi à l'euro : 90 030 €.**",
+      "latencyMs": 2149,
+      "inputTokens": 3284,
+      "outputTokens": 192,
+      "toolCalls": 1,
+      "seed": 930544716,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un prix de 84 559 € augmente de 17 %, puis baisse de 9 %. Quel est le prix final arrondi à l'euro ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_Y9ZFxx99QhWEySQhjWps1440",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "84559 * 1.17 * 0.91"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"84559*1.17*0.91\",\"value\":90029.9673}",
+            "toolCallId": "call_00_Y9ZFxx99QhWEySQhjWps1440"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-units",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "3 h 45 min = 3,75 h.\nDistance = 83 km/h × 3,75 h = **311,25 km**.\n\n**Réponse finale : 311,25 km.**",
+      "latencyMs": 2426,
+      "inputTokens": 3233,
+      "outputTokens": 138,
+      "toolCalls": 1,
+      "seed": 178533366,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un véhicule roule à 83 km/h pendant 3 h 45 min. Quelle distance parcourt-il, en km (résultat exact) ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_04ehDAfSAMGqLTdPLXlJ7538",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "83*3.75"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"83*3.75\",\"value\":311.25}",
+            "toolCallId": "call_00_04ehDAfSAMGqLTdPLXlJ7538"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-chain",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Détail : 2 457 + 5 643 = 8 100 ; 8 100 × 12 = 97 200 ; 97 200 − 8 400 = 88 800 ; 88 800 / 6 = 14 800.\n\n**Réponse finale : 14 800.**",
+      "latencyMs": 2896,
+      "inputTokens": 3262,
+      "outputTokens": 162,
+      "toolCalls": 1,
+      "seed": 1257878836,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Calcule ((2 457 + 5 643) × 12 − 8 400) / 6. Donne le résultat exact.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_bnhWxQniN7dyRLZo63QG5651",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "((2457 + 5643) * 12 - 8400) / 6"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"((2457+5643)*12-8400)/6\",\"value\":14800}",
+            "toolCallId": "call_00_bnhWxQniN7dyRLZo63QG5651"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-division",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "987 654 − 123 456 = 864 198, puis 864 198 / 6 = 144 033 (division exacte : 6 × 144 033 = 864 198).\n\n**Réponse finale : 144 033.**",
+      "latencyMs": 2459,
+      "inputTokens": 3230,
+      "outputTokens": 138,
+      "toolCalls": 1,
+      "seed": 1932088360,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Calcule (987 654 − 123 456) / 6. Donne le résultat exact.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_B3uippcYkqMS94ieXBdQ1587",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "(987654 - 123456) / 6"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"(987654-123456)/6\",\"value\":144033}",
+            "toolCallId": "call_00_B3uippcYkqMS94ieXBdQ1587"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-invalid-chain",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Vérification étape par étape :**\n\n- 845 + 1 255 = **2 100** ✅\n- 2 100 × 12 = **25 200** ✅\n- 25 200 / 5 = **5 040** ❌ (et non 4 800)\n\nL'erreur se situe à la dernière étape : la division de 25 200 par 5 donne 5 040. Le reste du raisonnement est correct.\n\n**Réponse finale : le raisonnement est faux. Le résultat correct est (845 + 1 255) × 12 / 5 = 5 040.**",
+      "latencyMs": 3075,
+      "inputTokens": 3317,
+      "outputTokens": 261,
+      "toolCalls": 1,
+      "seed": 2268139702,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Vérifie ce raisonnement et dis s'il est correct : « (845 + 1 255) × 12 = 25 200, puis 25 200 / 5 = 4 800 ». Si c'est faux, donne le résultat correct.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_Z3k25TlRggWA7QeZVRId1914",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "(845 + 1255) * 12 / 5"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"(845+1255)*12/5\",\"value\":5040}",
+            "toolCallId": "call_00_Z3k25TlRggWA7QeZVRId1914"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "levier-contradiction",
+      "category": "logic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "## Analyse\n\nLes deux documents portent sur **la même grandeur et la même période** : « la production » en 2025.\n\n- Doc A : variation **+12 %**\n- Doc B : variation **–3 %**\n\nCes deux énoncés sont **logiquement contradictoires** : pour une même population, une même unité et une même période, une grandeur ne peut pas simultanément augmenter de 12 % et diminuer de 3 %. Les deux documents sont donc incompatibles.\n\nIls ne pourraient coexister sans contradiction que si l'un des éléments suivants différait dans les deux documents :\n- le périmètre mesuré (secteur, produit, entreprise, région) ;\n- l'indicateur utilisé (chiffre d'affaires vs. volume physique, par exemple) ;\n- la base de comparaison ou la méthode de calcul.\n\nOr **aucune de ces précisions n'apparaît** dans les documents fournis. En l'état, il s'agit d'un conflit factuel direct.\n\n---\n\n**Réponse finale : NON**, les deux documents ne sont pas compatibles, car +12 % et –3 % sont des affirmations contradictoires sur la même production et la même année ; ils ne seraient conciliables que s'ils portaient sur des périmètres ou des indicateurs différents, ce qui n'est pas précisé.",
+      "latencyMs": 3656,
+      "inputTokens": 1596,
+      "outputTokens": 472,
+      "toolCalls": 0,
+      "seed": 3605003948,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Doc A : « La production a augmenté de 12 % en 2025. » Doc B : « La production a diminué de 3 % en 2025. » Les deux documents sont-ils compatibles ? Réponds OUI ou NON et justifie.\nRéponds de façon concise et termine par la réponse finale explicite."
+          }
+        ]
+      }
+    }
+  ],
+  "scores": [
+    {
+      "taskId": "levier-mult",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        47253,
+        86,
+        4063758,
+        19402,
+        7,
+        135814,
+        4063758,
+        135814,
+        4199572,
+        4199572
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 4199572 ✓ 4199572"
+    },
+    {
+      "taskId": "levier-percent",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        84,
+        559,
+        1,
+        17,
+        0,
+        91,
+        90,
+        29,
+        9673,
+        90030,
+        90030
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 90030 ✓ 90030"
+    },
+    {
+      "taskId": "levier-units",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        83,
+        15,
+        4,
+        1245,
+        4,
+        311,
+        25,
+        311.25
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 311.25 ✓ 311.25"
+    },
+    {
+      "taskId": "levier-chain",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        2457,
+        5643,
+        12,
+        8400,
+        6,
+        14800,
+        14800
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 14800 ✓ 14800"
+    },
+    {
+      "taskId": "levier-division",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        987654,
+        123456,
+        864198,
+        864198,
+        6,
+        144033,
+        144033
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 144033 ✓ 144033"
+    },
+    {
+      "taskId": "levier-invalid-chain",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [
+        845,
+        1,
+        255,
+        12,
+        2,
+        100,
+        12,
+        25,
+        200,
+        25,
+        200,
+        5,
+        5,
+        40,
+        4,
+        800,
+        5040
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "5040"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": true,
+      "rationale": "dernier nombre 5040 ✓ 5040; erreur NON signalée"
+    },
+    {
+      "taskId": "levier-contradiction",
+      "category": "logic",
+      "condition": "baseline",
+      "score": 0.5,
+      "exactMatch": false,
+      "extractedNumbers": [
+        2025,
+        12,
+        3
+      ],
+      "coveredKeyFacts": [
+        "non"
+      ],
+      "missedKeyFacts": [
+        "opposee"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": true,
+      "rationale": "faits 1/2"
+    },
+    {
+      "taskId": "levier-mult",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        47253,
+        86,
+        4063758,
+        19402,
+        7,
+        135814,
+        4063758,
+        135814,
+        4199572,
+        4199572
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 4199572 ✓ 4199572"
+    },
+    {
+      "taskId": "levier-percent",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        17,
+        84559,
+        1.17,
+        98934.03,
+        9,
+        98934.03,
+        0.91,
+        90029.97,
+        90030
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 90030 ✓ 90030"
+    },
+    {
+      "taskId": "levier-units",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        3,
+        45,
+        3.75,
+        83,
+        3.75,
+        311.25,
+        311.25
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 311.25 ✓ 311.25"
+    },
+    {
+      "taskId": "levier-chain",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        2457,
+        5643,
+        8100,
+        8100,
+        12,
+        97200,
+        97200,
+        8400,
+        88800,
+        88800,
+        6,
+        14800,
+        14800
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 14800 ✓ 14800"
+    },
+    {
+      "taskId": "levier-division",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        987654,
+        123456,
+        864198,
+        864198,
+        6,
+        144033,
+        6,
+        144033,
+        864198,
+        144033
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 144033 ✓ 144033"
+    },
+    {
+      "taskId": "levier-invalid-chain",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        845,
+        1255,
+        2100,
+        2100,
+        12,
+        25200,
+        25200,
+        5,
+        5040,
+        4800,
+        25200,
+        5,
+        5040,
+        845,
+        1255,
+        12,
+        5,
+        5040
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": true,
+      "rationale": "dernier nombre 5040 ✓ 5040; erreur signalée"
+    },
+    {
+      "taskId": "levier-contradiction",
+      "category": "logic",
+      "condition": "tool",
+      "score": 0.5,
+      "exactMatch": false,
+      "extractedNumbers": [
+        2025,
+        12,
+        3,
+        12,
+        3,
+        12,
+        3
+      ],
+      "coveredKeyFacts": [
+        "non"
+      ],
+      "missedKeyFacts": [
+        "opposee"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": true,
+      "rationale": "faits 1/2"
+    }
+  ],
+  "notes": [
+    "TAVILY_API_KEY détecté: les outils web_search/fetch peuvent accéder au réseau.",
+    "Provider réel: openai (résultats non déterministes). Agent opencode isolé: aucun outil de code, aucun accès au dépôt."
+  ]
+}

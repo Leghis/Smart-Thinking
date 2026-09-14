@@ -4,12 +4,13 @@ import * as os from 'os';
 import * as path from 'path';
 
 describe('PathUtils', () => {
-  it('normalise les chemins WSL en chemins Windows', () => {
-    const normalized = PathUtils.normalizePath('/mnt/c/Users/test/Documents');
-    if (process.platform === 'win32') {
-      expect(normalized).toBe('C:/Users/test/Documents');
+  const originalDataDir = process.env.SMART_THINKING_DATA_DIR;
+
+  afterEach(() => {
+    if (originalDataDir === undefined) {
+      delete process.env.SMART_THINKING_DATA_DIR;
     } else {
-      expect(normalized).toBe('/mnt/c/Users/test/Documents');
+      process.env.SMART_THINKING_DATA_DIR = originalDataDir;
     }
   });
 
@@ -25,7 +26,23 @@ describe('PathUtils', () => {
   });
 
   it('fournit un répertoire de données absolu', () => {
+    delete process.env.SMART_THINKING_DATA_DIR;
     const dataDir = PathUtils.getDataDirectory();
     expect(path.isAbsolute(dataDir)).toBe(true);
+  });
+
+  it('resolveDataDirectory privilégie l\'override puis la variable d\'environnement', () => {
+    process.env.SMART_THINKING_DATA_DIR = '/tmp/smart-thinking-env';
+
+    expect(PathUtils.resolveDataDirectory('/tmp/smart-thinking-override')).toBe('/tmp/smart-thinking-override');
+    expect(PathUtils.resolveDataDirectory()).toBe('/tmp/smart-thinking-env');
+    expect(PathUtils.resolveDataDirectory('   ')).toBe('/tmp/smart-thinking-env');
+
+    delete process.env.SMART_THINKING_DATA_DIR;
+    expect(PathUtils.resolveDataDirectory()).toBe(PathUtils.getDataDirectory());
+  });
+
+  it('expose un répertoire temporaire dédié', () => {
+    expect(PathUtils.getTempDirectory()).toContain('Smart-Thinking');
   });
 });

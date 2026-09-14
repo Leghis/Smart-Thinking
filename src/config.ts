@@ -1,114 +1,147 @@
 /**
- * config.ts
- * 
- * Fichier de configuration centralisé pour Smart-Thinking
- * Contient les seuils, paramètres et constantes utilisés dans tout le système
+ * Smart-Thinking v13 — Runtime configuration.
+ *
+ * Environment-driven, validated once per process. Platform path helpers live in
+ * `utils/path-utils.ts`; this module keeps only runtime knobs and backward
+ * compatible aliases used across the codebase.
  */
 import { platform } from 'os';
 import * as path from 'path';
+import type { SearchDepth, SearchProviderPreference } from './types';
+import { CACHE_TTL_MS, LIMITS, SIMILARITY_THRESHOLDS, METRIC_THRESHOLDS } from './constants';
 
-/**
- * Configuration pour les seuils de vérification et similarité
- */
-export const VerificationConfig = {
-  // Seuils de confiance pour la vérification
-  CONFIDENCE: {
-    MINIMUM_THRESHOLD: 0.7,        // Seuil minimum de confiance pour considérer une information fiable
-    VERIFICATION_REQUIRED: 0.5,     // Seuil en dessous duquel une vérification est toujours requise
-    HIGH_CONFIDENCE: 0.85,          // Seuil considéré comme haute confiance
-    LOW_CONFIDENCE: 0.4             // Seuil considéré comme basse confiance
-  },
-  
-  // Seuils de similarité pour la comparaison vectorielle
-  SIMILARITY: {
-    EXACT_MATCH: 0.95,              // Seuil pour considérer deux informations comme identiques
-    HIGH_SIMILARITY: 0.80,          // Seuil pour considérer deux informations comme très similaires (réduit de 0.85 à 0.80)
-    MEDIUM_SIMILARITY: 0.65,        // Seuil pour considérer deux informations comme significativement similaires (réduit de 0.75 à 0.65)
-    LOW_SIMILARITY: 0.55,           // Seuil pour considérer deux informations comme faiblement similaires (réduit de 0.6 à 0.55)
-    TEXT_MATCH: 0.65                // Seuil pour la correspondance textuelle (sans embeddings) (réduit de 0.7 à 0.65)
-  },
-  
-  // Paramètres pour la mémoire de vérification
-  MEMORY: {
-    MAX_CACHE_SIZE: 1000,           // Nombre maximum d'entrées dans le cache
-    CACHE_EXPIRATION: 3600000,      // Durée de validité du cache en millisecondes (1h par défaut)
-    DEFAULT_SESSION_TTL: 86400000   // Durée de vie d'une session par défaut (24h)
+export type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+
+export interface RuntimeConfig {
+  logLevel: LogLevel;
+  logFormat: 'json' | 'pretty';
+  maxThoughtLength: number;
+  maxConnectionsPerThought: number;
+  search: {
+    provider: SearchProviderPreference;
+    tavilyApiKey?: string;
+    searchDepth: SearchDepth;
+    cacheTtlMs: number;
+    requestTimeoutMs: number;
+  };
+  persistence: {
+    /** Optional override for the data directory (useful for tests and portable runs). */
+    dataDir?: string;
+    disabled: boolean;
+  };
+}
+
+const LOG_LEVELS: readonly LogLevel[] = ['silent', 'error', 'warn', 'info', 'debug'];
+
+function parseLogLevel(raw: string | undefined, fallback: LogLevel): LogLevel {
+  const value = (raw ?? '').toLowerCase();
+  return (LOG_LEVELS as readonly string[]).includes(value) ? (value as LogLevel) : fallback;
+}
+
+function parseProvider(raw: string | undefined): SearchProviderPreference {
+  const value = (raw ?? '').toLowerCase();
+  if (value === 'tavily' || value === 'native' || value === 'off' || value === 'auto') {
+    return value;
   }
-};
+  return 'auto';
+}
+
+function parseSearchDepth(raw: string | undefined): SearchDepth {
+  return (raw ?? '').toLowerCase() === 'advanced' ? 'advanced' : 'basic';
+}
+
+export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): RuntimeConfig {
+  const fallbackLevel: LogLevel = env.NODE_ENV === 'test' ? 'silent' : 'info';
+  const fallbackFormat = env.NODE_ENV === 'production' ? 'json' : 'pretty';
+
+  return {
+    logLevel: parseLogLevel(env.SMART_THINKING_LOG_LEVEL, fallbackLevel),
+    logFormat: (env.SMART_THINKING_LOG_FORMAT ?? '').toLowerCase() === 'json' ? 'json' : fallbackFormat,
+    maxThoughtLength: LIMITS.MAX_THOUGHT_LENGTH,
+    maxConnectionsPerThought: LIMITS.MAX_CONNECTIONS_PER_THOUGHT,
+    search: {
+      provider: parseProvider(env.SMART_THINKING_SEARCH_PROVIDER),
+      tavilyApiKey: env.TAVILY_API_KEY?.trim() || undefined,
+      searchDepth: parseSearchDepth(env.SMART_THINKING_SEARCH_DEPTH),
+      cacheTtlMs: CACHE_TTL_MS.SEARCH,
+      requestTimeoutMs: LIMITS.WEB_REQUEST_TIMEOUT_MS,
+    },
+    persistence: {
+      dataDir: env.SMART_THINKING_DATA_DIR?.trim() || undefined,
+      disabled: env.SMART_THINKING_DISABLE_PERSISTENCE === 'true' || env.NODE_ENV === 'test',
+    },
+  };
+}
 
 /**
- * Constantes générales du système
+ * Backward-compatible system constants (pre-v13 call sites).
  */
 export const SystemConfig = {
-  DEFAULT_SESSION_ID: 'default',
-  MAX_THOUGHT_LENGTH: 10000,          // Longueur maximale d'une pensée en caractères
-  MAX_CONNECTIONS: 50                 // Nombre maximum de connexions par pensée
-};
+  DEFAULT_SESSION_ID: LIMITS.DEFAULT_SESSION_ID,
+  MAX_THOUGHT_LENGTH: LIMITS.MAX_THOUGHT_LENGTH,
+  MAX_CONNECTIONS: LIMITS.MAX_CONNECTIONS_PER_THOUGHT,
+} as const;
 
 /**
- * Configuration spécifique à la plateforme
- * Détecte automatiquement l'environnement d'exécution et ajuste les paramètres
+ * Backward-compatible verification thresholds (pre-v13 call sites).
+ */
+export const VerificationConfig = {
+  CONFIDENCE: {
+    MINIMUM_THRESHOLD: 0.7,
+    VERIFICATION_REQUIRED: 0.5,
+    HIGH_CONFIDENCE: METRIC_THRESHOLDS.HIGH_CONFIDENCE,
+    LOW_CONFIDENCE: 0.4,
+  },
+  SIMILARITY: {
+    EXACT_MATCH: SIMILARITY_THRESHOLDS.EXACT_MATCH,
+    HIGH_SIMILARITY: SIMILARITY_THRESHOLDS.HIGH,
+    MEDIUM_SIMILARITY: SIMILARITY_THRESHOLDS.MEDIUM,
+    LOW_SIMILARITY: SIMILARITY_THRESHOLDS.LOW,
+    TEXT_MATCH: SIMILARITY_THRESHOLDS.MEDIUM,
+  },
+  MEMORY: {
+    MAX_CACHE_SIZE: LIMITS.MAX_VERIFICATION_ENTRIES_PER_SESSION,
+    CACHE_EXPIRATION: CACHE_TTL_MS.SIMILARITY,
+    DEFAULT_SESSION_TTL: CACHE_TTL_MS.SESSION,
+  },
+} as const;
+
+/**
+ * Platform detection & path helpers kept for CLI compatibility.
  */
 export const PlatformConfig = {
   IS_WINDOWS: platform() === 'win32',
   IS_MAC: platform() === 'darwin',
   IS_LINUX: platform() === 'linux',
-  
-  /**
-   * Obtient le répertoire de configuration selon la plateforme
-   */
+
   getConfigPath: (): string => {
     if (platform() === 'win32') {
-      return process.env.APPDATA 
-        ? path.join(process.env.APPDATA, 'Smart-Thinking') 
+      return process.env.APPDATA
+        ? path.join(process.env.APPDATA, 'Smart-Thinking')
         : path.join(process.env.USERPROFILE || '', 'AppData', 'Roaming', 'Smart-Thinking');
-    } else if (platform() === 'darwin') {
-      return path.join(process.env.HOME || '', 'Library', 'Application Support', 'Smart-Thinking');
-    } else {
-      return path.join(process.env.HOME || '', '.smart-thinking');
     }
+    if (platform() === 'darwin') {
+      return path.join(process.env.HOME || '', 'Library', 'Application Support', 'Smart-Thinking');
+    }
+    return path.join(process.env.HOME || '', '.smart-thinking');
   },
-  
-  /**
-   * Obtient le répertoire temporaire selon la plateforme
-   */
+
   getTempPath: (): string => {
-    return path.join(
-      platform() === 'win32' ? (process.env.TEMP || 'C:/Temp') : '/tmp',
-      'smart-thinking'
-    );
+    return path.join(platform() === 'win32' ? (process.env.TEMP || 'C:/Temp') : '/tmp', 'smart-thinking');
   },
-  
-  /**
-   * Vérifie si Node.js est installé via NVM
-   * Utile pour ajuster les chemins sur Windows avec NVM
-   */
+
   isNvmEnvironment: (): boolean => {
     const nodePath = process.execPath.toLowerCase();
-    return nodePath.includes('nvm') || 
-           (platform() === 'win32' && nodePath.includes('appdata\\roaming\\nvm'));
+    return nodePath.includes('nvm') || (platform() === 'win32' && nodePath.includes('appdata\\roaming\\nvm'));
   },
-  
-  /**
-   * Obtient le chemin de base de NVM si applicable
-   * Important pour les configurations sur Windows avec NVM
-   */
+
   getNvmBasePath: (): string | null => {
     if (!PlatformConfig.isNvmEnvironment()) {
       return null;
     }
-    
     if (platform() === 'win32') {
-      const nvmPath = process.execPath.split('\\node.exe')[0];
-      return nvmPath;
-    } else {
-      // Pour Unix, essayer de détecter le chemin NVM
-      const nvmDir = process.env.NVM_DIR;
-      if (nvmDir) {
-        return nvmDir;
-      }
+      return process.execPath.split('\\node.exe')[0];
     }
-    
-    return null;
-  }
+    return process.env.NVM_DIR ?? null;
+  },
 };

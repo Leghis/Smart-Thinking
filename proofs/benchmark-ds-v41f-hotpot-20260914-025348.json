@@ -1,0 +1,1642 @@
+{
+  "label": "ds-v41f-hotpot",
+  "provider": "openai:deepseek-flash",
+  "mode": "live",
+  "seed": 1337,
+  "generatedAt": "2026-09-14T06:57:13.683Z",
+  "tasks": 15,
+  "conditions": [
+    "baseline",
+    "tool"
+  ],
+  "delta": {
+    "absolutePp": 6.67,
+    "relativePct": 9.1,
+    "wins": 2,
+    "losses": 1,
+    "ties": 12,
+    "signTestPValue": 1
+  },
+  "stats": [
+    {
+      "condition": "baseline",
+      "tasks": 15,
+      "runs": 15,
+      "accuracy": 0.7333,
+      "exactMatchRate": 0.7333,
+      "meanLatencyMs": 4542.8,
+      "p50LatencyMs": 3646,
+      "p95LatencyMs": 13431,
+      "inputTokens": 1659,
+      "outputTokens": 11168,
+      "wins": 2,
+      "losses": 1,
+      "ties": 12,
+      "hallucinations": 0,
+      "contradictions": 0
+    },
+    {
+      "condition": "tool",
+      "tasks": 15,
+      "runs": 15,
+      "accuracy": 0.8,
+      "exactMatchRate": 0.8,
+      "meanLatencyMs": 9102.93,
+      "p50LatencyMs": 6907,
+      "p95LatencyMs": 36664,
+      "inputTokens": 91219,
+      "outputTokens": 12142,
+      "wins": 2,
+      "losses": 1,
+      "ties": 12,
+      "hallucinations": 0,
+      "contradictions": 0
+    }
+  ],
+  "results": [
+    {
+      "taskId": "hotpot-000",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Non. La mosquée Laleli se trouve dans le quartier de **Laleli** (district de Fatih), tandis que le manoir Esma Sultan (*Esma Sultan Yalısı*) se trouve à **Ortaköy** (district de Beşiktaş), à Istanbul. Ce ne sont donc pas les mêmes quartiers.\n\n**Réponse finale : Non, elles ne sont pas situées dans le même quartier.**",
+      "latencyMs": 7018,
+      "inputTokens": 108,
+      "outputTokens": 1185,
+      "seed": 433025749
+    },
+    {
+      "taskId": "hotpot-001",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "The university is the **University of Kansas** (main campus in Lawrence, with branch campuses in the Kansas City metro area). Its fight song is **“I’m a Jayhawk.”**\n\n**Final answer: “I’m a Jayhawk.”**",
+      "latencyMs": 1829,
+      "inputTokens": 122,
+      "outputTokens": 180,
+      "seed": 1619287922
+    },
+    {
+      "taskId": "hotpot-002",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Oui. Giuseppe Verdi (1813–1901) est un compositeur italien célèbre pour ses opéras comme *Rigoletto*, *La Traviata* et *Aida*. Ambroise Thomas (1811–1896) est un compositeur français connu notamment pour les opéras *Mignon* et *Hamlet*.\n\nRéponse finale : **Oui, Giuseppe Verdi et Ambroise Thomas sont tous les deux des compositeurs d’opéra.**",
+      "latencyMs": 3296,
+      "inputTokens": 103,
+      "outputTokens": 425,
+      "seed": 45365327
+    },
+    {
+      "taskId": "hotpot-003",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Peter Schmeichel, Kasper’s father, was voted the **IFFHS World’s Best Goalkeeper** in 1992.",
+      "latencyMs": 3646,
+      "inputTokens": 114,
+      "outputTokens": 575,
+      "seed": 3087489900
+    },
+    {
+      "taskId": "hotpot-004",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Buck-Tick is a Japanese rock band from Gunma Prefecture, Japan.\n\n**Final answer: Gunma Prefecture, Japan.**",
+      "latencyMs": 1614,
+      "inputTokens": 109,
+      "outputTokens": 156,
+      "seed": 2748489153
+    },
+    {
+      "taskId": "hotpot-005",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "No. Elko Regional Airport is in Elko, Nevada, while Gerald R. Ford International Airport is in Grand Rapids, Michigan.\n\n**Final answer: No — only Gerald R. Ford International Airport is located in Michigan.**",
+      "latencyMs": 2403,
+      "inputTokens": 108,
+      "outputTokens": 202,
+      "seed": 1081561534
+    },
+    {
+      "taskId": "hotpot-006",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Le château médiéval de Dirleton, dans l’East Lothian, se situe du côté sud du **Firth of Forth**.\n\n**Réponse finale : le Firth of Forth.**",
+      "latencyMs": 4084,
+      "inputTokens": 113,
+      "outputTokens": 632,
+      "seed": 3500100203
+    },
+    {
+      "taskId": "hotpot-007",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Indianapolis Motor Speedway in Speedway, Indiana, hosts the Indianapolis 500, a 500-mile race held each May.\n\n**Final answer: Indianapolis Motor Speedway.**",
+      "latencyMs": 1843,
+      "inputTokens": 108,
+      "outputTokens": 143,
+      "seed": 2459187880
+    },
+    {
+      "taskId": "hotpot-008",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Non, pas au sens strict : **Ajuga** est bien un genre botanique, mais **« cypress »** est un nom commun, pas un genre. Le genre correspondant est **Cupressus**.\n\nDonc : si « Cypress » désigne *Cupressus*, alors oui, les deux sont des genres ; sinon, non.\n\n**Réponse finale : Non, pas tels quels — Ajuga est un genre, « cypress » est un nom commun.**",
+      "latencyMs": 6034,
+      "inputTokens": 101,
+      "outputTokens": 1107,
+      "seed": 1713509965
+    },
+    {
+      "taskId": "hotpot-009",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Vince Phillips a détenu le titre IBF des super-légers. L’IBF est l’une des organisations reconnues par l’**International Boxing Hall of Fame**.\n\n**Réponse finale : l’International Boxing Hall of Fame.**",
+      "latencyMs": 8241,
+      "inputTokens": 111,
+      "outputTokens": 1549,
+      "seed": 774599850
+    },
+    {
+      "taskId": "hotpot-010",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "The 1996 loose adaptation of Shakespeare’s *Romeo & Juliet* written by James Gunn was **Tromeo and Juliet**.",
+      "latencyMs": 1825,
+      "inputTokens": 117,
+      "outputTokens": 187,
+      "seed": 1841449184
+    },
+    {
+      "taskId": "hotpot-011",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "East Lempster is in Sullivan County, New Hampshire. The county seat of Sullivan County is **Newport**.\n\n**Final answer: Newport.**",
+      "latencyMs": 2157,
+      "inputTokens": 110,
+      "outputTokens": 242,
+      "seed": 1209206211
+    },
+    {
+      "taskId": "hotpot-012",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Teide National Park is located on the island of **Tenerife**, in the **Canary Islands, Spain**.  \nGarajonay National Park is located on the island of **La Gomera**, also in the **Canary Islands, Spain**.\n\n**Final answer: Both parks are in the Canary Islands, Spain—Teide on Tenerife and Garajonay on La Gomera.**",
+      "latencyMs": 3741,
+      "inputTokens": 106,
+      "outputTokens": 460,
+      "seed": 2511121142
+    },
+    {
+      "taskId": "hotpot-013",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "The journal is the **London Review of Books (LRB)**, and its annual documentary film festival is the **London Review of Books Film Festival**, held in **June**.\n\n**Final answer: June.**",
+      "latencyMs": 6980,
+      "inputTokens": 117,
+      "outputTokens": 1270,
+      "seed": 2832151897
+    },
+    {
+      "taskId": "hotpot-014",
+      "category": "factual",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Shirley Temple portrayed Corliss Archer in *Kiss and Tell* (1945). She later served as **Chief of Protocol of the United States** (1976–1977), and also as U.S. Ambassador to Ghana and Czechoslovakia.\n\n**Final answer: Chief of Protocol of the United States.**",
+      "latencyMs": 13431,
+      "inputTokens": 112,
+      "outputTokens": 2855,
+      "seed": 1659107876
+    },
+    {
+      "taskId": "hotpot-000",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Vérification des localisations :**\n\n| Monument | Quartier | District | Coordonnées |\n|---|---|---|---|\n| Mosquée Laleli (Laleli Camii) | **Laleli** | Fatih (rive européenne, centre historique) | 41°00′36″N, 28°57′24″E |\n| Manoir Esma Sultan (Esma Sultan Yalısı) | **Ortaköy** | Beşiktaş (rive du Bosphore) | 41°02′51″N, 29°01′39″E |\n\n- La mosquée Laleli se trouve sur Ordu Caddesi, dans le quartier de Laleli, district de Fatih (source : [Wikipedia – Laleli Mosque](https://en.wikipedia.org/wiki/Laleli_Mosque) ; [We Love Istanbul](https://www.weloveist.com/listing/laleli-mosque)).\n- Le manoir Esma Sultan est un yalı (résidence au bord de l'eau) situé à Ortaköy, juste à côté de la mosquée d'Ortaköy, district de Beşiktaş (source : [Wikipedia – Esma Sultan Mansion](https://en.wikipedia.org/wiki/Esma_Sultan_Mansion) ; [Visit Istanbul](https://visit.istanbul/esma-sultan-yali)).\n\nNon seulement les quartiers diffèrent (Laleli vs Ortaköy), mais aussi les districts (Fatih vs Beşiktaş), distants d'environ 5–6 km le long du Bosphore/Corne d'Or.\n\n**Réponse finale : Non — la mosquée Laleli (quartier de Laleli, Fatih) et le manoir Esma Sultan (quartier d'Ortaköy, Beşiktaş) ne se trouvent pas dans le même quartier (ni même dans le même district) d'Istanbul.**",
+      "latencyMs": 8263,
+      "inputTokens": 5094,
+      "outputTokens": 724,
+      "toolCalls": 2,
+      "seed": 2976538,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Are the Laleli Mosque and Esma Sultan Mansion located in the same neighborhood?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_RcQgDoRj6spX6yr3DD9R1445",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Laleli Mosque neighborhood Fatih Istanbul"
+                }
+              },
+              {
+                "id": "call_01_EmNxoVgWqOTKUJiGMSkv0299",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Esma Sultan Mansion location Ortaköy Istanbul"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Laleli Mosque - Istanbul\",\"url\":\"https://www.weloveist.com/listing/laleli-mosque\",\"text\":\"The Laleli Mosque, also known as the Tulip Mosque, is a baroque-designed Ottoman imperial mosque located on Ordu Street in the Laleli neighbourhood of the Fatih district. The mosque and its outbuildings are actually parts of the Laleli Complex. The Laleli Mosque was named after a holy person, “Laleli Baba”, who was a colloquially beloved person. Indeed, Sultan Mustafa the 3rd, who ruled the empire between the years 1757 and 1774, had a strong liking for Laleli Baba. For this reason, the mosque [...] reason, the mosque was named as Laleli Mosque upon the Sultan’s order. Nowadays, the mausoleum of Laleli Baba is approximately 200 meters from the Laleli Mosque in terms of beeline. Over time, the neighbourhood where Laleli Mosque stands was named as the Laleli neighbourhood. [...] ### Rate and write a review Cancel reply\\n\\nOrdu Cad. 34134 Fatih, İstanbul Get directions\\n\\n Cult & Religion\\n Mosque\"},{\"title\":\"Laleli Mosque - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Laleli_Mosque\",\"text\":\"The Laleli Mosque (Turkish: Laleli Camii, lit. 'Tulip Mosque') is an 18th-century Ottoman imperial mosque located in Laleli, Fatih, Istanbul, Turkey.\\n\\n## History\\n\\n[edit]\\n\\n, but it became popularly known as the Laleli Mosque ('Mosque of the Tulips') after the name of the neighbourhood where it was built. [...] | Laleli Mosque is located in Istanbul Fatih Laleli Mosque  Location within the Fatih district of Istanbul |\\n| Religion |\\n| Affiliation | Sunni Islam |\\n| Location |\\n| Location | Istanbul, Turkey |\\n| Coordinates | 41°00′36″N 28°57′24″E﻿ / ﻿41.01000°N 28.95667°E﻿ / 41.01000; 28.95667: {{#parsoid\\\\u0000fragment:5}}[ 41°00′36″N 28°57′24″E﻿ / ﻿41.01000°N 28.95667°E﻿ / 41.01000; 28.95667]\\\"}}\\\" id=\\\"mwBw\\\" about=\\\"#mwt9\\\" typeof=\\\"mw:Extension/indicator\\\"> |\\n| Architecture |\\n| Architect | Mehmet Tahir Ağa | [...] Tools\\n\\nActions\\n\\n Read\\n Edit\\n View history\\n\\nGeneral\\n\\n What links here\\n Related changes\\n Upload file\\n Permanent link\\n Page information\\n Cite this page\\n Get shortened URL\\n Switch to legacy parser\\n\\nPrint/export\\n\\n Download as PDF\\n Printable version\\n\\nIn other projects\\n\\n Wikimedia Commons)\\n Wikidata item\\n\\nAppearance\\n\\nCoordinates: 41°00′36″N 28°57′24″E﻿ / ﻿41.01000°N 28.95667°E﻿ / 41.01000;\"},{\"title\":\"Laleli, Fatih - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Laleli,_Fatih\",\"text\":\"is a neighbourhood of Fatih, Istanbul, Turkey, lying between Beyazıt and Aksaray. It is known for its large textile wholesaling business and is home to the Literature and Science Faculties of Istanbul University, designed by Sedad Hakkı Eldem and Emin Onat in the 1940s. It is served by a stop on the T1 tram line which runs along Ordu Caddesi. [...] The most prominent historic monument in Laleli is the Laleli Mosque, a work of architect Mehmed Tahir Ağa that was originally constructed in the 1760s. It wa…(tronqué)",
+            "toolCallId": "call_00_RcQgDoRj6spX6yr3DD9R1445"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Esma Sultan Yali\",\"url\":\"https://visit.istanbul/esma-sultan-yali\",\"text\":\"Esma Sultan Mansion is a waterfront palace located in Ortaköy, Istanbul, Turkey. It is named after Esma Sultan, the daughter of Ottoman Sultan Abdülaziz. The mansion was designed in the neoclassical style by architect Sarkis Balyan. It is located next to the Ortaköy Mosque and was left in a state of disrepair for many years after a fire. The interior of the mansion was restored in 2001 using glass and steel, and has been open to the public for tourism purposes since then. [...] It was used as a Greek School since 1918 and as a tobacco warehouse after 1922. In the 1950s, it was sold several times and used as a carpentry shop and warehouse.\\n\\nThe Marmara Collection\\n\\nThe Marmara Collection purchased Esma Sultan Mansion in the early 90s. The building was restored, remaining true to its original plan. In 2001, the interior of the building was rebuilt using glass and steel in line with Philip Roberts project, and the waterside mansion began to operate throughout the year. [...] The mansion was given as a wedding gift to Esma Sultan, who was married to Circassian Mehmet Pasha, one of the important statesmen of the time, at the age of 16. After the death of Esma Sultan II. Abdulhamit gave t\"},{\"title\":\"THE MARMARA ESMA SULTAN MANSION\",\"url\":\"https://america.imexevents.com/product/134905\",\"text\":\"Esma Sultan Mansion is a unique historical venue located on the shores of the Bosphorus in the Ortaköy district of Istanbul. This impressive mansion, originally built in the 19th century for Ottoman princess Esma Sultan, blends Ottoman architecture with contemporary design, making it one of the most iconic event venues in the city. Restored and modernized, the mansion now serves as a prestigious setting for weddings, corporate events, and social gatherings, offering both indoor and outdoor [...] indoor and outdoor spaces with breathtaking views of the Bosphorus Bridge and the glittering waters of the Bosphorus. Combining history and luxury, Esma Sultan Mansion provides an unforgettable atmosphere for any occasion. [...] Loading...\\n\\n# THE MARMARA ESMA SULTAN MANSION\\n\\nTHE MARMARA HOTELS\\n\\n### THE MARMARA HOTELS\\n\\nBayside/E2304\\n\\n##### Categories\\n\\nTürkiyeEvent venue (non-hotel e.g. museum/castle)\\n\\n## Product description\"},{\"title\":\"Esma Sultan Mansion - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Esma_Sultan_Mansion\",\"text\":\"| Esma Sultan Mansion is located in Istanbul Esma Sultan Mansion  Location within Istanbul |\\n| General information |\\n| Type | Brick Redevelopment: Brick, steel and glass |\\n| Location | Ortaköy, Istanbul, Turkey |\\n| Coordinates | 41°02′51″N 29°01′39″E﻿ / ﻿41.047481°N 29.02745°E﻿ / 41.047481; 29.02745: {{#parsoid\\\\u0000fragment:5}}[ 41°02′51″N 29°01′39″E﻿ / ﻿41.047481°N 29.02745°E﻿ / 41.047481; 29.02745]\\\"}}\\\" id=\\\"mwCA\\\" about=\\\"#mwt8\\\" typeof=\\\"mw:Extension/indicator\\\"> | [...] The Esma Sultan Mansion (Turkish…(tronqué)",
+            "toolCallId": "call_01_EmNxoVgWqOTKUJiGMSkv0299"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-001",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Identification de l'université** : l'établissement dont le campus principal est à Lawrence (Kansas) et qui possède des campus dans l'agglomération de Kansas City (KU Medical Center à Kansas City, Kansas, et KU Edwards Campus à Overland Park) est l'**Université du Kansas (University of Kansas, KU)**.\n\n**Son fight song** : « **I'm a Jayhawk** » — il s'agit du chant de combat officiel des Jayhawks, apparu dans une production de 1912 et encore utilisé aujourd'hui lors des matchs, notamment par la Marching Jayhawks. À ne pas confondre avec « Kansas Song », qui est l'alma mater de l'université.\n\n(Source : publications officielles/comptes de l'Université du Kansas évoquant « KU's fight song, \"I'm a Jayhawk\" ».)\n\n**Réponse finale : « I'm a Jayhawk » (le fight song de l'Université du Kansas).**",
+      "latencyMs": 6558,
+      "inputTokens": 3653,
+      "outputTokens": 462,
+      "toolCalls": 2,
+      "seed": 3720915941,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What is the name of the fight song of the university whose main campus is in Lawrence, Kansas and whose branch campuses are in the Kansas City metropolitan area?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_fYHKrXQw3IbY8SNstl5Y9479",
+                "name": "web_search",
+                "arguments": {
+                  "query": "University of Kansas fight song Lawrence Kansas main campus"
+                }
+              },
+              {
+                "id": "call_01_Yubodn0h3172K0RhVmQl3785",
+                "name": "web_search",
+                "arguments": {
+                  "query": "\"I'm a Jayhawk\" official fight song University of Kansas"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"KU's fight song, “I'm a Jayhawk,” includes a syncopated clap ...\",\"url\":\"https://www.facebook.com/KU/videos/is-this-the-trickiest-ku-tradition/918890031930581\",\"text\":\"KU's fight song, “I'm a Jayhawk,” includes a syncopated clap pattern. Whether you're new to this tradition or just never got the hang of it,\"}]}",
+            "toolCallId": "call_00_fYHKrXQw3IbY8SNstl5Y9479"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"KU's fight song, “I'm a Jayhawk,” includes a syncopated clap ...\",\"url\":\"https://www.facebook.com/KU/videos/is-this-the-trickiest-ku-tradition/918890031930581\",\"text\":\"KU's fight song, “I'm a Jayhawk,” includes a syncopated clap pattern. One 1912 production featured an original song called \\\"I'm a Jayhawk\\\".\"},{\"title\":\"I'm a Jayhawk\",\"url\":\"https://www.youtube.com/watch?v=Ojo0yvr5Dno\",\"text\":\"University of Kansas Fight Song- \\\"I'm a Jayhawk\\\". Hydra•201K views &middot; 1:28. Go to channel The University of Kansas Marching Jayhawks - Topic\"}]}",
+            "toolCallId": "call_01_Yubodn0h3172K0RhVmQl3785"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-002",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Vérification par sources :**\n\n- **Giuseppe Verdi** (1813–1901) : compositeur italien, présenté par Britannica comme « a leading Italian composer of opera in the 19th century », célèbre pour *Rigoletto*, *La traviata*, *Aida*, *Otello*, *Falstaff*. (britannica.com/biography/Giuseppe-Verdi ; eno.org)\n- **Ambroise Thomas** (1811–1896) : compositeur français, décrit par Wikipédia comme « a French composer… best known for his operas *Mignon* (1866) and *Hamlet* (1868) », et par le Kennedy Center comme « a leading composer of 19th century France… probably best known for his operas ». (en.wikipedia.org/wiki/Ambroise_Thomas ; kennedy-center.org)\n\nLes deux biographies les qualifient explicitement de compositeurs d'opéras, avec des œuvres lyriques majeures à leur actif. Un détail savoureux : selon la notice Spotify, Verdi aurait renoncé à son propre projet d'opéra *Hamlet* devant la version de Thomas.\n\n**Réponse finale : Oui, Giuseppe Verdi et Ambroise Thomas sont tous les deux compositeurs d'opéras** — Verdi pour l'opéra italien (avec *Rigoletto*, *Aida*…), Thomas pour l'opéra français (avec *Mignon* et *Hamlet*).",
+      "latencyMs": 8342,
+      "inputTokens": 4979,
+      "outputTokens": 561,
+      "toolCalls": 2,
+      "seed": 1200012856,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Are Giuseppe Verdi and Ambroise Thomas both Opera composers ?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_4464B7cjzW0lSMeKMfFq7667",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Giuseppe Verdi opera composer",
+                  "maxResults": 3
+                }
+              },
+              {
+                "id": "call_01_4mXobcSpdmy1p66jFIpO6693",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Ambroise Thomas opera composer Mignon Hamlet",
+                  "maxResults": 3
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Giuseppe Verdi | Italian Opera Composer, La traviata, Aida, Rigoletto, Compositions, & Facts\",\"url\":\"https://www.britannica.com/biography/Giuseppe-Verdi\",\"text\":\"Show less \\n\\nGiuseppe Verdi (born October 9/10, 1813, Roncole, near Busseto, duchy of Parma [Italy]—died January 27, 1901, Milan, Italy) was a leading Italian composer of opera in the 19th century, noted for operas such as _Rigoletto_ (1851), _Il trovatore_ (1853), _La traviata_ (1853), _Don Carlos_ (1867), _Aida_ (1871), _Otello_ (1887), and _Falstaff_ (1893) and for his _Requiem Mass_ (1874).\\n\\n## Early years [...] Show More\\n\\nImage 10: Britannica AI Icon\\n\\n Ask Anything  Quick Summary \\n\\nEntertainment & Pop CultureClassical Music\\n\\n CITE \\n\\n Share \\n\\n Feedback \\n\\n External Websites \\n\\nImage 11: Giuseppe Verdi\\n\\nGiuseppe VerdiItalian composer Giuseppe Verdi was known for operas such as _Rigoletto_ (1851).(more)\\n\\n# Giuseppe Verdi\\n\\nItalian composer\\n\\n Homework Help \\n\\nAlso known as: Giuseppe Fortunino Francesco Verdi\\n\\nWritten by [...] Notable Works: “Aida”“Don Carlos”“Ernani”“Falstaff”“Il trovatore”“La battaglia di Legnano”“La traviata”“Nabucco”“Oberto, conte de San Bonifacio”“Otello”“Quattro pezzi sacri”“Requiem”“Rigoletto”“Simon Boccanegra”“The Force of Destiny”“The Sicilian Vespers”“Un ballo in maschera”“Un giorno di regno”_(Show more)_\\n\\nMovement / Style: Romanticism_(Show more)_\\n\\nOn the Web\"},{\"title\":\"Giuseppe Verdi Composer\",\"url\":\"https://www.kennedy-center.org/education/resources-for-educators/classroom-resources/media-and-interactives/artists/verdi-giuseppe\",\"text\":\"Giuseppe Verdi was an Italian composer, philanthropist, and politician who remains a national––and _international_––hero, both for his role in Italy’s “Risorgimento” movement as well as his incomparable outpouring of infectiously melodic yet powerfully dramatic operas. A musician and storyteller in equal measure, his productions dominated the operatic conversation for much of the 19th Century, and his name became all but synonymous with Italian life and culture. Today, his works are an [...] final composition era. His last two operas, both written with librettist Arrigo Boito (1842-1918, also a composer in his own right) were a culmination of Verdi’s lifelong love of Shakespeare, first evident in _Macbeto_and briefly explored in vague sketches for an opera entitled _Re Lear._ The resulting masterpieces were _Otello_(1887) and _Falstaff_(1893, based on _The Merry Wives of Windsor_), both of which helped usher in a new form of Italian opera where music and story blended more\"},{\"title\":\"The Life of Giuseppe Verdi: Operas, Music & More | ENO\",\"url\":\"https://www.eno.org/people/giuseppe-verdi\",\"text\":\"Skip to content\\n\\nEnglish National Opera\\n\\n# Giuseppe Verdi\\n\\n## Composer\\n\\nJump to:\\n\\nGiuseppe Verdi was the major Italian musical dramatist of the nineteenth century.\\n\\nBorn Roncole, near Busetto 9 October 1813; died Milan 27 January 1901\\n\\nGiuseppe Ve…(tronqué)",
+            "toolCallId": "call_00_4464B7cjzW0lSMeKMfFq7667"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Ambroise Thomas - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Ambroise_Thomas\",\"text\":\"; 5 August 1811 – 12 February 1896) was a French composer and teacher, best known for his operas Mignon (1866) and Hamlet \\\"Hamlet (opera)\\\") (1868). [...] | List of operas |\\n| Operas |  Le caïd (1849)  Le songe d'une nuit d'été (1850)  La cour de Célimène (1855)  Le roman d'Elvire (1860)  Mignon (1866)  Hamlet \\\"Hamlet (Thomas)\\\") (1868)  Françoise de Rimini (1882) |\\n|  |\\n\\n| Authority control databases Edit this at Wikidata | [...] as imitating Victor Massé. She concludes that at his best – which he was not always – Thomas wrote delightful and individual music, was capable of orchestration that is \\\"often quite ravishing\\\", and musically conveyed the character of the important roles strongly and clearly. \\\"If Thomas had written no stage works except Mignon and Hamlet he would probably be more widely recognized as one of the most influential and important of French 19th-century operatic composers.\\\"\"},{\"title\":\"Ambroise Thomas | Kennedy Center\",\"url\":\"https://www.kennedy-center.org/artists/t/ta-tn/ambroise-thomas\",\"text\":\"A leading composer of 19th century France, Ambroise Thomas was born in Paris in 1811 and is probably best known for his operas Mignon and Hamlet.Born into a musical family, Thomas was an accomplished pianist and violinist by age 10. In 1828 he entered the Paris Conservatory, where he became known as a pianist of sensitivity and virtuosity, and won the Prix de Rome for his cantata Hermann et Ketty. He later studied in Italy and Germany before returning to Paris in 1835. Between 1837 and 1843 he [...] as well as around the world. The heroine was an abandoned daughter who travels with a group of gypsies exploiting her talents. The character is complex, as was the music used to portray her. Following Mignon Thomas offered an 1868 adaptation of Hamlet, hailed as a masterpiece. The score contained the first use of a saxophone in an opera. Highly innovative, Thomas expanded the orchestra using the recently developed brass instruments and combining these with conventional instruments. In 1870 he\"},{\"title\":\"Ambroise Thomas | Spotify\",\"url\":\"https://open.spotify.com/artist/4b83P4cnmD7hqhoUkgGEsN\",\"text\":\"One of leading opera composers of nineteenth century France, Ambroise Thomas was a successor to Meyerbeer, Auber, and Offenbach. He was responsible for Mignon, one of the most popular operas ever written, and the hauntingly beautiful Hamlet. Born into a musical family, Thomas entered the Paris Conservatory in 1828. He won the Prix de Rome for a cantata he wrote there, and studied in Italy and Germany for several years. Returning to Paris in 1835, he turned his attention to composing for the [...] his adaptation of Hamlet (1868), hailed at the Opéra-Comique as a masterpiece of even greater proportions than Mignon; even Verdi abandoned his own intention of composing a Hamlet in deference to Thomas. Though…(tronqué)",
+            "toolCallId": "call_01_4mXobcSpdmy1p66jFIpO6693"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-003",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Kasper Schmeichel** est le fils de **Peter Schmeichel**, le légendaire gardien danois de Manchester United.\n\nEn 1992, l'IFFHS (Fédération internationale d'histoire et de statistique du football) a voté Peter Schmeichel comme **« Meilleur gardien de but du monde » (IFFHS World's Best Goalkeeper)** — il a remporté ce titre avec 118 points, loin devant Andoni Zubizarreta (28 pts). Il a d'ailleurs été reconduit l'année suivante, en 1993.\n\nSources : Wikipédia (Peter Schmeichel) et RSSSF, « IFFHS' World's Best Goalkeeper of the Year 1992 ».\n\n**Réponse finale : en 1992, l'IFFHS a élu le père de Kasper Schmeichel, Peter Schmeichel, « Meilleur gardien de but du monde » (IFFHS World's Best Goalkeeper).**",
+      "latencyMs": 6085,
+      "inputTokens": 5037,
+      "outputTokens": 365,
+      "toolCalls": 2,
+      "seed": 3380618027,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What was the father of Kasper Schmeichel voted to be by the IFFHS in 1992?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_p1YbWuwCeE7pSpHWnYV38071",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Peter Schmeichel IFFHS 1992 voted best goalkeeper"
+                }
+              },
+              {
+                "id": "call_01_rkefnBPfPxvT8NlbOUWv4274",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Kasper Schmeichel father Peter Schmeichel IFFHS 1992 award"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Peter Schmeichel - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Peter_Schmeichel\",\"text\":\"for the Denmark national team, with which he won the UEFA European Championship in 1992. Regarded as one of the greatest goalkeepers of all time, he was voted the IFFHS World's Best Goalkeeper in 1992 and 1993, while the International Federation of Football History & Statistics ranked Schmeichel among the top 10 goalkeepers of the 20th century \\\"IFFHS World's Best Goalkeeper\\\"). [...] Det Gyldne Bur (Goalkeeper of the Year in the Danish League): 1987, 1988, 1990, 1992\\n Danish Football Player of the Year: 1990, 1993, 1999\\n UEFA European Championship Team of the Tournament: 1992\\n UEFA Goalkeeper of the Year: 1992, 1993, 1998\\n IFFHS World's Best Goalkeeper: 1992, 1993\\n PFA Team of the Year: 1992–93 Premier League#FA_Premier_League \\\"PFA Team of the Year (1990s)\\\")\\n Premier League Player of the Season: 1995–96\\n UEFA Club Goalkeeper of the Year: 1997–98 [...] IFFHS World's Best Goalkeeper |  | Men's winners    1987: Belgium Pfaff  1988: Soviet Union Dasaev  1989: Italy Zenga  1990: Italy Zenga  1991: Italy Zenga  1992: Denmark Schmeichel  1993: Denmark Schmeichel  1994: Belgium Preud'homme  1995: Paraguay Chilavert  1996: Germany Köpke  1997: Paraguay Chilavert  1998: Paraguay Chilavert  19\"},{\"title\":\"IFFHS' World's Best Goalkeeper of the Year 1992\",\"url\":\"https://www.rsssf.org/miscellaneous/iffhs-gkoy92.html\",\"text\":\"## IFFHS' World's Best Goalkeeper of the Year 1992\\n\\n```\\nAward given by the International Federation of Football History & Statistics (IFFHS); the election is for the calendar year. Top 6 1. Peter SCHMEICHEL 118 pts Denmark Manchester United (Eng) 2. Andoni ZUBIZARRETA 28 Spain FC Barcelona (Spa) 3. Hans VAN BREUKELEN 24 Netherlands PSV Eindhoven (Ned) 4. Dimitri KHARIN 23 Russia CSKA Moskva (Rus) 5. Bodo ILLGNER 20 Germany 1.FC Kln (Ger) 6. Walter ZENGA 16 Italy Inter Milan (Ita)\\n\\noverview file [...] overview file\\n\\n1991\\n\\n1993\\n\\n```\\n\\n ## About this document\\n\\nSource: [IFF 99]\\n\\nPrepared and maintained by José Luis Pierrend for the  Rec.Sport.Soccer Statistics Foundation\\n\\nAuthor: José Luis Pierrend (josepie@hotmail.com)  \\n Last updated: 25 Jan 2000\\n\\n(C) Copyright José Luis Pierrend and RSSSF 2000  \\n You are free to copy this document in whole or part provided that proper acknowledgement is given to the author. All rights reserved.\"},{\"title\":\"Peter Schmeichel, one of the best... - VM Soccer Legends\",\"url\":\"https://www.facebook.com/VMSoccerLegends/posts/peter-schmeichel-one-of-the-best-goalkeepers-in-history-turns-62-todaypeter-bole/1151346807148699\",\"text\":\"UEFA Intertoto Cup: 2001\\n\\nIndividual:\\n\\nGoalkeeper of the Year in the Danish League: 1987, 1988, 1990, 1992\\n\\nDanish Football Player of the Year: 1990, 1993, 1999\\n\\nUEFA European Championship Team of the Tournament: 1992\\n\\nUEFA Goalkeeper of the Year: 1992, 1993, 1998\\n\\nIFFHS World's Best Goalkeeper: 1992, 1993\\n\\nPFA T…(tronqué)",
+            "toolCallId": "call_00_p1YbWuwCeE7pSpHWnYV38071"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Peter Schmeichel - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Peter_Schmeichel\",\"text\":\"for the Denmark national team, with which he won the UEFA European Championship in 1992. Regarded as one of the greatest goalkeepers of all time, he was voted the IFFHS World's Best Goalkeeper in 1992 and 1993, while the International Federation of Football History & Statistics ranked Schmeichel among the top 10 goalkeepers of the 20th century \\\"IFFHS World's Best Goalkeeper\\\"). [...] Bente Schmeichel is the mother of his two children, Cecilie Schmeichel and Kasper Schmeichel, a former goalkeeper for Leicester City and the Denmark national team since 2013 up until 2026.\\n\\nSchmeichel plays the piano as a hobby and joined Robbie Williams onstage during his 2006 Close Encounters Tour at Copenhagen's Parken Stadium to play the keyboards during \\\"Feel \\\"Feel (Robbie Williams song)\\\")\\\".\\n\\n### Criticism of sportswashing and FIFA support\\n\\n[edit] [...] Det Gyldne Bur (Goalkeeper of the Year in the Danish League): 1987, 1988, 1990, 1992\\n Danish Football Player of the Year: 1990, 1993, 1999\\n UEFA European Championship Team of the Tournament: 1992\\n UEFA Goalkeeper of the Year: 1992, 1993, 1998\\n IFFHS World's Best Goalkeeper: 1992, 1993\\n PFA Team of the Year: 1992–93 Premier League#FA_Premier_League \\\"\"},{\"title\":\"200 Peter Schmeichel Kasper Photos and High-Res Pictures - Getty Images\",\"url\":\"https://www.gettyimages.com/photos/peter-schmeichel-kasper\",\"text\":\"Kasper Schmeichel of Denmark is embraced by their father Peter Schmeichel prior to the FIFA World Cup Qatar 2022 Group D match between France and...\\nKasper Schmeichel of Denmark is embraced by their father Peter Schmeichel prior to the FIFA World Cup Qatar 2022 Group D match between France and...\\nManchester United goalkeeper Peter Schmeichel with his son Kasper at Old Trafford, Manchester in August 1992. [...] Kasper Schmeichel of Denmark is embraced by his father Peter Schmeichel prior to the FIFA World Cup Qatar 2022 Group D match between France and...\\nKasper Schmeichel of Denmark and Leicester City and Peter Schmeichel are pictured inside the photo booth prior to The Best FIFA Football Awards at...\\nEx-Manchester United goalkeeper Peter Schmeichel and son Kasper Schmeichel of Leicester City look on prior to the UEFA Europa League quarter final... [...] Peter Schmeichel, father of Kasper, speaks to Goalkeeping Coach Stevie Woods during a Celtic training session at Lennoxtown Training Centre, in...\\nPeter Schmeichel, father of Kasper during a Celtic training session at Lennoxtown Training Centre, in January 13 in Glasgow, Scotland.\\nKasper Schmeichel of Leicester City with his family\"},{\"title\":\"Peter Schmeichel won one of football's most unlikely international ...\",\"url\":\"https://www.facebook.com/footballgloria/posts/peter-schmeichel-won-one-of-footballs-most-unlikely-international-titles-as-a-go/122303050562106561\",\"text\":\"His performances earned him recog…(tronqué)",
+            "toolCallId": "call_01_rkefnBPfPxvT8NlbOUWv4274"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-004",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "- **Hayden** (Paul Hayden Desser) : singer-songwriter canadien, né à Thornhill (Ontario).\n- **Buck-Tick** : groupe de rock japonais formé en 1983 à **Fujioka, préfecture de Gunma, Japon** (source : Wikipedia, WPSU, ilovejapanesemusic.com).\n\n**Réponse finale : Buck-Tick est originaire du Japon — plus précisément de Fujioka, dans la préfecture de Gunma (formé en 1983).**",
+      "latencyMs": 4044,
+      "inputTokens": 4079,
+      "outputTokens": 246,
+      "toolCalls": 1,
+      "seed": 2721297782,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Hayden is a singer-songwriter from Canada, but where does Buck-Tick hail from?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_K6CqnVhr5qf6ugaKMJBz0582",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Buck-Tick band origin country city formed",
+                  "maxResults": 5
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Buck-Tick - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Buck-Tick\",\"text\":\"Buck-Tick (stylized as BUCK∞TICK) is a Japanese rock band formed in Fujioka, Gunma in 1983. The classic lineup of lead vocalist Atsushi Sakurai, lead guitarist Hisashi Imai, rhythm guitarist Hidehiko Hoshino, bassist Yutaka Higuchi \\\"Yutaka Higuchi (musician)\\\") and drummer Toll Yagami lasted from 1985 until 2023. Following Sakurai's death that year, Imai and Hoshino began sharing lead vocal duties. The band has experimented with many different genres of music throughout their four decade career, [...] Buck-Tick was formed in Gunma Prefecture in 1983. Hisashi Imai had the original idea for the band, despite not being able to play any instruments at the time. He recruited his friend, Yutaka Higuchi \\\"Yutaka Higuchi (musician)\\\"), and the two of them began to practice—Imai on guitar and Higuchi on bass. Then, Higuchi asked Hidehiko Hoshino, who had been his friend since their first year of high school, to join. Higuchi tried to convince Hoshino to become the vocalist because of his looks, but [...] | Background information |\\n| Also known as | B-T, Hinan Go-Go (非難GO-GO) |\\n| Origin | Fujioka, Gunma, Japan |\\n| Genres |  Gothic rock  alternative rock  industrial rock  post-punk  punk rock |\\n\"},{\"title\":\"WPSU / Blogs\",\"url\":\"https://legacy.wpsu.org/index.php/blogs/comments/music_across_the_globe_buck-tick\",\"text\":\"Buck-Tick is a Japanese rock band, which formed in 1983 in Fujioka, Gunma, Japan. Just a little fun fact: supposedly, Buck-Tick is is a creative spelling of the Japanese work €œbakuchiku,€ meaning firecracker (). Known as one of the founders of the Japanese rock movement, visual kei, the five-member band has been producing hits since their first album release, 18 albums ago. They€™ve experimented with different genres throughout the years, such as punk, goth, industrial, and dark wave, but\"},{\"title\":\"Buck-Tick - I Love Japanese Music\",\"url\":\"https://ilovejapanesemusic.com/buck-tick\",\"text\":\"Buck-Tick is a Japanese rock band that has been making waves in the music industry for over three decades. Formed in 1983 in Fujioka, Gunma, the band has undergone lineup changes over the years, but they have remained a constant force in the Japanese music scene. [...] The band was initially formed by vocalist Atsushi Sakurai, guitarist Hisashi Imai, bassist Yutaka Higuchi, and drummer Toll Yagami. They were heavily influenced by punk and new wave music, and their early music reflected this with fast-paced and energetic tracks. [...] In short, Buck-Tick is a Japanese rock band with a rich history and a unique sound. Their music and style have stood the test of time, and they remain a major force in the Japanese music industry. If you are a fan of rock music, be sure to give Buck-Tick a listen – you won’t be disappointed!\\n\\nBuck Tic1 Y4LoXVxKPRfJL2l4  \\n Buck Tic4 YNq9gy3o82CkzL34\\n\\n### The final chapter is unwritten!\\n\\n### like &…(tronqué)",
+            "toolCallId": "call_00_K6CqnVhr5qf6ugaKMJBz0582"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-005",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Les sources confirment :\n\n- **Elko Regional Airport** (EKO) : situé à environ 1 mile à l'ouest du centre-ville d'Elko, dans le comté d'Elko, **Nevada** (États-Unis) — source : Wikipedia, Apple Maps.\n- **Gerald R. Ford International Airport** (GRR) : situé à Cascade Township, près de Grand Rapids, **Michigan** — source : Wikipedia, Michigan.org.\n\nConclusion : seul le Gerald R. Ford International Airport se trouve dans le Michigan. Le Elko Regional Airport est dans le Nevada.\n\n**Réponse finale : Non, les deux aéroports ne sont pas situés dans le Michigan. Le Gerald R. Ford International Airport est bien dans le Michigan (près de Grand Rapids), mais l'Elko Regional Airport se trouve dans le Nevada (à Elko).**",
+      "latencyMs": 6557,
+      "inputTokens": 5045,
+      "outputTokens": 316,
+      "toolCalls": 2,
+      "seed": 2004973617,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Are both Elko Regional Airport and Gerald R. Ford International Airport located in Michigan?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_5nzy3wViStdh3dsdexjp0884",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Elko Regional Airport location state"
+                }
+              },
+              {
+                "id": "call_01_bzSV1mW8YFRgQG5jldoe2158",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Gerald R. Ford International Airport location Michigan"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Elko Regional Airport - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Elko_Regional_Airport\",\"text\":\"Elko Regional Airport (IATA: EKO, ICAO: KEKO, FAA LID: EKO) – formerly Elko Municipal Airport – is a public airport located approximately 1 mile (1.6 km) west of downtown Elko, in Elko County, Nevada, United States.\\n\\nThe airport was named J.C. Harris Field in 1975 in honor of Jess C. Harris, a sheriff from Elko known as \\\"The Flying Sheriff\\\".\\n\\n## History\\n\\n[edit] [...] General\\n\\n What links here\\n Related changes\\n Upload file\\n Permanent link\\n Page information\\n Cite this page\\n Get shortened URL\\n Switch to legacy parser\\n\\nPrint/export\\n\\n Download as PDF\\n Printable version\\n\\nIn other projects\\n\\n Wikimedia Commons\\n Wikidata item\\n\\nAppearance\\n\\nCoordinates: 40°49′30″N 115°47′30″W﻿ / ﻿40.82500°N 115.79167°W﻿ / 40.82500; -115.79167\\n\\nFrom Wikipedia, the free encyclopedia\\n\\nFor the airport in British Columbia, Canada, see Elko/Lionel P. Demers Memorial Airpark.\\n\\nAirport [...] | The passenger terminal at Elko Regional Airport |\\n|  IATA: EKO  ICAO: KEKO  FAA LID: EKO |\\n| Summary |\\n| Airport type | Public |\\n| Owner | City of Elko |\\n| Serves | Elko, Nevada |\\n| Elevation AMSL | 5,140 ft (1,570 m) |\\n| Coordinates | 40°49′30″N 115°47′30″W﻿ / ﻿40.82500°N 115.79167°W﻿ / 40.82500; -115.79167: {{#parsoid\\\\u0000fr\"},{\"title\":\"Elko Regional Airport in Elko, NV United States - Apple Maps\",\"url\":\"https://maps.apple.com/place?place-id=I3B726147BD86B7C3\",\"text\":\"## About\\n\\nElko Regional Airport – formerly Elko Municipal Airport – is a public airport located approximately 1 mile west of downtown Elko, in Elko County, Nevada, United States. The airport was named J.C. Harris Field in 1975 in honor of Jess C. Harris, a sheriff from Elko known as \\\"The Flying Sheriff\\\".\\n\\nMoreLess\\n\\nMore on Wikipedia\\n\\n## Good to Know\\n\\nAccepts Credit Cards\\n\\n## Also at This Location\\n\\nMore\\n\\nEnterprise Rent-A-Car\\n\\nYelp\\n\\n3.2\\n\\n(9)Kingdom Cafe\\n\\nYelp\\n\\n4.4\\n\\n(7)Avis\\n\\nYelp\\n\\n2.0 [...] (7)Avis\\n\\nYelp\\n\\n2.0\\n\\n(7)Elko Fire Department HQ Sta 1\\n\\nFire DepartmentHertz\\n\\n100%\\n\\n(1)Enterprise Truck Rental\\n\\n100%\\n\\n(1)\\n\\n## Details\\n\\n### Website\\n\\n### Phone\\n\\n+1 (775) 777-7110\\n\\n### Address\\n\\n975 Terminal Way\\n\\nElko, NV 89801\\n\\nUnited States\\n\\nMore on Foursquare [...] # Apple Maps\\n\\nHave a Business on Maps?\\n\\nManage Your Business\\n\\n# Elko Regional Airport\\n\\n# Elko Regional Airport\\n\\nDomestic Airport · Elko, NV\\n\\nDirectionsCallWebsite\\n\\nFoursquareFoursquareFoursquareFoursquareFoursquareFoursquareFoursquareFoursquareFoursquareFoursquare\\n\\n## About\"},{\"title\":\"Elko Regional Airport Travel Guide | Remitly\",\"url\":\"https://www.remitly.com/blog/travel/elko-regional-airport\",\"text\":\"Elko Regional Airport (EKO) is the main regional airport for people in northeastern Nevada, United States.\\n The airport’s code is EKO. You need to know this when you book any flights or services.\\n Delta Connection…(tronqué)",
+            "toolCallId": "call_00_5nzy3wViStdh3dsdexjp0884"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Gerald R. Ford International Airport - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Gerald_R._Ford_International_Airport\",\"text\":\"Grand Rapids Gerald R. Ford International Airport (IATA: GRR, ICAO: KGRR, FAA LID: GRR) is a commercial airport in Cascade Township, approximately 13 miles (21 km) southeast of Grand Rapids, Michigan, United States. The facility is owned by the Kent County Board of Commissioners and managed by an independent authority. The US Federal Aviation Administration (FAA) National Plan of Integrated Airport Systems for 2017–2021 categorized it as a small hub primary commercial service facility. [...] | Gerald R. Ford International Airport |\\n|  IATA: GRR  ICAO: KGRR  FAA LID: GRR |\\n| Summary |\\n| Airport type | Public |\\n| Owner | Gerald R. Ford International Airport Authority & Kent County |\\n| Operator | Gerald R. Ford International Airport Authority |\\n| Serves | Grand Rapids, Michigan, US |\\n| Location | Cascade Charter Township, Michigan, US |\\n| Opened | November 1919; 106 years ago (1919-11) |\\n| Operating base for | Allegiant Air |\\n| Elevation AMSL | 794 ft (242 m) | [...] In other projects\\n\\n Wikimedia Commons\\n Wikidata item\\n\\nAppearance\\n\\nCoordinates: 42°52′51″N 85°31′22″W﻿ / ﻿42.88083°N 85.52278°W﻿ / 42.88083; -85.52278\\n\\nFrom Wikipedia, the free encyclopedia\\n\\nAirport in Michigan, US\\n\\n| Gran\"},{\"title\":\"Gerald R. Ford International Airport\",\"url\":\"https://maps.apple.com/place?place-id=I38A99F80C21C1ED5\",\"text\":\"Yelp\\n\\n## About\\n\\nGrand Rapids Gerald R. Ford International Airport is a commercial airport in Cascade Township, approximately 13 miles southeast of Grand Rapids, Michigan, United States. The facility is owned by the Kent County Board of Commissioners and managed by an independent authority. The US Federal Aviation Administration National Plan of Integrated Airport Systems for 2017–2021 categorized it as a small hub primary commercial service facility.\\n\\nMoreLess\\n\\nMore on Wikipedia [...] More on Wikipedia\\n\\n## Good to Know\\n\\nFree Wi-Fi\\n\\nAccepts Cash\\n\\nAccepts Credit Cards\\n\\n## Also at This Location\\n\\nMore\\n\\nNational Car Rental\\n\\nYelp\\n\\n4.0\\n\\n(46)West Michigan Aviation Academy\\n\\n91%\\n\\n(47)Hertz\\n\\nYelp\\n\\n2.6\\n\\n(56)Budget\\n\\nFoursquare\\n\\n3.3\\n\\n(315)Gerald R. Ford International Airport Cell Phone Lot\\n\\nParking LotAvis\\n\\nYelp\\n\\n2.1\\n\\n(41)\\n\\n### Website\\n\\n### Phone\\n\\n+1 (616) 233-6000\\n\\n### Address\\n\\n5500 44th Street SE\\n\\nGrand Rapids, MI 49512\\n\\nUnited States [...] # Apple Maps\\n\\nHave a Business on Maps?\\n\\nManage Your Business\\n\\n# Gerald R. Ford International Airport\\n\\n# Gerald R. Ford International Airport\\n\\nInternational Airport · Kent County, MI\\n\\nDirectionsCallWebsite\\n\\nExteriorInterior\\n\\nYelpAll Photos\\n\\nYelp\\n\\n## About\"},{\"title\":\"Gerald R. Ford International Airport (GRR)\",\"url\":\"https://www.michigan.org/property/gerald-r-ford-international-airport-grr\",\"text\":\"_Getting there is better here._ The Gerald R. For…(tronqué)",
+            "toolCallId": "call_01_bzSV1mW8YFRgQG5jldoe2158"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-006",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Dirleton Castle** est un château fort médiéval situé dans le village de Dirleton, dans l'East Lothian, en Écosse (à environ 3 km à l'ouest de North Berwick). Il se trouve sur la côte sud de l'estuaire du **Firth of Forth**, face au large où se dresse notamment le rocher du Bass Rock.\n\nSources : Wikipedia – Dirleton Castle ; Historic Environment Scotland / thecastlesofscotland.co.uk.\n\n**Réponse finale : le Firth of Forth.**",
+      "latencyMs": 6907,
+      "inputTokens": 4932,
+      "outputTokens": 436,
+      "toolCalls": 2,
+      "seed": 2668391332,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : A medieval fortress in Dirleton, East Lothian, Scotland borders on the south side of what coastal area?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_BA3YChZYSQ0p9FDJYYdA6843",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Dirleton Castle East Lothian coastal area south side Firth of Forth"
+                }
+              },
+              {
+                "id": "call_01_f4z0c0JwWQQ6NLNdfT7p5166",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Dirleton Castle medieval fortress location Firth of Forth"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Dirleton Castle - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Dirleton_Castle\",\"text\":\"| Designations |\\n\\n| Inventory of Gardens and Designed Landscapes in Scotland |\\n| Official name | Dirleton Castle |\\n| Designated | 30 June 1987 |\\n| Reference no. | GDL00136 |\\n|  |\\n\\nDirleton Castle is a medieval fortress in the village of Dirleton, East Lothian, Scotland. It lies around 2 miles (3.2 km) west of North Berwick, and around 19 miles (31 km) east of Edinburgh. The oldest parts of the castle date to the 13th century, and it was abandoned by the end of the 17th century. [...] Dirleton Castle stands on a rocky outcrop, at the heart of the rich agricultural lands of the barony of Dirleton, and guards the coastal approach to Edinburgh from England, via the port of North Berwick. The ruins comprise a 13th-century keep, and a 16th-century house which the Ruthvens built adjacent. Only the basement levels survive of the 14th- and 15th-century additions built by the Haliburtons, although these comprised a large hall and tower house along the east range. Other buildings [...] | Dirleton, East Lothian, Scotland grid reference NT 51824 83959 |\\n| The 13th-century keep |\\n| Site information |\\n| Type | Castle of enceinte |\\n| Owner | Historic Environment Scotland |\\n| Open to the public | Y\"},{\"title\":\"Things to Do in Dirleton & East Lothian | The Open Arms Hotel\",\"url\":\"https://openarmshotel.com/explore\",\"text\":\"Tantallon Castle occupies a dramatic cliff-edge position overlooking the Firth of Forth and the Bass Rock. Its vast red sandstone curtain wall recalls the power of the Red Douglas dynasty and the sieges that shaped this formidable stronghold. Where access permits, the elevated viewpoints provide some of the most memorable coastal scenery in East Lothian.\\n\\n Explore Tantallon Castle [...] North Berwick comes alive for ten days every summer as Fringe by the Sea returns from Friday 31 July to Sunday 9 August 2026. Set on the East Lothian coast with views across the Firth of Forth towards Bass Rock, the festival combines music, comedy, talks, and a unique seaside atmosphere. What began as a local coastal festival has grown into a major fixture in Scotland's summer calendar.\\n\\n Explore the Fringe by the Sea Festival [...] Nestled between rolling countryside and the stunning East Lothian coastline, Dirleton Village quietly captures your imagination. Traditional stone cottages, colourful gardens and peaceful lanes sit alongside the imposing ruins of Dirleton Castle, the historic Kirk and the village green, creating a place that feels authentic. Directly opposite the castle, The Open Arms Ho\"},{\"title\":\"UNEXPECTED! Dirleton Castle's DARK SECRETS & Enchanting Gardens\",\"url\":\"https://www.youtube.com/watch?v=V9gDMIE7k0o\",\"text\":\"of the Firth of Forth over there. Yes, just beyond that tree. We've got North Berwick Law a little bit further round, the Firth of Forth. And right there on the horizon\\non the Isle of M…(tronqué)",
+            "toolCallId": "call_00_BA3YChZYSQ0p9FDJYYdA6843"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Dirleton Castle\",\"url\":\"https://en.wikipedia.org/wiki/Dirleton_Castle\",\"text\":\"| Designations |\\n\\n| Inventory of Gardens and Designed Landscapes in Scotland |\\n| Official name | Dirleton Castle |\\n| Designated | 30 June 1987 |\\n| Reference no. | GDL00136 |\\n|  |\\n\\nDirleton Castle is a medieval fortress in the village of Dirleton, East Lothian, Scotland. It lies around 2 miles (3.2 km) west of North Berwick, and around 19 miles (31 km) east of Edinburgh. The oldest parts of the castle date to the 13th century, and it was abandoned by the end of the 17th century. [...] | Dirleton, East Lothian, Scotland grid reference NT 51824 83959 |\\n| The 13th-century keep |\\n| Site information |\\n| Type | Castle of enceinte |\\n| Owner | Historic Environment Scotland |\\n| Open to the public | Yes |\\n| Condition | Ruined |\\n| Location |\\n| Dirleton Castle is located in East Lothian Dirleton Castle  Dirleton Castle  Location within East Lothian |\\n| Coordinates | 56°03′N 2°47′W﻿ / ﻿56.05°N 2.78°W﻿ / 56.05; -2.78 |\\n| Site history |\\n| Built | Early 13th century | [...] Dirleton Castle stands on a rocky outcrop, at the heart of the rich agricultural lands of the barony of Dirleton, and guards the coastal approach to Edinburgh from England, via the port of North Berwick. The ruins comprise a 13t\"},{\"title\":\"Dirleton Castle and Gardens | The Castles of Scotland, Coventry | Goblinshead\",\"url\":\"https://www.thecastlesofscotland.co.uk/the-best-castles/magnificent-ruins/dirleton-castle\",\"text\":\"# Dirleton Castle\\n\\nIn the heart of the pretty village of Dirleton, the castle is a large and imposing ruinous medieval fortress, set in beautiful gardens and grounds, with many atmospheric chambers to explore and finally besieged and partially demolished by Cromwell's forces in 1650.\\n\\nDirleton Castle, a magnificent medieval ruined castle, near North Berwick in East Lothian\\\")  Dirleton Castle (© Martin Coventry) [...] Dirleton Castle, a magnificent medieval ruined castle, near North Berwick in East Lothian  Dirleton Castle [...] Dirleton Castle, a magnificent medieval ruined castle, near North Berwick in East Lothian\\\")  Dirleton Castle (Collins, 1912)\\n\\nThe entrance to the castle is by a wooden bridge across the wide ditch, and is through a gatehouse dating from the 14th and 15th centuries, formerly with a drawbridge and portcullis and protected by a murder hole.\"},{\"title\":\"Dirleton Castle - History and Facts\",\"url\":\"https://www.historyhit.com/locations/dirleton-castle\",\"text\":\"Dirleton Castle is an imposing medieval fortress and previous noble residence in Scotland, whose picturesque ruins may be explored today and detail 800 years of history!\\n\\n## Dirleton Castle history [...] Dirleton Casle is located in the village of Dirleton in East Lothian, just off the A198, with a small public car park available near the site. North Berwick train station is a 45-minute walk away, or alternatively the 124 bus may be taken, which stops righ…(tronqué)",
+            "toolCallId": "call_01_f4z0c0JwWQQ6NLNdfT7p5166"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-007",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Vérification effectuée** : les sources confirment que l'Indianapolis 500 (« Indy 500 ») se déroule chaque année à l'Indianapolis Motor Speedway, à Speedway (Indiana) — un faubourg d'Indianapolis, dans le Midwest américain. Les pilotes y parcourent 200 tours pour une distance de 500 miles (800 km), et l'épreuve est traditionnellement courue le week-end du Memorial Day, soit fin mai (la 110e édition est prévue le dimanche 24 mai 2026).\n\nSources :\n- Wikipedia — Indianapolis 500 : https://en.wikipedia.org/wiki/Indianapolis_500\n- Visit Indy : https://www.visitindy.com/things-to-do/sports/indy-racing/indy-500\n- Indianapolis Motor Speedway (billetterie) : https://www.indianapolismotorspeedway.com/events/indy500/buy-tickets/tickets-race-day\n\n**Réponse finale : l'Indianapolis Motor Speedway, à Speedway (Indiana, Midwest), qui accueille chaque mai l'Indianapolis 500 — une course de 500 miles (200 tours de circuit).**",
+      "latencyMs": 7404,
+      "inputTokens": 4770,
+      "outputTokens": 446,
+      "toolCalls": 2,
+      "seed": 2639720215,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What race track in the midwest hosts a 500 mile race eavery May?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_ltmsynu5DyJ0aLXsQCYI7306",
+                "name": "web_search",
+                "arguments": {
+                  "query": "race track in the Midwest hosts a 500 mile race every May",
+                  "maxResults": 5
+                }
+              },
+              {
+                "id": "call_01_KgdPleXyfIksHPMNtE2r1148",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Indianapolis 500 Indianapolis Motor Speedway held May 500 miles",
+                  "maxResults": 5
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Indianapolis 500 - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Indianapolis_500\",\"text\":\"The Indianapolis 500, commonly shortened to Indy 500, is an automobile race held annually at the Indianapolis Motor Speedway in Speedway, Indiana, United States, an enclave suburb of Indianapolis. The event is traditionally held over Memorial Day weekend, usually the last weekend of May. It is contested as part of the IndyCar Series, which is the top level of American open-wheel car racing, a formula colloquially known as \\\"Indy Car Racing\\\". The track itself is nicknamed the \\\"Brickyard\\\", as the [...] oval circuit. The track is a rounded rectangle, with four distinct turns of identical dimensions, connected by four straightaways (two long straightaways and two \\\"short chutes\\\"). Traditionally, the field consists of 33 starters, aligned in a starting grid of eleven rows of three cars apiece. Drivers race 200 laps, counter-clockwise around the circuit, for a distance of 500 miles (800 km). Since its inception in 1911, the race has always been scheduled on or around Memorial Day. Since 1974, the [...] Following WWII, the race was commonly recognized as \\\"The 500\\\", \\\"The 500-Mile Race\\\", \\\"Indianapolis 500-Mile Race\\\", \\\"Indianapolis 500\\\", or the simple form \\\"Indy 500\\\". Usually the ordinal (e.g.\"},{\"title\":\"Your Guide to the Indianapolis 500 Mile Race | Visit Indy\",\"url\":\"https://www.visitindy.com/things-to-do/sports/indy-racing/indy-500\",\"text\":\"BOOK YOUR HOTEL\\n\\nThe Indianapolis Motor Speedway is the epicenter of auto racing in America\\n\\nIndianapolis Motor Speedway\\n\\nThe Indianapolis Motor Speedway also is known as “The Greatest Race Course in the World.” Nestled in Speedway, Indiana, just minutes from downtown Indianapolis, IMS is most known globally for hosting the largest single-day sporting event in the world, the Indianapolis 500, every Memorial Day weekend.\\n\\nLearn More\\n\\n## Experience Builder\\n\\n## Quick Search\\n\\nSearch [...] The 110th running of the Indianapolis 500 takes place on Sunday, May 24, 2026.\\n\\nClick Here For Tickets\\n\\nThis Is May by Tamika Catchings\\n\\n## Race Day in Indy\\n\\nRace day in Indianapolis is steeped in tradition. Each Memorial Day weekend the mammoth facility and surrounding town of Speedway welcome spectators from around the world to revel in a day of patriotism, spine-tingling racing, and a whole lot of partying (particularly within the infield and the infamous Snake Pit). [...] Weddings\\n Stories\\n Deals\\n Contests\\n Email Signup\\n\\n logo\\n\\nKissing the Bricks is a Winning Tradition\\n\\nA series of traditions accompany a championship run at the Indy 500, from chugging milk to kissing the bricks.\\n\\nFront Straightawa\"},{\"title\":\"Indy 500 FAQ & Guide 2026 | Roadtrips\",\"url\":\"https://www.roadtrips.com/luxury-travel-guides/indy-500-guide\",\"text\":\"## What is the Indy 500?\\n\\nThe Indianapolis 500 is IndyCar’s premier race. This 500-mile auto race is held annually in May at the…(tronqué)",
+            "toolCallId": "call_00_ltmsynu5DyJ0aLXsQCYI7306"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Indianapolis 500\",\"url\":\"https://en.wikipedia.org/wiki/Indianapolis_500\",\"text\":\"The Indianapolis 500, commonly shortened to Indy 500, is an automobile race held annually at the Indianapolis Motor Speedway in Speedway, Indiana, United States, an enclave suburb of Indianapolis. The event is traditionally held over Memorial Day weekend, usually the last weekend of May. It is contested as part of the IndyCar Series, which is the top level of American open-wheel car racing, a formula colloquially known as \\\"Indy Car Racing\\\". The track itself is nicknamed the \\\"Brickyard\\\", as the [...] oval circuit. The track is a rounded rectangle, with four distinct turns of identical dimensions, connected by four straightaways (two long straightaways and two \\\"short chutes\\\"). Traditionally, the field consists of 33 starters, aligned in a starting grid of eleven rows of three cars apiece. Drivers race 200 laps, counter-clockwise around the circuit, for a distance of 500 miles (800 km). Since its inception in 1911, the race has always been scheduled on or around Memorial Day. Since 1974, the [...] The first \\\"500\\\" was held at the Speedway in 1911 on Decoration Day, May 30, (as it was known from its inception in 1868 to 1967, when federal law made \\\"Memorial Day\\\" the official name), run \"},{\"title\":\"Race Day Tickets | Indianapolis 500 Presented by Gainbridge\",\"url\":\"https://www.indianapolismotorspeedway.com/events/indy500/buy-tickets/tickets-race-day\",\"text\":\"### Sunday, May 24\\n\\n250 years of American spirit. 500 miles of unforgettable history. This is May. It’s the largest single-day sporting event on the planet, where friends and family gather in the same seats every year to celebrate fast cars and freedom. The 110th Running of the Indianapolis 500 presented by Gainbridge will be a Memorial Day Weekend celebration you’ll never forget.\\n\\nThis event has concluded\\n\\nAlex Palou crosses the finish line at the Indy 500 [...] Skip to Main Content\\n\\n;\\n\\nIndianapolis Motor Speedway\\n\\n Sign In\\n\\nEnhance your Indy 500 Race Day Experience with Hospitality Learn More\\n\\nPalou and Rosenqvist cross the yard of bricks\\n\\n111th Running of the Indianapolis 500 presented by Gainbridge Logo\\n\\n# 110th Running of the Indianapolis 500\\n\\n## Sunday, May 24\\n\\n###### Browse by Category\\n\\n## 110th Running of the Indianapolis 500\\n\\n### Sunday, May 24\"},{\"title\":\"Your Guide to the Indianapolis 500 Mile Race\",\"url\":\"https://www.visitindy.com/things-to-do/sports/indy-racing/indy-500\",\"text\":\"The 110th running of the Indianapolis 500 takes place on Sunday, May 24, 2026.\\n\\nClick Here For Tickets\\n\\nThis Is May by Tamika Catchings\\n\\n## Race Day in Indy\\n\\nRace day in Indianapolis is steeped in tradition. Each Memorial Day weekend the mammoth facility and surrounding town of Speedway welcome spectators from around the world to revel in a day of patriotism, spine-tingling racing, and a whole lot of partying (particularly within the infield an…(tronqué)",
+            "toolCallId": "call_01_KgdPleXyfIksHPMNtE2r1148"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-008",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Vérification des faits**\n\n- **Ajuga** : oui, c'est bien un genre botanique (famille des Lamiaceae / Labiatae), qui regroupe une quarantaine d'espèces de plantes herbacées vivaces, dont *Ajuga reptans* (la bugle rampante). Source : [tititudorancea.com – genus Ajuga](https://www.tititudorancea.com/z/genus_ajuga.htm), [bioexplorer.net – Bugleweed](https://www.bioexplorer.net/plants/flowers/bugleweed).\n- **Cypress** : « cypress » est un **nom commun**, pas un nom de genre. Le genre correspondant est ***Cupressus*** (famille des Cupressaceae, conifères), et le nom commun « cypress » désigne en réalité plusieurs genres (Cupressus, Chamaecyparis, Taxodium…), d'où la notion de « true cypresses » vs « false cypresses ». Source : [Wikipedia – Cupressus](https://en.wikipedia.org/wiki/Cupressus), [American Conifer Society – Cupressus](https://conifersociety.org/conifers/cupressus).\n\n**Nuance importante** : si l'on admet que la question vise le taxon que « cypress » désigne habituellement, alors oui — *Cupressus* est un genre et *Ajuga* est un genre. Mais pris littéralement, « Cypress » n'est pas un nom de genre valide : c'est un nom vernaculaire.\n\n**Réponse finale : Oui sur le fond — *Ajuga* est un genre botanique et le cyprès (« cypress ») correspond au genre *Cupressus* ; toutefois, en nomenclature stricte, « Cypress » n'est qu'un nom commun (partagé par plusieurs genres de Cupressacées) et non un nom de genre, contrairement à *Ajuga*.**",
+      "latencyMs": 9800,
+      "inputTokens": 4950,
+      "outputTokens": 682,
+      "toolCalls": 2,
+      "seed": 3491261746,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Are both Cypress and Ajuga genera?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_C9ntizYdSzhCGIEvQ95l2821",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Ajuga genus Lamiaceae bugleweed"
+                }
+              },
+              {
+                "id": "call_01_yfocB6sjsc4P2YvkyXpj8862",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Cypress genus Cupressus tree"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Bugleweed Flower | Ajuga reptans | Carpet Bugle | BioExplorer.net\",\"url\":\"https://www.bioexplorer.net/plants/flowers/bugleweed\",\"text\":\"# Bugleweed. Ajuga reptans, commonly known as Bugleweed, are perennial, broad-leaved, evergreen to semi-evergreen herbaceous groundcover of the mint family (**Lamiaceae**). The genus includes around 40 species[1] of plants. It is indigenous to Southwest Asia, North Africa, and Europe. Its dense and compact mat features beautiful clusters of **purple flowers** that appear in mid to late spring. Bugleweed is a rapidly spreading, dense ground cover that has glossy dark green leaves. Spikes of small **bluish-purple** flowers appear in mid to late spring, protruding up to 10-inches above the foliage. Varieties of this species have leaves with varied and more interesting foliage colors. In full bloom, large clusters of Bugleweed can create an eye-catching display. Common names include Carpet Bugle, Bugleherb, Blue Bugle, and Ajuga. #### Cite this page. ### Leave a Reply Cancel reply. Your email address will not be published. By using this form you agree with the storage and handling of your data by this website. #### Recent Articles. Monkey eating eagles collage image. #### Popular Pages. Top 10 Best Marine Biology Colleges. ### Top 10 Best Marine Biology Colleges. ### 334 Types of Monke\"},{\"title\":\"Genus Ajuga\",\"url\":\"https://www.tititudorancea.com/z/genus_ajuga.htm\",\"text\":\"Hypernyms (\\\"genus Ajuga\\\" is a kind of...):\\n\\nasterid dicot genus (genus of more or less advanced dicotyledonous herbs and some trees and shrubs)\\n\\nMeronyms (members of \\\"genus Ajuga\\\"):\\n\\nbugle; bugleweed (any of various low-growing annual or perennial evergreen herbs native to Eurasia; used for ground cover)\\n\\nHolonyms (\\\"genus Ajuga\\\" is a member of...): [...] |  |\\n\\n| My Account | Subscriptions | Choose Edition;) |\\n\\nThe Titi Tudorancea Bulletin   \\nA World of Knowledge\\n\\n|  |\\n\\n|  News  Business  Health  Nutrition  Travel  Weather  Learning  Library  TV |\\n|  Learning English  Accounting English  English Dictionary |\\n\\n|  |\\n\\n| Learning / English Dictionary |\\n\\n# GENUS AJUGA\\n\\n|  |  |\\n --- |\\n| Pronunciation (US): | (GB): |\\n\\n## I. (noun)\\n\\n## Sense 1\\n\\nMeaning:\\n\\nBugleplay;)\\n\\nSynonyms:\\n\\nAjuga; genus Ajuga\\n\\nClassified under:\\n\\nNouns denoting plants [...] family Labiatae; family Lamiaceae; Labiatae; Lamiaceae; mint family (a large family of aromatic herbs and shrubs having flowers resembling the lips of a mouth and four-lobed ovaries yielding four one-seeded nutlets and including mint; thyme; sage; rosemary)\\n\\n|  |\\n\\n| © 1991-2025 The Titi Tudorancea Bulletin | Titi Tudorancea® is a Registered Trademark \"},{\"title\":\"Ajuga / bugleweed Groundcover | Bulk Pricing\",\"url\":\"https://www.bloomindesigns.com/ajuga\",\"text\":\"Home\\n Shop Plants A to Z\\n Ajuga\\n\\n## Ajuga\\n\\n## Ground-Hugging Beauty with Vibrant Blooms\\n\\nTransform your garden with the resilient and beautiful Ajuga, also k…(tronqué)",
+            "toolCallId": "call_00_C9ntizYdSzhCGIEvQ95l2821"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Cupressus - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Cupressus\",\"text\":\"Cupressus (common name cypress) is one of several genera of evergreen conifers within the family \\\"Family (taxonomy)\\\") Cupressaceae; for the others, see cypress. It is considered a polyphyletic group. Based on genetic and morphological analysis, the genus Cupressus is found in the subfamily Cupressoideae. The common name \\\"cypress\\\" comes via the Old French cipres from the Latin cyparissus, which is the latinisation \\\"Latinisation (literature)\\\") of the Greek κυπάρισσος (kypárissos). The name [...] Many species of cypress are grown as decorative trees in parks and, in Asia, around temples; in some areas, the native distribution is hard to discern due to extensive cultivation. A few species are grown for their timber, which can be very durable. The fast-growing hybrid Leyland cypress (Cupressus × leylandii), much used in gardens, draws one of its parents from this genus (Cupressus macrocarpa, Monterey cypress); the other parent, Callitropsis nootkatensis (Nootka cypress), is also sometimes [...] It was believed in the Hellenic culture that the cypress tree was sacred to the gods and it is now used as an emblem of grief. The name of the genus comes from Cyparissus, a young man loved by Ap\"},{\"title\":\"Conifer Database - Cupressus\",\"url\":\"https://conifersociety.org/conifers/cupressus\",\"text\":\"Cupressus, as described in 1753 by Carl Linnaeus (or Carolus Linnaeus) (1707-1778), in Species Plantarum, 2nd edition, is one of several genera in Cupressaceae family that all share the common name cypress. It is considered a polyphyletic group. Based on genetic and morphological analysis, the Cupressus genus is found in the Cupressoideae subfamily. The common name comes from Old French cipres and that from Latin cyparissus, which is the latinization of the Greek ÎºÏ…Ï'Î¬ÏÎ¹ÏƒÏƒÎ¿Ï‚ [...] Many species are grown as decorative trees in parks and, in Asia, around temples; in some areas, the native distribution is hard to discern due to extensive cultivation. A few species are grown for their timber, which can be very durable. The fast-growing hybrid Leyland cypress (Cupressus × leylandii), much used in gardens, draws one of its parents from this genus Monterey cypress (Cupressus macrocarpa); the other parent, Nootka cypress (Cupressus nootkatensis), is also sometimes classified in [...] Cupressus gigantea\\n\\n   \\n \\n\\nArizona cypress  \\n Cupressus glabra\\n\\n   \\n \\n\\nGowen cypress  \\n Cupressus goveniana\\n\\n   \\n \\n\\nCupressus guadalupensis\\n\\n   \\n \\n\\nCupressus lusitanica\\n\\n   \\n \\n\\nMcNab cypress  \\n Cupres\"},{\"title\":\"Cypress Tree: Popular Varieties and Growing Guide\",\"url\":\"https://www.gardenia.net/guide/cypress-tree-popular-varieties-and-growing-guide\",\"text\":\"Diverse Genera: The Cupressaceae family includes various genera, such as Cupressus (true cypresses), Chamaecyparis (false cypresses), and Taxodium (bald cypresses), among others. E…(tronqué)",
+            "toolCallId": "call_01_yfocB6sjsc4P2YvkyXpj8862"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-009",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Ce que disent les sources**\n\n- Vince Phillips (Vincent Edwards Phillips, né en 1963) a détenu le titre **IBF des super-légers (junior welterweight) de 1997 à 1999**, conquis par sa victoire surprise sur Kostya Tszyu (source : [Wikipedia – Vince Phillips](https://en.wikipedia.org/wiki/Vince_Phillips) ; confirmé par la presse de l'époque : [SouthCoast Today, 1997](https://www.southcoasttoday.com/story/sports/1997/08/10/phillips-stops-ward-retains-ibf/50599279007)).\n- L'IBF (International Boxing Federation) est décrite comme « l'une des quatre organisations majeures **reconnues par l'International Boxing Hall of Fame (IBHOF)** », les trois autres étant la WBA, la WBC et la WBO (source : [Wikipedia – International Boxing Federation](https://en.wikipedia.org/wiki/International_Boxing_Federation)).\n\n**Réponse finale :** Vince Phillips a détenu le titre des super-légers de l'**International Boxing Federation (IBF)** — organisation reconnue par le **International Boxing Hall of Fame (IBHOF)**, le temple de la renommée de la boxe situé à Canastota (New York), qui reconnaît officiellement les quatre grandes fédérations de boxe professionnelle (IBF, WBA, WBC, WBO).",
+      "latencyMs": 36664,
+      "inputTokens": 24067,
+      "outputTokens": 5207,
+      "toolCalls": 6,
+      "seed": 3154171997,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Vince Phillips held a junior welterweight title by an organization recognized by what larger Hall of Fame?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_F8RJc82lEzznyQnyzmNP7620",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Vince Phillips junior welterweight champion IBF title Hall of Fame"
+                }
+              },
+              {
+                "id": "call_01_fJeMjW4ItaNDLQ279VBA3928",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Vince Phillips boxer junior welterweight title organization recognized Hall of Fame"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Vince Phillips\",\"url\":\"https://en.wikipedia.org/wiki/Vince_Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\n## Amateur career\\n\\n[edit]\\n\\nAs an amateur, Phillips won the U.S. National Golden Gloves in 1985, and the U.S. National Championships in 1985 and 1986, all in the lightweight division.\\n\\n## Professional career\\n\\n[edit] [...] win the IBF junior welterweight title, which was named the Upset of the Year by The Ring magazine \\\"The Ring (magazine)\\\"). Phillips made three successful title defenses throughout 1997 and 1998, until a fifth-round stoppage loss to Terron Millett on February 20, 1999. He would fight for another eight years, albeit never again for a world title, and ended his career with a ten-round unanimous decision loss to Alisultan Nadirbegov on May 6, 2007. [...] Phillips made his professional debut on February 28, 1989, stopping Octavio Guardado in two rounds. He would win his next 27 fights until losing to Anthony Jones November 18, 1993, due to cuts in the seventh round. On April 12, 1996, Phillips mad\"},{\"title\":\"Vince Phillips — Athlete\",\"url\":\"https://fame.am/person/vince-phillips\",\"text\":\"Updated 2026-06-14\\n\\nVincent Edwards \\\"Vince\\\" Phillips is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\nDeep cuts\\n\\n## Awards\\n\\nLow confidence\\n\\n ?\\n\\n  The Ring magazine Comeback of the Year\\n\\n ?\\n\\n  IBF World Junior Welterweight Champion\\n\\nWhere to find them\\n\\n## Platforms\\n\\nNo platforms connected yet. [...] fme.am\\n\\nCreateClaim profile\\n\\nSource-basedStable\\n\\n# Vince Phillips\\n\\nAmerican boxer\\n\\n Fame45.9\\n Momentum1.0\\n Wikipedia1.4K\\n\\nBorn 1963 · age 63United States\\n\\nUnited StatesUnited StatesAthletesAthlete\\n\\nClaim profile\\n\\nVerify ownership in 2 minutes. Keeps the profile accurate and discoverable.\\n\\nDeutsch →\\n\\n 7 languages\\n\\n  Cross-language footprint\\n 63\\n\\n  Born 1963\\n Awards\\n\\n  2\\n\\n  recognised works\\n\\nSummary\\n\\nUpdated 2026-06-14 [...] wikipedia· ar.wikipedia.org\\n\\n  Low confidence\\n Vince Phillips\\n\\n  wikipedia· de.wikipedia.org\\n\\n  Low confidence\\n\\nDiscover\\n\\n## You might know\\n\\nSimilar profiles worth watching\\n\\nMichael Schumacher.jpg)\\n\\nAlso in AthletesMichael Schumacher\\n\\nMike Tyson\\n\\nAlso in AthletesMike Tyson\\n\\nRyan Garcia\\n\\nAlso in A\"},{\"title\":\"Vince Phillips - Alchetron, The Free Social Encyclopedia\",\"url\":\"https://alchetron.com/Vince-Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweigh…(tronqué)",
+            "toolCallId": "call_00_F8RJc82lEzznyQnyzmNP7620"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Vince Phillips — Athlete - Fame.am\",\"url\":\"https://fame.am/person/vince-phillips\",\"text\":\"Updated 2026-06-14\\n\\nVincent Edwards \\\"Vince\\\" Phillips is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\nDeep cuts\\n\\n## Awards\\n\\nLow confidence\\n\\n ?\\n\\n  The Ring magazine Comeback of the Year\\n\\n ?\\n\\n  IBF World Junior Welterweight Champion\\n\\nWhere to find them\\n\\n## Platforms\\n\\nNo platforms connected yet. [...] fme.am\\n\\nCreateClaim profile\\n\\nSource-basedStable\\n\\n# Vince Phillips\\n\\nAmerican boxer\\n\\n Fame45.9\\n Momentum1.0\\n Wikipedia1.4K\\n\\nBorn 1963 · age 63United States\\n\\nUnited StatesUnited StatesAthletesAthlete\\n\\nClaim profile\\n\\nVerify ownership in 2 minutes. Keeps the profile accurate and discoverable.\\n\\nDeutsch →\\n\\n 7 languages\\n\\n  Cross-language footprint\\n 63\\n\\n  Born 1963\\n Awards\\n\\n  2\\n\\n  recognised works\\n\\nSummary\\n\\nUpdated 2026-06-14 [...] wikipedia· ar.wikipedia.org\\n\\n  Low confidence\\n Vince Phillips\\n\\n  wikipedia· de.wikipedia.org\\n\\n  Low confidence\\n\\nDiscover\\n\\n## You might know\\n\\nSimilar profiles worth watching\\n\\nMichael Schumacher.jpg)\\n\\nAlso in AthletesMichael Schumacher\\n\\nMike Tyson\\n\\nAlso in AthletesMike Tyson\\n\\nRyan Garcia\\n\\nAlso in A\"},{\"title\":\"Vince Phillips\",\"url\":\"https://en.wikipedia.org/wiki/Vince_Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\n## Amateur career\\n\\n[edit]\\n\\nAs an amateur, Phillips won the U.S. National Golden Gloves in 1985, and the U.S. National Championships in 1985 and 1986, all in the lightweight division.\\n\\n## Professional career\\n\\n[edit] [...] win the IBF junior welterweight title, which was named the Upset of the Year by The Ring magazine \\\"The Ring (magazine)\\\"). Phillips made three successful title defenses throughout 1997 and 1998, until a fifth-round stoppage loss to Terron Millett on February 20, 1999. He would fight for another eight years, albeit never again for a world title, and ended his career with a ten-round unanimous decision loss to Alisultan Nadirbegov on May 6, 2007. [...] Phillips made his professional debut on February 28, 1989, stopping Octavio Guardado in two rounds. He would win his next 27 fights until losing to Anthony Jones November 18, 1993, due to cuts in the seventh round. On April 12, 1996, Phillips mad\"},{\"title\":\"Phillips stops Ward, retains IBF title\",\"url\":\"https://www.southcoasttoday.com/story/sports/1997/08/10/phillips-stops-ward-retains-ibf/50599279007\",\"text\":\"# Phillips stops Ward, retains IBF title\\n\\nBOSTON -- Vince Phillips held on to his International Boxing Fed…(tronqué)",
+            "toolCallId": "call_01_fJeMjW4ItaNDLQ279VBA3928"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_yNHuxKMXDYxdL4Twj5RO7713",
+                "name": "web_search",
+                "arguments": {
+                  "query": "\"Vince Phillips\" boxing \"Hall of Fame\" recognized organization title"
+                }
+              },
+              {
+                "id": "call_01_gApeeuOYA1yqnQJmZWQE5945",
+                "name": "search",
+                "arguments": {
+                  "query": "Vince Phillips junior welterweight title organization Hall of Fame recognized",
+                  "limit": 10
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Vince Phillips\",\"url\":\"https://en.wikipedia.org/wiki/Vince_Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\n## Amateur career\\n\\n[edit]\\n\\nAs an amateur, Phillips won the U.S. National Golden Gloves in 1985, and the U.S. National Championships in 1985 and 1986, all in the lightweight division.\\n\\n## Professional career\\n\\n[edit] [...] win the IBF junior welterweight title, which was named the Upset of the Year by The Ring magazine \\\"The Ring (magazine)\\\"). Phillips made three successful title defenses throughout 1997 and 1998, until a fifth-round stoppage loss to Terron Millett on February 20, 1999. He would fight for another eight years, albeit never again for a world title, and ended his career with a ten-round unanimous decision loss to Alisultan Nadirbegov on May 6, 2007. [...] | 45 | Loss | 40–5 | Vernon Forrest | UD | 12 | Jan 22, 2000 | The Joint \\\"The Joint (music venue)\\\"), Paradise, Nevada, U.S. | For NABF welterweight title |\\n| 44 | Win | 40–4 | Angel Beltre | KO | 3 (10), 1:33 | Dec 10, 1999 | Grand Casino, Biloxi\"},{\"title\":\"BoxRec: Vince Phillips\",\"url\":\"https://boxrec.com/en/box-pro/1629\",\"text\":\"boxrec logo\\n\\n# Vince Phillips\\n\\nVince Phillips profile picture\\n\\n# Boxers' Reach [...] W\\nW\\nW\\nL\\nW\\nL\\nL\\nL\\nL\\nD\\nW\\nW\\nD\\nL\\nL\\nL\\nW\\nL\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nW\\nL\\nL\\nL\\nL\\nW\\nL\\nW\\nL\\nL\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nW\\nN\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nD\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nD\\nL\\nL\\nW\\nW\\nW\\nW\\nL\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nN\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nD\\nL\\nL\\nW\\nW\\nL\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nL\\nD\\nL\\nL\\nL\\nD\\nL\\nW\\nL\\nW\\nL\\nL\\nD\\nW\\nW\\nL\\nL\\nW\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nL\\nL\\nW\\nW\\nL\\nL\\nL\\nW\\nL\\nW\\nW\\nL\\nW\\nW\\nL\\nW\\nD\\nL\\nL\\nL\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nW\\nL\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nL\\nL\\nW\\nW\\nL\\nW\\nW\\nL\\nW\\nL\\nW\\nW\\nW [...] W\\nL\\nW\\nW\\nL\\nW\\nL\\nW\\nW\\nW\\nL\\nL\\nW\\nW\\nL\\nL\\nD\\nL\\nL\\nL\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nL\\nL\\nL\\nL\\nW\\nW\\nL\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nW\\nW\\nL\\nL\\nW\\nW\\nL\\nW\\nblank\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nL\\nL\\nL\\nL\\nL\\nW\\nW\\nW\\nW\\nL\\nW\\nW\\nW\\nW\\nL\\nL\\nblank\\nblank\\nblank\\nblank\\nblank\\nW\\nW\\nL\\nW\\nL\\nW\\nL\\nW\\nW\\nW\\nD\\nL\\nL\\nW\\nL\\nD\\nW\\nW\\nL\\nL\\nL\\nL\\nL\\nL\\nL\\nblank\\nblank\\nblank\\nblank\\nblank\\nL\\nblank\\nblank\\nblank\\nblank\\nblank\\nW\\nblank\\nblank\\nblank\\nL\\nL\\nD\"},{\"title\":\"Micky Ward (USA) vs Vince Phillips (USA) | TKO BOXING Fight ...\",\"url\":\"https://www.youtube.com/watch?v=Bka02zXcfuA\",\"text\":\"📅 Date: 1997-08-09\\n🌍 Location: The Roxy, Boston, Massachusetts, USA\\n🔍 Referee: Dick Flaherty\\n🏆 International Boxing Federation Light …(tronqué)",
+            "toolCallId": "call_00_yNHuxKMXDYxdL4Twj5RO7713"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"web\":[{\"title\":\"\\\"Cool\\\" Vince Phillips, 1990s junior welterweight champion.\",\"url\":\"https://www.facebook.com/KGBRadio/posts/cool-vince-phillips-1990s-junior-welterweight-champion-from-florida-who-was-a-co/1344268144215033\",\"text\":\"He was inducted into the Florida Boxing Hall of Fame in 2013, Happy birthday, Champ and many more. ... CHAMPION IN THE FLORIDA ASSOCIATION.\"},{\"title\":\"Vince Phillips\",\"url\":\"https://en.wikipedia.org/wiki/Vince_Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\n## Amateur career\\n\\n[edit]\\n\\nAs an amateur, Phillips won the U.S. National Golden Gloves in 1985, and the U.S. National Championships in 1985 and 1986, all in the lightweight division.\\n\\n## Professional career\\n\\n[edit] [...] win the IBF junior welterweight title, which was named the Upset of the Year by The Ring magazine \\\"The Ring (magazine)\\\"). Phillips made three successful title defenses throughout 1997 and 1998, until a fifth-round stoppage loss to Terron Millett on February 20, 1999. He would fight for another eight\"},{\"title\":\"The 2011 Boxing Hall of Fame class\",\"url\":\"https://www.foxsports.com/stories/boxing/the-2011-boxing-hall-of-fame-class\",\"text\":\"Livingstone Bramble in his 10th pro fight. Tszyu defeated Jake\\nRodriguez for the IBF junior welterweight title in 1995 and\\ndefended the title five times, including victories over Roger\\nMayweather and Hugo Pineda before being upset in a 10th-round\\nknockout by Vince Phillips in 1997. In 1998, Tszyu beat Diosbelys\\nHurtado for the interim WBC junior welterweight title and stopped\\nMiguel Angel Gonzalez in 1999 to capture the WBC title outright. [...] champion when he won the WBC junior welterweight crown from Roger\\nMayweather in 1989. His impressive string of 12 title defenses\\nincluded wins over Hector Camacho, and Greg Haugen in front of a\\nrecord crowd of 132,274, and in 1990 Chavez stopped IBF titleholder\\nMeldrick Taylor with 2 seconds left in the fight to unify titles.\\nChavez moved up in wei\"},{\"title\":\"Phillips stops Ward, retains IBF title\",\"url\":\"https://www.southcoasttoday.com/story/sports/1997/08/10/phillips-stops-ward-retains-ibf/50599279007\",\"text\":\"# Phillips stops Ward, retains IBF title\\n\\nBOSTON -- Vince Phillips held on to his International Boxing Federation junior welterweight championship after a ringside doctor stopped the fight with Mickey Ward in the third round yesterday.\\n\\nThe scheduled 12-round fight at the Roxy was stopped at 2 minutes 49 seconds into the third round because of a severe cut over Ward's left eye. On the advice of ringside physician Patricia Yoffe, referee Dick Flaherty stopped the fight. [...] Phillips, who is from Las Vegas weighed 139? pounds and Ward, of Lowell, weighed 1393/4.\\n\\nPhoto …(tronqué)",
+            "toolCallId": "call_01_gApeeuOYA1yqnQJmZWQE5945"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_QuXKRwlTxMyKX0g5OIoS6248",
+                "name": "web_search",
+                "arguments": {
+                  "query": "\"Vince Phillips\" \"World Boxing Hall of Fame\" IBF junior welterweight"
+                }
+              },
+              {
+                "id": "call_01_8dmuiH64gPMLqxatq62i2874",
+                "name": "web_search",
+                "arguments": {
+                  "query": "IBF \"recognized by\" \"International Boxing Hall of Fame\" sanctioning body"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Vince Phillips\",\"url\":\"https://en.wikipedia.org/wiki/Vince_Phillips\",\"text\":\"Vincent Edwards \\\"Vince\\\" Phillips (born July 23, 1963) is an American former professional boxer who competed from 1989 to 2007. He held the IBF junior welterweight title from 1997 to 1999, notably scoring an upset victory against then-undefeated Kostya Tszyu to become champion.\\n\\n## Amateur career\\n\\n[edit]\\n\\nAs an amateur, Phillips won the U.S. National Golden Gloves in 1985, and the U.S. National Championships in 1985 and 1986, all in the lightweight division.\\n\\n## Professional career\\n\\n[edit] [...] win the IBF junior welterweight title, which was named the Upset of the Year by The Ring magazine \\\"The Ring (magazine)\\\"). Phillips made three successful title defenses throughout 1997 and 1998, until a fifth-round stoppage loss to Terron Millett on February 20, 1999. He would fight for another eight years, albeit never again for a world title, and ended his career with a ten-round unanimous decision loss to Alisultan Nadirbegov on May 6, 2007. [...] Phillips made his professional debut on February 28, 1989, stopping Octavio Guardado in two rounds. He would win his next 27 fights until losing to Anthony Jones November 18, 1993, due to cuts in the seventh round. On April 12, 1996, Phillips mad\"},{\"title\":\"Phillips stops Ward, retains IBF title\",\"url\":\"https://www.southcoasttoday.com/story/sports/1997/08/10/phillips-stops-ward-retains-ibf/50599279007\",\"text\":\"# Phillips stops Ward, retains IBF title\\n\\nBOSTON -- Vince Phillips held on to his International Boxing Federation junior welterweight championship after a ringside doctor stopped the fight with Mickey Ward in the third round yesterday.\\n\\nThe scheduled 12-round fight at the Roxy was stopped at 2 minutes 49 seconds into the third round because of a severe cut over Ward's left eye. On the advice of ringside physician Patricia Yoffe, referee Dick Flaherty stopped the fight. [...] Phillips, who is from Las Vegas weighed 139? pounds and Ward, of Lowell, weighed 1393/4.\\n\\nPhoto by\\n\\nInternational Boxing Federation junior welterweight champ Vincent Phillips, right, took less than three rounds to dispose of challenger Mickey Ward of Lowell yesterday at The Roxy in Boston.\"},{\"title\":\"Micky Ward (USA) vs Vince Phillips (USA) | TKO BOXING Fight ...\",\"url\":\"https://www.youtube.com/watch?v=Bka02zXcfuA\",\"text\":\"Micky Ward as he makes his entrance towards the ring as he gets his first shot at a title. He's going to try try to take it away from that man Vincent Phillips, the IBF junior welterweight champion. Championship coming up right here on ABC's Wide World of Sports. Vincent Phillips the champion was an outstanding amateur fighter, won two national titles before turning pro and running off a 28 fight unbeaten streak. Mickey was an undefeated prospect in the late 80s but Mickey could never win the [...] of the ringside physician. Your winner by technical knockout, AND STILL IBF JU…(tronqué)",
+            "toolCallId": "call_00_QuXKRwlTxMyKX0g5OIoS6248"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"International Boxing Federation - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/International_Boxing_Federation\",\"text\":\"The International Boxing Federation (IBF) is one of four major organizations recognized by the International Boxing Hall of Fame (IBHOF) which sanctions professional boxing bouts. The others are the World Boxing Association (WBA), World Boxing Council (WBC) and World Boxing Organization (WBO).\\n\\n## History\\n\\n[edit] [...] IBF as the third sanctioning body, and a legitimate organization. [...] The IBF's first world champion was Marvin Camel, a former WBC world cruiserweight champion who won the IBF's belt in the same division. During its first year of existence the IBF remained largely obscure, but by 1984 it decided to recognize Larry Holmes, Aaron Pryor, Marvin Hagler and Donald Curry, already established champions from other organizations, as IBF world champions. In Holmes' case, he relinquished his WBC title to accept the IBF's recognition. It established the IBF as the third\"},{\"title\":\"International Boxing Federation Facts for Kids\",\"url\":\"https://kids.kiddle.co/International_Boxing_Federation\",\"text\":\"The International Boxing Federation (IBF) is a big organization that helps manage professional boxing matches. It's one of the four main groups recognized by the International Boxing Hall of Fame. These groups make sure boxing matches are fair and decide who the champions are. The other main groups are the World Boxing Association (WBA), the World Boxing Council (WBC), and the World Boxing Organization (WBO).\\n\\n## Contents [...] At first, not many people knew about the IBF. But in 1984, they recognized famous boxers like Larry Holmes, Aaron Pryor, Marvin Hagler, and Donald Curry as their world champions. These boxers were already champions with other organizations. For example, Larry Holmes gave up his WBC title to become an IBF champion. This helped the IBF become known as a serious and important boxing organization.\\n\\nIBF world championship belts for men are red. The belts for women are light blue. [...] |\\n| Script error: The function \\\"autoWithCaption\\\" does not exist. |\\n| Abbreviation | IBF |\\n| Formation | 1983; 43 years ago (1983) |\\n| Type | Non-profit institution |\\n| Purpose | Boxing sanctioning organization |\\n| Headquarters | Springfield, New Jersey, U.S. |\\n| Region served | Wor\"},{\"title\":\"4 Major Boxing Belts And Organizations Explained: WBA, WBC, IBF, WBO & More | Evolve Daily\",\"url\":\"https://evolve-mma.com/blog/4-major-boxing-belts-and-organizations-explained-wba-wbc-ibf-wbo-more\",\"text\":\"Like the WBA, the IBF uses an elimination bout system to determine the number one and two contenders in each division. A fighter who wins the top or second spot automatically becomes a mandatory challenger for the champion. \\n\\nThe IBF quickly earned recognition as one of the top sanctioning bodies in boxing, but its reputation took a massive hit in 1999 when its founder, Robe…(tronqué)",
+            "toolCallId": "call_01_8dmuiH64gPMLqxatq62i2874"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-010",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Tromeo and Juliet** (titre souvent stylisé *Tromeo & Juliet*).\n\nCe film indépendant de 1996, produit par Troma Entertainment, est une adaptation très libre de *Roméo et Juliette* de Shakespeare. Il a été réalisé par Lloyd Kaufman sur un scénario coécrit avec James Gunn — qui signait là ses débuts de scénariste (il fut aussi directeur associé). Pour mémoire, à ne pas confondre avec *Romeo + Juliet* de Baz Luhrmann (avec Leonardo DiCaprio), sorti la même année mais écrit par Craig Pearce et Luhrmann.\n\nSources : Wikipédia (« Tromeo and Juliet »), Letterboxd, Tromaville Wiki.\n\n**Réponse finale : le film s'appelle *Tromeo and Juliet* (Tromeo & Juliet), sorti en 1996.**",
+      "latencyMs": 6439,
+      "inputTokens": 4463,
+      "outputTokens": 374,
+      "toolCalls": 2,
+      "seed": 105704431,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What was the name of the 1996 loose adaptation of William Shakespeare's \"Romeo & Juliet\" written by James Gunn?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_CgPbX7FcvGELyuHtWqTN5254",
+                "name": "web_search",
+                "arguments": {
+                  "query": "1996 loose adaptation Romeo and Juliet written by James Gunn",
+                  "maxResults": 5
+                }
+              },
+              {
+                "id": "call_01_DtTW9jyIg02FtgEQNXmg5849",
+                "name": "search",
+                "arguments": {
+                  "query": "James Gunn Tromeo and Juliet 1996 writer",
+                  "limit": 5
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Instagram\",\"url\":\"https://www.instagram.com/reel/DPRyx9rj_fb?hl=en\",\"text\":\"Director Lloyd Kaufman and co-writer James Gunn’s first Shakespeare adaptation, TROMEO & JULIET, finally makes the leap to 4K UHD from a stunning new restoration of its original negative, presented in its proper theatrical aspect ratio! Packed with heart, love, and gratuitous splatter-kills, this is a love story for the ages done in the @tromateam tradition. Not only does the film look better than ever before, but we’ve heaped on hours of new and archival interviews and other assorted bonus [...] bbl0000qm0n5t3r's profile picture\\n\\nbbl0000qm0n5t3r\\n\\nJA XTC\\n\\nReply\\n\\nvegan.revolution's profile picture\\n\\nvegan.revolution\\n\\nAi?\\n\\nReply\\n\\nclint_preslar's profile picture\\n\\nclint\\\\_preslar\\n\\nI unironically think this is the best Romeo and Juliet adaptation. Shakespeare had a sense of humor and a lot of his jokes were not considered highbrow at the time.\\n\\n4 likes\\n\\nReply\\n\\ntasteslikestatic's profile picture\\n\\ntasteslikestatic\\n\\nJane 💕\\n\\n2 likes\\n\\nReply\\n\\ngremlins2fan's profile picture\\n\\ngremlins2fan [...] tom\\\\_fallon\\n\\nI always felt this film was much better shot than a lot of Troma films. Not that the cinematography is poor in others but Tromeo And Juliet always seemed to me to aim a little higher.\\n\\n8 like\"}]}",
+            "toolCallId": "call_00_CgPbX7FcvGELyuHtWqTN5254"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"web\":[{\"title\":\"Tromeo & Juliet (1996) directed by Lloyd Kaufman\",\"url\":\"https://letterboxd.com/film/tromeo-juliet\",\"text\":\"James Gunn's debut as a screenwriter sees him team up with Lloyd Kaufman for a new take on Shakespeare's \\\"Romeo And Juliet.\\\". Instead of a faithful adaptation, the film takes the story's basic elements, where not only does the name of our protagonist allude to the controversial production company Troma, but the film is full of puns that are to some extent witty and suggest that while the humor is lowbrow and, like all Troma projects, seeks to shock audiences, there's a certain wit to the way [...] ### Writers Writers\\n\\n### Original Writer Original Writer\\n\\n### Casting Casting\\n\\n### Editor Editor\\n\\n### Cinematography Cinematography\\n\\n### Assistant Directors Asst. Directors\\n\\n### Executive Producers Exec. Producers\\n\\n### Lighting Lighting\\n\\n### Additional Photography Add. Photography\\n\\n### Art Direct\"},{\"title\":\"Tromeo and Juliet\",\"url\":\"https://en.wikipedia.org/wiki/Tromeo_and_Juliet\",\"text\":\"Tromeo and Juliet is a 1996 American independent transgressive romantic black comedy film and a loose adaptation of the play Romeo and Juliet by William Shakespeare from Troma Entertainment. The film was directed by Lloyd Kaufman from a screenplay he co-wrote with James Gunn, who also served as associate director. [...] 1996 films\\n 1996 black comedy films\\n 1996 independent films\\n 1996 LGBTQ-related films\\n 1996 English-language films\\n American bisexuality-related films\\n American splatter films\\n Films based on Romeo and Juliet\\n Films directed by Lloyd Kaufman\\n Films produced by Lloyd Kaufman\\n Films set in Manhattan\\n Films with screenplays by James Gunn\\n Films with screenplays by Lloyd Kaufman\\n Films about incest\\n Films about sibling incest\\n Modern adaptations of works by William Shakespeare\\n\"},{\"title\":\"Tromeo and Juliet - Tromaville Wiki - Fandom\",\"url\":\"https://troma.fandom.com/wiki/Tromeo_and_Juliet\",\"text\":\"Brows_Held_High_-_Tromeo_and_Juliet_-_w_The_Cinema_Snob\\n\\nBrows Held High - Tromeo and Juliet - w The Cinema Snob\\n\\nOancitizen and the Cinema Snob review this film\\n\\nTromeo and Juliet is a 1996 independent transgressive comedy film adaptation of William Shakespeare's Romeo & Juliet from Troma Entertainment. The film was directed by Lloyd Kaufman from a screenplay by Kaufman and James Gunn, who also served as associate director. [...] In 1995, another shot was taken at the concept, this time by newbie screenwriter James Gunn. Gunn completely rewrote the script, again in Shakespearean verse, making it darker and far more obscene; the original version had Juliet as a stripper and Tromeo as a crack dealer. Another revision, with additional material by Kaufman, was crafted into what the film event\"},{\"title\":\"Tromeo & Juliet | Rotten Tomatoes\",\"url\":\"https://www.rottentomatoes.com/m/tromeo_and_juliet\",\"text\":\"## Movie Info\\n\\nSynopsis A New York filmmaker (Will Keenan) loves the daughte…(tronqué)",
+            "toolCallId": "call_01_DtTW9jyIg02FtgEQNXmg5849"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-011",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Réponse :**\n\nEast Lempster est un village de la ville (town) de **Lempster**, dans le **comté de Sullivan** (Sullivan County), dans le New Hampshire. Le siège de ce comté est la ville de **Newport** (Newport, New Hampshire).\n\nChaîne de raisonnement :\n1. East Lempster → village de la town de Lempster, Sullivan County, NH (source : Wikipedia, *Lempster, New Hampshire*).\n2. Sullivan County → son siège (« county seat ») est Newport (source : Wikipedia, *Sullivan County, New Hampshire* : « Its county seat is Newport » ; *Newport, New Hampshire* : « Newport is a town in and the county seat of Sullivan County »).\n3. Newport comptait 6 299 habitants au recensement de 2020 ; le comté de Sullivan a été créé le 5 juillet 1827.\n\n**Réponse finale : Newport (New Hampshire), siège du comté de Sullivan.**",
+      "latencyMs": 5574,
+      "inputTokens": 5072,
+      "outputTokens": 348,
+      "toolCalls": 2,
+      "seed": 2884722556,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What is the county seat of the county where East Lempster, New Hampshire is located?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_esqOywA9dXe1Fv8ne9CJ6495",
+                "name": "web_search",
+                "arguments": {
+                  "query": "East Lempster New Hampshire county Sullivan County seat"
+                }
+              },
+              {
+                "id": "call_01_2C3h1JGmUckArBHY8Stu3843",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Sullivan County New Hampshire county seat Newport"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Lempster, New Hampshire - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Lempster,_New_Hampshire\",\"text\":\"| County seat: Newport |\\n| City \\\"City (New Hampshire)\\\") |  | Map of New Hampshire highlighting Sullivan County |\\n| Towns |  Acworth  Charlestown  Cornish  Croydon  Goshen  Grantham  Langdon  Lempster  Newport  Plainfield  Springfield  Sunapee  Unity  Washington |\\n| CDPs |  Charlestown,_New_Hampshire \\\"Charlestown (CDP), New Hampshire\\\")  Newport,_New_Hampshire \\\"Newport (CDP), New Hampshire\\\")  Plainfield,_New_Hampshire \\\"Plainfield (CDP), New Hampshire\\\") | [...] Lempster is a town in Sullivan County, New Hampshire, United States. The population was 1,118 at the 2020 census. Settlements include the town center (Lempster village) and the village of East Lempster.\\n\\n## History\\n\\n[edit] [...] | Country | United States |\\n| State | New Hampshire |\\n| County | Sullivan |\\n| Incorporated \\\"Incorporation (municipal government)\\\") | 1772 |\\n| Named after | Sir Thomas Fermor, Second Baron Leominster or \\\"Lempster\\\" |\\n| Villages |  Lempster  East Lempster |\\n| Area  |\\n| • Total | 32.7 sq mi (84.8 km2) |\\n| • Land | 32.4 sq mi (83.8 km2) |\\n| • Water | 0.39 sq mi (1.0 km2)  1.22% |\\n| Elevation  | 1,237 ft (377 m) |\\n| Population (2020) |\\n| • Total | 1,118 |\\n| • Density | 34/sq mi (13.3/km2) |\"},{\"title\":\"Sullivan County, New Hampshire - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Sullivan_County,_New_Hampshire\",\"text\":\"Sullivan County is a county \\\"County (United States)\\\") in the U.S. state of New Hampshire. As of the 2020 census, the population was 43,063, making it the second-least populous county in New Hampshire. Its county seat is Newport.\\n\\nSullivan County is included in the Claremont-Lebanon, NH-VT Micropolitan Statistical Area.\\n\\n## History\\n\\n[edit] [...] | County seat: Newport |\\n| City \\\"City (New Hampshire)\\\") |  | Map of New Hampshire highlighting Sullivan County |\\n| Towns |  Acworth  Charlestown  Cornish  Croydon  Goshen  Grantham  Langdon  Lempster  Newport  Plainfield  Springfield  Sunapee  Unity  Washington |\\n| CDPs |  Charlestown,_New_Hampshire \\\"Charlestown (CDP), New Hampshire\\\")  Newport,_New_Hampshire \\\"Newport (CDP), New Hampshire\\\")  Plainfield,_New_Hampshire \\\"Plainfield (CDP), New Hampshire\\\") | [...] | Affiliation | Members | Voting share |\\n --- \\n| Democratic Party \\\"Democratic Party (United States)\\\") | 6 | 46.2% |\\n| Republican Party \\\"Republican Party (United States)\\\") | 7 | 53.8% |\\n| Total | 13 | 100% |\\n\\n## Communities\\n\\n[edit]\\n\\n### City\\n\\n[edit]\\n\\n Claremont\\n\\n### Towns\\n\\n[edit]\\n\\n Acworth\\n Charlestown\\n Cornish\\n Croydon\\n Goshen\\n Grantham\\n Langdon\\n Lempster\\n Newport (county seat)\\n Plainfie\"},{\"title\":\"Sullivan County, New Hampshire Facts for Kids\",\"url\":\"https://kids.kiddle.co/Sullivan_County,_New_Hampshire\",\"text\":\"Sullivan County is a place called a county \\\"County (United States)\\\") in the state of New Hampshire, USA. In 2020, about …(tronqué)",
+            "toolCallId": "call_00_esqOywA9dXe1Fv8ne9CJ6495"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Newport, New Hampshire\",\"url\":\"https://en.wikipedia.org/wiki/Newport,_New_Hampshire\",\"text\":\"Newport is a town in and the county seat of Sullivan County, New Hampshire, United States. It is 43 miles (69 km) west-northwest of Concord, the state capital. The population of Newport was 6,299 at the 2020 census. A covered bridge is in the northwest. The area is noted for maple sugar and apple orchards. Prior to county division in 1827, Newport was in Cheshire County. The central part of town, where 4,735 people resided at the 2020 census, is defined as the Newport census-designated [...] | County seat: Newport |\\n| City \\\"City (New Hampshire)\\\") |  | Map of New Hampshire highlighting Sullivan County |\\n| Towns |  Acworth  Charlestown  Cornish  Croydon  Goshen  Grantham  Langdon  Lempster  Newport  Plainfield  Springfield  Sunapee  Unity  Washington |\\n| CDPs |  Charlestown,_New_Hampshire \\\"Charlestown (CDP), New Hampshire\\\")  Newport,_New_Hampshire \\\"Newport (CDP), New Hampshire\\\")  Plainfield,_New_Hampshire \\\"Plainfield (CDP), New Hampshire\\\") | [...] Categories:\\n\\n Newport, New Hampshire\\n Towns in Sullivan County, New Hampshire\\n Populated places established in 1761\\n County seats in New Hampshire\\n Towns in New Hampshire\\n\\nHidden categories:\"},{\"title\":\"Sullivan County, New Hampshire - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Sullivan_County,_New_Hampshire\",\"text\":\"Sullivan County is a county \\\"County (United States)\\\") in the U.S. state of New Hampshire. As of the 2020 census, the population was 43,063, making it the second-least populous county in New Hampshire. Its county seat is Newport.\\n\\nSullivan County is included in the Claremont-Lebanon, NH-VT Micropolitan Statistical Area.\\n\\n## History\\n\\n[edit] [...] | County seat: Newport |\\n| City \\\"City (New Hampshire)\\\") |  | Map of New Hampshire highlighting Sullivan County |\\n| Towns |  Acworth  Charlestown  Cornish  Croydon  Goshen  Grantham  Langdon  Lempster  Newport  Plainfield  Springfield  Sunapee  Unity  Washington |\\n| CDPs |  Charlestown,_New_Hampshire \\\"Charlestown (CDP), New Hampshire\\\")  Newport,_New_Hampshire \\\"Newport (CDP), New Hampshire\\\")  Plainfield,_New_Hampshire \\\"Plainfield (CDP), New Hampshire\\\") | [...] | State | New Hampshire |\\n| Founded | 1827 |\\n| Named after | John Sullivan \\\"John Sullivan (general)\\\") |\\n| Seat | Newport |\\n| Largest city | Claremont |\\n| Area |\\n| • Total | 552.1 sq mi (1,430 km2) |\\n| • Land | 537.5 sq mi (1,392 km2) |\\n| • Water | 14.6 sq mi (38 km2)  2.6% |\\n| Population (2020) |\\n| • Total | 43,063 |\\n| • Estimate  (2025) | 43,961 Increase |\\n| • Density | 80.1/sq mi (30.9\"},{\"title\":\"About Sullivan County\",\"url\":\"https://www.sullivancountynh.gov/1219/About-Sullivan-County\",\"text\":\"Sullivan County is located in the West Central area of New Hampshire and was named after Brigadier General John Sullivan (1740-1795), a Revolutionary War hero.  On July 5, 1827, Sullivan County came into being.  Prior…(tronqué)",
+            "toolCallId": "call_01_2C3h1JGmUckArBHY8Stu3843"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-012",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Les deux parcs se trouvent en Espagne, dans l'archipel des Canaries (océan Atlantique, au large du nord-ouest de l'Afrique) :\n\n- **Parc national du Teide** : sur l'île de **Tenerife**, province de Santa Cruz de Tenerife. Il est centré sur le mont Teide, plus haut sommet d'Espagne (3 718 m). Créé en 1954, classé au patrimoine mondial de l'UNESCO en 2007.\n- **Parc national de Garajonay** : sur l'île de **La Gomera** (province de Santa Cruz de Tenerife). Créé en 1981, classé à l'UNESCO en 1986, célèbre pour sa forêt de lauriers (laurisilva).\n\nSources : Wikipedia (Teide National Park, Garajonay National Park), UNEP-WCMC World Heritage Datasheet, garajonay.info.\n\n**Réponse finale : Le parc national du Teide est situé sur l'île de Tenerife et le parc national de Garajonay sur l'île de La Gomera — les deux dans les îles Canaries, en Espagne.**",
+      "latencyMs": 6511,
+      "inputTokens": 4942,
+      "outputTokens": 425,
+      "toolCalls": 2,
+      "seed": 3126457833,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Where are Teide National Park and Garajonay National Park located?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_8BaUfhQMc5YJ8lx1DvUN3591",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Teide National Park location Tenerife Canary Islands"
+                }
+              },
+              {
+                "id": "call_01_m6lh7lMpw1yEBt45ere40137",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Garajonay National Park location La Gomera Canary Islands"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Teide National Park - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Teide_National_Park\",\"text\":\") is a national park located in Tenerife, Canary Islands, Spain. [...] | IUCN category II (national park) |\\n| Mount Teide, Pico Viejo, Roques de García |\\n| Teide National Park is located in Tenerife Teide National Park  Location within Tenerife Show map of Tenerife  Teide National Park is located in Spain, Canary Islands Teide National Park  Location within Spain, Canary Islands Show map of Spain, Canary Islands |\\n| Map Location of Teide |\\n| Location | Tenerife, Spain | [...] The national park is centered on Mount Teide, the highest mountain of Spain (3,718 meters high) in addition, the highest volcano in the Atlantic Ocean islands and the third highest volcano in the world from its base in the ocean floor (7.500 meters high). Pico Viejo, also included within the national park limits, is the second highest volcano in the Canary Islands with its 3,135 m peak. Mount Teide and Pico Viejo are the only two peaks in the Canary islands rising above the 3,000 m level.\"},{\"title\":\"TEIDE NATIONAL PARK - World Heritage Datasheet\",\"url\":\"http://world-heritage-datasheets.unep-wcmc.org/datasheet/output/site/teide-national-park\",\"text\":\"| Teide National Park: | II National Park |\\n --- |\\n| Teide Natural Monument: | Unassigned |\\n\\n## BIOGEOGRAPHICAL PROVINCE\\n\\nMacaronesian Islands (2.40.13)\\n\\n## GEOGRAPHICAL LOCATION\\n\\nTeide is the central peak of Tenerife, the largest of the Canary Islands which lie 320 km west of Africa and 1,380 km southwest of Spain at 28o 09’00” to 28o 20’02 N by 16o 29’00″to 16o 44’00” W.\\n\\n## DATES AND HISTORY OF ESTABLISHMENT\\n\\n1954: Teide National Park (13,571ha) established by decree; [...] ## BUDGET\\n\\nFrom the national Ministry of the Environment via the Autonomous Regional authority. In 2005 this sum was E4,880,882 (US\\\\$6,424,900). Specific Park projects are also separately funded.\\n\\n## LOCAL ADDRESSES\\n\\nTeide National Park, nº 5, 4º piso. 38002 Santa Cruz de Tenerife, Canary Islands, Spain.\\n\\nweb: \\n\\nComunidad Autónoma de Canarias, Viceconsejería de Medio Ambiente, Avenida de Anaga, nº 35, Edificio de Usos Múltiples I, planta 6ª, 38071 Santa Cruz de Tenerife\\n\\n## REFERENCES [...] Teide is the highest mountain in Spain, an impressive stratovolcano in the centre of the island of Tenerife, the largest of the Canary Islands, a chain formed like the Hawaiian Islands by the passing of the under-lying lit\"},{\"title\":\"Teide - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Teide\",\"text\":\"[edit]\\n\\nTeide is located on Tenerife, the largest island of the Canary Islands, situated in the Atlantic Ocean, 290 km (180 mi) northwest of the coast of Western Sahara. The volcano is located in a central position on the Tenerife island. Administratively, the Canary Islands are a Spanish autonomous community. Teide itself is located within the commune of La Orotava in the province of Santa Cruz de …(tronqué)",
+            "toolCallId": "call_00_8BaUfhQMc5YJ8lx1DvUN3591"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Garajonay National Park - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Garajonay_National_Park\",\"text\":\"Garajonay National Park (Spanish: Parque nacional de Garajonay, pronounced ( \\\"Help:IPA/Spanish\\\")) is located in the center and north of the island of La Gomera, one of the Canary Islands (Spain). It was declared a national park in 1981 and a World Heritage Site by UNESCO in 1986. It occupies 40 km2 (15 sq mi) and it extends into each of the six municipalities on the island.\\n\\nNearly 450,000 tourists visit the park every year. There is accommodation for tourists just outside the park's boundary. [...] | IUCN category II (national park) |\\n| Map Location of Garajonay |\\n| Location | La Gomera, Canary Islands, Spain |\\n| Coordinates | 28°07′34″N 17°14′14″W﻿ / ﻿28.12611°N 17.23722°W﻿ / 28.12611; -17.23722: {{#parsoid\\\\u0000fragment:17}}[ 28°07′34″N 17°14′14″W﻿ / ﻿28.12611°N 17.23722°W﻿ / 28.12611; -17.23722]\\\"}}\\\" id=\\\"mwBw\\\" about=\\\"#mwt7\\\" typeof=\\\"mw:Extension/indicator\\\"> |\\n| Area | 40 km2 (15 sq mi) |\\n| Established | 1981 |\\n| UNESCO World Heritage Site |\\n| Type | Natural |\\n| Criteria | vii, ix |\"},{\"title\":\"Garajonay National Park - Everything Everywhere\",\"url\":\"https://everything-everywhere.com/unesco-world-heritage-site-152-garajonay-national-park\",\"text\":\"## Overview\\n\\nGarajonay National Park is a national park located in La Gomera in Spain’s Canary Islands. This was established as a national park in 1981 but was inscribed into the list of UNESCO World Heritage Sites in 1986. The entire park measures at 40 square kilometers, which covers up to 6 municipalities on the island. [...] ## Tips for Visiting\\n\\nGarajonay National Park is located on the Canary Islands, which sits on the northwest African coast. To get to the national park, you must take a ferry to La Gomera via Tenerife. For international tourists, there are two international airports that serve Tenerife. [...] Garajonay National Park sits in the middle of the island of La Gomera, one of the smallest of the Canary Islands. The laurel forest which covers the interior of this island can be extremely haunting, especially if the forest is in the clouds at the time.\\n\\n## Overview\"},{\"title\":\"ENGLISH\",\"url\":\"https://www.garajonay.info/english\",\"text\":\"Search this site\\n\\nEmbedded Files\\n\\n# Information Garajonay National Park La Gomera, Canary Islands\\n\\n“There is nothing more important for conservation than people's awareness”. \\n\\nÁngel Fdez. López\\n\\nGarajonay National Park is located on the Canary Island of La Gomera, in the Atlantic Ocean.\\n\\nGarajonay is the legacy of the ancient subtropical forests that populated Southern Europe and North Africa millions of years ago.\"},{\"title\":\"Garajonay National Park | (Official GANP Page)\",\"url\":\"https://national-parks.org/spain/garajonay-national-park\",\"text\":\"### Popular\\n\\nGarajonay National Park, located on La Gomera in Spain’s Canary Islands, is a UNESCO World Heritage Site renowned f…(tronqué)",
+            "toolCallId": "call_01_m6lh7lMpw1yEBt45ere40137"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-013",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Analyse :** Le « journal britannique d'essais littéraires publié tous les quinze jours » est le **London Review of Books** (bimensuel). Le festival documentaire annuel qui lui est associé est le **London International Documentary Festival (LIDF)**, présenté « in association with the London Review of Books ».\n\nD'après la source (Wikipédia, *London International Documentary Festival*) : « an annual documentary film festival that takes place in **March and April** of every year », la première édition s'étant tenue au British Museum le **17 mars 2007**.\n\n**Réponse finale :** Le festival (le London International Documentary Festival, présenté en association avec le *London Review of Books*) a lieu au mois de **mars** (et se prolonge en avril ; l'édition inaugurale a ouvert le 17 mars 2007).",
+      "latencyMs": 8686,
+      "inputTokens": 5297,
+      "outputTokens": 821,
+      "toolCalls": 2,
+      "seed": 1118344270,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : In what month is the annual documentary film festival, that is presented by the fortnightly published British journal of literary essays, held?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_KSxaEmga14ZOMGOsKQ7R1470",
+                "name": "web_search",
+                "arguments": {
+                  "query": "documentary film festival presented by London Review of Books"
+                }
+              },
+              {
+                "id": "call_01_7pRwjCjFburNi8MoT5mv9690",
+                "name": "web_search",
+                "arguments": {
+                  "query": "fortnightly British journal of literary essays documentary film festival annual"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"London International Documentary Festival - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/London_International_Documentary_Festival\",\"text\":\"In other projects\\n\\n Wikidata item\\n\\nAppearance\\n\\nFrom Wikipedia, the free encyclopedia\\n\\nThe London International Documentary Festival (or LIDF) is an annual documentary film festival that takes place in March and April of every year. The event is presented in association with the London Review of Books. [...] 5. ↑ John Samson, the wizard of weird with a fetish for the facts[dead link] The Times. 19 March 2009.\\n6. ↑ John Samson Retrospective LIDF. [...] The festival first took place at the British Museum on 17 March 2007. The festival is subtitled 'A Conversation in Film', and claims to distinguish itself on the discussions it organises to accompany screenings. Such discussions often include intellectuals, filmmakers, journalists, politicians, and representatives from charities, NGO's, and think-tanks.\\n\\n## Notable events\\n\\n[edit]\"},{\"title\":\"Our 𝘓𝘙𝘉 Screen series resumes on... - London Review of Books\",\"url\":\"https://www.facebook.com/LondonReviewOfBooks/posts/our-%F0%9D%98%93%F0%9D%98%99%F0%9D%98%89-screen-series-resumes-on-wednesday-8-april-at-the-garden-cinema-with-a-s/1348070617350072\",\"text\":\"## London Review of Books's Post\\n\\n### London Review of Books\\n\\nMarch 29  ·\\n\\nOur 𝘓𝘙𝘉 Screen series resumes on Wednesday 8 April at the Garden Cinema with a screening of one of Frederick Wiseman’s most influential films, 𝘓𝘢𝘸 𝘢𝘯𝘥 𝘖𝘳𝘥𝘦𝘳, to mark the arrival of ‘Frederick Wiseman: American Lives’ a new season of Wiseman’s documentaries showing on MUBI. [...] 𝘓𝘢𝘸 𝘢𝘯𝘥 𝘖𝘳𝘥𝘦𝘳 follows the members of the Kansas City Police Department, who are largely white, as they engage in daily patrol activities and interact with members of the public. After its re-release in 2017, Pauline Kael described it in the 𝘕𝘦𝘸 𝘠𝘰𝘳𝘬𝘦𝘳 as ‘the most powerful hour and a half of television I’ve seen all year’. [...] Matthew Barrington, curator of cinema at the Barbican, will introduce the film. After the screening, he’ll be joined via video link by Khalil Gibran Muhammad, professor at Princeton, author of 𝘛𝘩𝘦 𝘊𝘰𝘯𝘥𝘦𝘮𝘯𝘢𝘵𝘪𝘰𝘯 𝘰𝘧 𝘉𝘭𝘢𝘤𝘬𝘯𝘦𝘴𝘴: 𝘙𝘢𝘤𝘦, 𝘊𝘳𝘪𝘮𝘦, 𝘢𝘯𝘥 𝘵𝘩𝘦 𝘔𝘢𝘬𝘪𝘯𝘨 𝘰𝘧 𝘔𝘰𝘥𝘦𝘳𝘯 𝘜𝘳𝘣𝘢𝘯 𝘈𝘮𝘦𝘳𝘪𝘤𝘢 and star of another Wiseman film, 2017’s 𝘌𝘹 𝘓𝘪𝘣𝘳𝘪𝘴: 𝘕𝘦𝘸 𝘠𝘰𝘳𝘬 𝘗𝘶𝘣𝘭𝘪𝘤 𝘓𝘪𝘣𝘳𝘢𝘳𝘺.\\n\\nTickets are available here: \\n\\nN\"},{\"title\":\"LRB Screen at Home: Clio Barnard talks to Gareth Evans about 'The Arbor'\",\"url\":\"https://www.youtube.com/watch?v=OHBvYe8DUxc\",\"text\":\"details off if you go to uh lrb dot me forward slash screen an incredible subscription offer there for you and of course don't forget the lrb book box carefully selected titles for your reading pleasure wherever you might find yourself many thanks to all of you uh for viewing uh this event and being with us on the film journey ove…(tronqué)",
+            "toolCallId": "call_00_KSxaEmga14ZOMGOsKQ7R1470"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Generate-then-Ground in Retrieval-Augmented Generation for Multi-hop Question Answering\",\"url\":\"https://arxiv.org/html/2406.14891v2\",\"text\":\"| |  |  | Question 1: What is the name of the annual documentary film festival presented by the fortnightly published British journal of literary essays? | | Answer 1: The Fortnightly Review Documentary Film Festival. | | Grounding 1: The document demonstrate <ref> The annual documentary film festival presented by the fortnightly published British journal of literary essays is called the London International Documentary Festival (LIDF) </ref>. <revise>the London International Documentary [...] | |  |  | Step 1: The annual documentary film festival is presented by the fortnightly published British journal of literary essays. | | Step 2: The entity presenting the festival is the British journal of literary essays. | | Step 3: \\\"Fortnightly\\\" means the journal is published every two weeks. | | Step 4: Since the journal is published every two weeks, we need to find out which months fall around the time when the festival is typically held. If the journal is published fortnightly, it means [...] Documentary Festival (LIDF) </revise>. | | Question 2: The annual documentary film festival presented by the fortnightly published British journal of literary essays is called the London Internatio\"},{\"title\":\"Doc Fortnight | MoMA\",\"url\":\"https://www.moma.org/calendar/groups/31\",\"text\":\"Skip to main content\\n\\nDonate\\n\\nTickets\\n\\nTickets\\n\\nDonate\\n\\nWe use our own and third-party cookies to personalize your experience and the promotions you see.\\n\\nBy visiting our website or transacting with us, you agree to this. To find out more, including which third-party cookies we place and how to manage cookies, see our privacy policy.\\n\\n# Doc Fortnight\\n\\n## MoMA’s Festival of International Nonfiction Film and Media [...] Doc Fortnight 2017: MoMA’s International Festival of Nonfiction Film and Media\\n\\nFeb 16–26, 2017\\n\\nThe Great Wall. 2015. Ireland. Directed by Tadhg O’Sullivan. Courtesy of Tadhg O’Sullivan\\n\\n### Documentary Fortnight 2016: MoMA’s International Festival of Nonfiction Film and Media\\n\\nDocumentary Fortnight 2016: MoMA’s International Festival of Nonfiction Film and Media\\n\\nFeb 19–29, 2016\\n\\nThe Black Panthers: Vanguard of the Revolution. 2015. USA. Directed by Stanley Nelson. Courtesy of Stephen Shames [...] Documentary Fortnight 2009: MoMA’s International Festival of Nonfiction Film and Media\\n\\nFeb 11–25, 2009\\n\\nDark Glass. Clio Barnard. 2006. United Kingdom. Commissioned by FVU. Funded by Arts Council England and the UK Film Councils New Cinema Fund\\n\\n### Documentary Fortnight \"},{\"title\":\"British Documentary Film Festival\",\"url\":\"https://festagent.com/en/festivals/british_doc\",\"text\":\"Go to festival directory\\n\\nYears running: 13 (since 2014)\\n\\n# British Documentary Film Festival\\n\\nInternational Documentary Film Festival.\\n\\nDocumentary Submissions Open Fee-b…(tronqué)",
+            "toolCallId": "call_01_7pRwjCjFburNi8MoT5mv9690"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hotpot-014",
+      "category": "factual",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Analyse :**\n\n1. **Qui incarnait Corliss Archer ?** Dans *Kiss and Tell* (1945) de Richard Wallace, le rôle de Corliss Archer était tenu par **Shirley Temple**, alors âgée de 17 ans (source : Wikipedia, *Kiss and Tell (1945 film)* ; Rotten Tomatoes).\n\n2. **Quelle fonction gouvernementale a-t-elle occupée ?** Shirley Jane Temple Black a mené une carrière diplomatique officielle :\n   - **Déléguée des États-Unis à la 24ᵉ Assemblée générale de l'ONU** (1969)\n   - **Ambassadrice des États-Unis au Ghana** (1974–1976)\n   - **Chef du Protocole des États-Unis** (*Chief of Protocol of the United States*, 1976–1977) — première femme à occuper ce poste, assermentée par le président Gerald Ford le 20 juillet 1976\n   - **Ambassadrice des États-Unis en Tchécoslovaquie** (1989–1992)\n\nSources : Wikipedia (*Shirley Temple*), Office of the Historian du Département d'État américain (history.state.gov), American Presidency Project.\n\n**Réponse finale :** La femme qui a joué Corliss Archer dans *Kiss and Tell* (1945) est **Shirley Temple** (Shirley Temple Black), qui a ensuite été **ambassadrice des États-Unis** — au **Ghana** (1974–1976) puis en **Tchécoslovaquie** (1989–1992) — et **Chef du Protocole des États-Unis** (1976–1977), la première femme à occuper cette fonction ; elle fut aussi déléguée américaine à l'Assemblée générale de l'ONU en 1969.",
+      "latencyMs": 8710,
+      "inputTokens": 4839,
+      "outputTokens": 729,
+      "toolCalls": 2,
+      "seed": 4045295139,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : What government position was held by the woman who portrayed Corliss Archer in the film Kiss and Tell?\nCette question porte sur des faits vérifiables : utilise web_search pour obtenir des sources avant de répondre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_U5YeBADBowoAQgO288pX4657",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Kiss and Tell 1945 film Corliss Archer actress"
+                }
+              },
+              {
+                "id": "call_01_zalUg6QUrenFj2U1Qt8q5752",
+                "name": "web_search",
+                "arguments": {
+                  "query": "Shirley Temple government position Ambassador Chief of Protocol"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Kiss and Tell (1945 film) - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Kiss_and_Tell_(1945_film)\",\"text\":\"Kiss and Tell is a 1945 American comedy film starring then 17-year-old Shirley Temple as Corliss Archer. In the film, two teenage girls cause their respective parents much concern when they start to become interested in boys. The parents' bickering about which girl is the worse influence causes more problems than it solves. [...] Shirley Temple as Corliss Archer\\n Jerome Courtland as Dexter Franklin\\n Walter Abel as Mr. Archer\\n Katharine Alexander as Mrs. Archer\\n Robert Benchley as uncle George Archer\\n Porter Hall as Mr. Franklin\\n Virginia Welles as Mildred Pringle\\n Tom Tully as Mr. Pringle\\n Darryl Hickman as Raymond Pringle\\n Mary Philips as Mrs. Pringle\\n Scott McKay \\\"Scott McKay (actor)\\\") as Private Jimmy Earhart\\n Scott Elliott as Lenny\\n\\n## Reception\\n\\n[edit&action=edit&section=3 \\\"Edit section: Reception\\\")] [...] | Theatrical release poster |\\n| Directed by | Richard Wallace \\\"Richard Wallace (director)\\\") |\\n| Written by | F. Hugh Herbert from his own play |\\n| Produced by | Sol C. Siegel |\\n| Starring | Shirley Temple Jerome Courtland Walter Abel Katharine Alexander |\\n| Cinematography | Charles Lawton Jr. |\\n| Edited by | Charles Nelson |\\n| Music by | Werner R. Heymann |\\n| Distributed by \"},{\"title\":\"Kiss and Tell (1945) | Rotten Tomatoes\",\"url\":\"https://www.rottentomatoes.com/m/kiss_and_tell_1945\",\"text\":\"Synopsis Teenage girls and best friends Corliss Archer (Shirley Temple) and Mildred Pringle (Virginia Welles) always manage to get themselves into trouble, with their respective parents placing the blame on the others' daughter. But when Mildred secretly elopes with Corliss' brother, Lenny (Scott Elliott), things get a bit more complicated. Mildred becomes pregnant, and a misunderstanding leads everyone to believe Corliss is the one expecting. However, Corliss intends to keep quiet about the [...] Teenage girls and best friends Corliss Archer (Shirley Temple) and Mildred Pringle (Virginia Welles) always manage to get themselves into trouble, with their respective parents placing the blame on the others' daughter. But when Mildred secretly elopes with Corliss' brother, Lenny (Scott Elliott), things get a bit more complicated. Mildred becomes pregnant, and a misunderstanding leads everyone to believe Corliss is the one expecting. However, Corliss intends to keep quiet about the marriage. [...] Kiss and Tell \\n\\n## My Rating\\n\\nRead More Read Less   WRITE A REVIEW   EDIT REVIEW   POST RATING\\n\\n## Cast & Crew\\n\\n View All\\n\\nRichard Wallace\\n\\nDirector   Shirley Temple\\n\\nCorliss Archer   Jerome Co\"},{\"title\":\"Film Review of Kiss and Tell: Shirley Temple in 1945 War Time Comedy About a Sixteen Year Old\",\"url\":\"https://wizzley.com/film-review-of-kiss-and-tell-shirley-temple\",\"text\":\"The movie begins with 15-year-old Corliss Archer (Shirley Temple) and 17-year-old Mildred Pring…(tronqué)",
+            "toolCallId": "call_00_U5YeBADBowoAQgO288pX4657"
+          },
+          {
+            "role": "tool",
+            "content": "{\"provider\":\"tavily\",\"results\":[{\"title\":\"Shirley Temple - Wikipedia\",\"url\":\"https://en.wikipedia.org/wiki/Shirley_Temple\",\"text\":\"Shirley Temple Black (born Shirley Jane Temple; April 23, 1928 – February 10, 2014) was an American actress, singer, dancer, politician, and diplomat, who was Hollywood's number-one box-office draw as a child actress from 1934 to 1938. Later, she was named United States Ambassador to Ghana and to Czechoslovakia, and also served as Chief of Protocol of the United States. [...] She began her diplomatic career in 1969, when she was appointed to represent the U.S. at a session of the United Nations General Assembly, where she worked at the U.S. Mission under Ambassador Charles Yost. Later, she was named U.S. Ambassador to Ghana, and also served as the first female U.S. Chief of Protocol. In 1988, she published her autobiography, Child Star. After her biography was published, she served as the penultimate U.S. ambassador to Czechoslovakia (1989–1992). [...] Temple got her start in foreign service after her failed run for Congress in 1967, when Henry Kissinger overheard her talking about South West Africa at a party. He was surprised that she knew anything about it. She was appointed as a delegate to the 24th United Nations General Assembly (September – December 1969) by President Richar\"},{\"title\":\"Remarks at the Swearing In of Shirley Temple Black as Chief of Protocol for the State Department. | The American Presidency Project\",\"url\":\"https://www.presidency.ucsb.edu/documents/remarks-the-swearing-shirley-temple-black-chief-protocol-for-the-state-department\",\"text\":\"Mr. Ambassador, will you please swear in Shirley Temple Black as the new Protocol Officer?  \\n  \\n [At this point, Stuart W. Rockwell, Deputy Chief of Protocol, administered the oath of office.]\\n\\nAMBASSADOR BLACK. Mr. President, it's a high honor indeed that you have bestowed upon me. It's a great honor to be the first woman Chief of Protocol for the United States of America. [...] And so, for that reason, I again thank you for this appointment and, also, for the last appointment as United States Ambassador to the Republic of Ghana. [...] July 20, 1976\\n\\nSHIRLEY, it's a great honor for me to have the opportunity of asking the Ambassador to swear you in to this very important post. It's a great reward for the outstanding service that you have given, first as a Representative at the United Nations and, more recently, in Ghana, in Africa.\"},{\"title\":\"Shirley Jane Temple Black - People - Department History - Office of the Historian\",\"url\":\"https://history.state.gov/departmenthistory/people/black-shirley-jane-temple\",\"text\":\"1. Ambassador Extraordinary and Plenipotentiary (Ghana)  \\n   Appointed: September 19, 1974  \\n   Presentation of Credentials: December 6, 1974  \\n   Termination of Mission: Left post on July 13, 1976\\n2. Chief of Protocol  \\n   Appointed: July 1, 1976  \\n   Entry on Duty: July 1, 1976  \\n   Termination of Appointment: January 21, 1977\\n3. Am…(tronqué)",
+            "toolCallId": "call_01_zalUg6QUrenFj2U1Qt8q5752"
+          }
+        ]
+      }
+    }
+  ],
+  "scores": [
+    {
+      "taskId": "hotpot-000",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-001",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Kansas Song"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-002",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1813,
+        1901,
+        1811,
+        1896
+      ],
+      "coveredKeyFacts": [
+        "yes"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-003",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1992
+      ],
+      "coveredKeyFacts": [
+        "World's Best Goalkeeper"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-004",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Fujioka, Gunma"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-005",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-006",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Yellowcraig"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-007",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        500,
+        500
+      ],
+      "coveredKeyFacts": [
+        "Indianapolis Motor Speedway"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-008",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-009",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "International Boxing Hall of Fame"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-010",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1996
+      ],
+      "coveredKeyFacts": [
+        "Tromeo and Juliet"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-011",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "Newport"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-012",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "Canary Islands, Spain"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-013",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "March and April"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-014",
+      "category": "factual",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1945,
+        1976,
+        1977
+      ],
+      "coveredKeyFacts": [
+        "Chief of Protocol"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-000",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        41,
+        0,
+        36,
+        28,
+        57,
+        24,
+        41,
+        2,
+        51,
+        29,
+        1,
+        39,
+        5,
+        6
+      ],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-001",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1912
+      ],
+      "coveredKeyFacts": [
+        "Kansas Song"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-002",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1813,
+        1901,
+        19,
+        1811,
+        1896,
+        1866,
+        1868,
+        19
+      ],
+      "coveredKeyFacts": [
+        "yes"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-003",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1992,
+        118,
+        28,
+        1993,
+        1992,
+        1992
+      ],
+      "coveredKeyFacts": [
+        "World's Best Goalkeeper"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-004",
+      "category": "factual",
+      "condition": "tool",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [
+        1983,
+        1983
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Fujioka, Gunma"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-005",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1
+      ],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-006",
+      "category": "factual",
+      "condition": "tool",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [
+        3
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Yellowcraig"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-007",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        500,
+        500,
+        200,
+        500,
+        800,
+        110,
+        24,
+        2026,
+        500,
+        500,
+        -500,
+        500,
+        500,
+        500,
+        200
+      ],
+      "coveredKeyFacts": [
+        "Indianapolis Motor Speedway"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-008",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "no"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-009",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1963,
+        1997,
+        1999,
+        1997,
+        1997,
+        8,
+        10,
+        50599279007
+      ],
+      "coveredKeyFacts": [
+        "International Boxing Hall of Fame"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-010",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1996,
+        1996
+      ],
+      "coveredKeyFacts": [
+        "Tromeo and Juliet"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-011",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1,
+        2,
+        3,
+        6299,
+        2020,
+        5,
+        1827
+      ],
+      "coveredKeyFacts": [
+        "Newport"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-012",
+      "category": "factual",
+      "condition": "tool",
+      "score": 0,
+      "exactMatch": false,
+      "extractedNumbers": [
+        3718,
+        1954,
+        2007,
+        1981,
+        1986
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [
+        "Canary Islands, Spain"
+      ],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 0/1"
+    },
+    {
+      "taskId": "hotpot-013",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        17,
+        2007,
+        17,
+        2007
+      ],
+      "coveredKeyFacts": [
+        "March and April"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hotpot-014",
+      "category": "factual",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1,
+        1945,
+        17,
+        1945,
+        2,
+        24,
+        1969,
+        1974,
+        1976,
+        1976,
+        1977,
+        20,
+        1976,
+        1989,
+        1992,
+        1945,
+        1974,
+        1976,
+        1989,
+        1992,
+        1976,
+        1977,
+        1969
+      ],
+      "coveredKeyFacts": [
+        "Chief of Protocol"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    }
+  ],
+  "notes": [
+    "TAVILY_API_KEY détecté: les outils web_search/fetch peuvent accéder au réseau.",
+    "Provider réel: openai (résultats non déterministes). Agent opencode isolé: aucun outil de code, aucun accès au dépôt."
+  ]
+}

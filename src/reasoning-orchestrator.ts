@@ -1,39 +1,65 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { ThoughtGraph } from './thought-graph';
 import { SimilarityEngine } from './similarity-engine';
 import { QualityEvaluator } from './quality-evaluator';
-import { ToolIntegrator } from './tool-integrator';
 import { MetricsCalculator } from './metrics-calculator';
 import { Visualizer } from './visualizer';
-import { SmartThinkingParams, SmartThinkingResponse, ThoughtMetrics, MemoryItem, ReasoningStep, ReasoningStepKind, ReasoningJustification, HeuristicTrace, ReasoningStepStatus } from './types';
+import { MemoryManager } from './memory-manager';
+import { SessionStore } from './session-store';
+import { SearchService, buildSearchQueries } from './search/search-service';
 import { IVerificationService } from './services/verification-service.interface';
-import { VerificationConfig } from './config';
-import { VerificationResult, VerificationStatus, VerificationDetailedStatus } from './types';
+import { createPlan, suggestPlanQueries } from './planner';
+import { upsertHypotheses, recordHypothesisEvidence, deriveHypothesisReport } from './hypotheses';
+import { suggestTools as suggestToolsForContext } from './tool-suggestions';
+import { generateCertaintySummary } from './verification-needs';
+import { extractKeywords } from './keywords';
+import { DEPTH_PROFILES, LIMITS } from './constants';
+import { ValidationError } from './errors';
+import type { RuntimeConfig } from './config';
+import type {
+  CritiqueReport,
+  HeuristicTrace,
+  HypothesisNode,
+  MemoryItem,
+  NextStepSuggestion,
+  Plan,
+  ReasoningDepth,
+  ReasoningJustification,
+  ReasoningStep,
+  ReasoningStepKind,
+  ReasoningStepStatus,
+  SmartThinkingParams,
+  SmartThinkingResponse,
+  ThoughtMetrics,
+  VerificationResult,
+  VerificationStatus,
+} from './types';
 
-interface MemoryManagerLike {
-  loadGraphState(sessionId: string): Promise<string | null>;
-  saveGraphState(sessionId: string, graphState: string): Promise<void>;
-  addMemory(content: string, tags: string[], sessionId: string): Promise<void | string> | string | void;
-  getRelevantMemories(content: string, limit: number, sessionId: string): Promise<MemoryItem[]>;
-}
-
-interface ReasoningOrchestratorDependencies {
+export interface ReasoningOrchestratorDependencies {
   similarityEngine: SimilarityEngine;
   qualityEvaluator: QualityEvaluator;
   verificationService: IVerificationService;
-  toolIntegrator: ToolIntegrator;
   metricsCalculator: MetricsCalculator;
   visualizer: Visualizer;
-  memoryManager: MemoryManagerLike;
+  memoryManager: MemoryManager;
+  sessionStore: SessionStore;
+  searchService?: SearchService;
+  runtime?: RuntimeConfig;
 }
 
 class ReasoningStepTracker {
-  private steps: ReasoningStep[] = [];
-  private stepIndex = new Map<string, ReasoningStep>();
-  private startedAt = new Map<string, number>();
+  private readonly steps: ReasoningStep[] = [];
+  private readonly stepIndex = new Map<string, ReasoningStep>();
+  private readonly startedAt = new Map<string, number>();
 
-  start(kind: ReasoningStepKind, label: string, description: string, parents: string[] = [], details?: Record<string, any>): string {
-    const id = uuidv4();
+  start(
+    kind: ReasoningStepKind,
+    label: string,
+    description: string,
+    parents: string[] = [],
+    details?: Record<string, unknown>,
+  ): string {
+    const id = randomUUID();
     const timestamp = new Date();
     const step: ReasoningStep = {
       id,
@@ -43,7 +69,7 @@ class ReasoningStepTracker {
       status: 'in_progress',
       timestamp: timestamp.toISOString(),
       parents,
-      details
+      details,
     };
     this.steps.push(step);
     this.stepIndex.set(id, step);
@@ -51,412 +77,571 @@ class ReasoningStepTracker {
     return id;
   }
 
-  complete(stepId: string, details?: Record<string, any>): void {
+  complete(stepId: string, details?: Record<string, unknown>): void {
     const step = this.stepIndex.get(stepId);
-    if (!step) return;
-    const now = Date.now();
+    if (!step) {
+      return;
+    }
     step.status = 'completed';
     if (details) {
-      step.details = { ...(step.details || {}), ...details };
+      step.details = { ...(step.details ?? {}), ...details };
     }
     const started = this.startedAt.get(stepId);
-    if (started) {
-      step.durationMs = now - started;
+    if (started !== undefined) {
+      step.durationMs = Date.now() - started;
       this.startedAt.delete(stepId);
     }
   }
 
+  skip(stepId: string, reason: string): void {
+    const step = this.stepIndex.get(stepId);
+    if (!step) {
+      return;
+    }
+    step.status = 'skipped';
+    step.details = { ...(step.details ?? {}), reason };
+  }
+
   fail(stepId: string, error: unknown): void {
     const step = this.stepIndex.get(stepId);
-    if (!step) return;
-    const now = Date.now();
+    if (!step) {
+      return;
+    }
     step.status = 'failed';
     step.details = {
-      ...(step.details || {}),
-      error: error instanceof Error ? error.message : String(error)
+      ...(step.details ?? {}),
+      error: error instanceof Error ? error.message : String(error),
     };
     const started = this.startedAt.get(stepId);
-    if (started) {
-      step.durationMs = now - started;
+    if (started !== undefined) {
+      step.durationMs = Date.now() - started;
       this.startedAt.delete(stepId);
     }
   }
 
   addJustification(stepId: string, justification: ReasoningJustification): void {
     const step = this.stepIndex.get(stepId);
-    if (!step) return;
-    const justifications = step.justifications || [];
-    justifications.push(justification);
-    step.justifications = justifications;
+    if (!step) {
+      return;
+    }
+    step.justifications = [...(step.justifications ?? []), justification];
   }
 
   getSteps(): ReasoningStep[] {
     return this.steps;
   }
 
-  getTimeline(): Array<{ stepId: string; label: string; status: ReasoningStepStatus; timestamp: string; durationMs?: number; kind: ReasoningStepKind }>{
+  getTimeline(): Array<{
+    stepId: string;
+    label: string;
+    status: ReasoningStepStatus;
+    timestamp: string;
+  }> {
     return this.steps.map(step => ({
       stepId: step.id,
       label: step.label,
       status: step.status,
       timestamp: step.timestamp,
-      durationMs: step.durationMs,
-      kind: step.kind
     }));
   }
 }
 
 export class ReasoningOrchestrator {
   private readonly deps: ReasoningOrchestratorDependencies;
+  private readonly graphs = new Map<string, ThoughtGraph>();
 
   constructor(dependencies: ReasoningOrchestratorDependencies) {
     this.deps = dependencies;
   }
 
-  public async run(params: SmartThinkingParams): Promise<{ response: SmartThinkingResponse; sessionId: string; thoughtGraph: ThoughtGraph }>
-  {
-    const tracker = new ReasoningStepTracker();
-    const sessionInitializationStep = tracker.start('context', 'Initialisation', 'Préparation de la session de raisonnement');
-    const sessionId = params.sessionId || uuidv4();
-    tracker.complete(sessionInitializationStep, { sessionId });
+  /** Returns the shared graph for a session, loading persisted state on first access. */
+  async getSessionGraph(sessionId?: string): Promise<ThoughtGraph> {
+    return this.getGraph(sessionId?.trim() || LIMITS.DEFAULT_SESSION_ID);
+  }
 
-    const thoughtGraph = new ThoughtGraph(sessionId, this.deps.similarityEngine, this.deps.qualityEvaluator);
+  async run(params: SmartThinkingParams): Promise<{
+    response: SmartThinkingResponse;
+    sessionId: string;
+    thoughtGraph: ThoughtGraph;
+  }> {    const depth: ReasoningDepth = params.depth ?? 'balanced';
+    const profile = DEPTH_PROFILES[depth];
+    const sessionId = params.sessionId?.trim() || LIMITS.DEFAULT_SESSION_ID;
+    const content = params.thought?.trim();
 
-    const loadStep = tracker.start('context', 'Chargement du graphe', 'Récupération de l’état précédent');
-    const previousState = await this.deps.memoryManager.loadGraphState(sessionId);
-    if (previousState) {
-      const imported = thoughtGraph.importEnrichedGraph(previousState);
-      tracker.complete(loadStep, { imported, nodeCount: thoughtGraph.getAllThoughts(sessionId).length });
-    } else {
-      tracker.complete(loadStep, { imported: false });
+    if (!content) {
+      throw new ValidationError("Le paramètre 'thought' est obligatoire et ne peut pas être vide.");
+    }
+    if (content.length > (this.deps.runtime?.maxThoughtLength ?? LIMITS.MAX_THOUGHT_LENGTH)) {
+      throw new ValidationError(
+        `La pensée dépasse la longueur maximale (${LIMITS.MAX_THOUGHT_LENGTH} caractères).`,
+      );
     }
 
-    const verificationStep = tracker.start('verification', 'Pré-vérification', 'Analyse initiale des calculs et garde-fous');
-    const preliminaryVerification = await this.deps.verificationService.performPreliminaryVerification(
-      params.thought,
-      !!params.containsCalculations
+    const tracker = new ReasoningStepTracker();
+    const contextStep = tracker.start(
+      'context',
+      'Initialisation',
+      `Préparation de la session (profondeur: ${depth})`,
     );
-    tracker.complete(verificationStep, {
-      detectedCalculations: preliminaryVerification.verifiedCalculations?.length || 0,
-      initialVerification: preliminaryVerification.initialVerification
+
+    const graph = await this.getGraph(sessionId);
+    const session = await this.deps.sessionStore.get(sessionId);
+    tracker.complete(contextStep, {
+      sessionId,
+      existingThoughts: graph.getAllThoughts(sessionId).length,
+      depth,
     });
 
-    const graphStep = tracker.start('graph', 'Insertion de la pensée', 'Ajout de la pensée dans le graphe');
-    const thoughtId = thoughtGraph.addThought(
-      preliminaryVerification.preverifiedThought,
-      params.thoughtType ?? 'regular',
-      params.connections ?? []
+    const plan = await this.resolvePlan(sessionId, session.plan, params, depth, tracker);
+    const { hypotheses, hypothesesChanged } = await this.resolveHypotheses(
+      sessionId,
+      session.hypotheses,
+      params,
+      tracker,
     );
-    tracker.complete(graphStep, { thoughtId, connectionCount: params.connections?.length ?? 0 });
 
-    const evaluationStep = tracker.start('evaluation', 'Évaluation heuristique', 'Calcul des métriques locales', [graphStep]);
-    const metrics: ThoughtMetrics = await this.deps.qualityEvaluator.evaluate(thoughtId, thoughtGraph);
-    thoughtGraph.updateThoughtMetrics(thoughtId, metrics);
-    tracker.complete(evaluationStep, {
-      confidence: metrics.confidence,
-      relevance: metrics.relevance,
-      quality: metrics.quality
-    });
-
-    const heuristics = this.buildHeuristicTraces(thoughtId, metrics);
-    const heuristicsJustification: ReasoningJustification = {
-      summary: `Heuristiques calculées (confiance ${this.formatScore(metrics.confidence)}, pertinence ${this.formatScore(metrics.relevance)}, qualité ${this.formatScore(metrics.quality)})`,
-      heuristics,
-      timestamp: new Date().toISOString()
-    };
-    tracker.addJustification(evaluationStep, heuristicsJustification);
-
-    const currentThought = thoughtGraph.getThought(thoughtId);
-    if (currentThought) {
-      const existingJustifications = currentThought.reasoning?.justifications || [];
-      currentThought.reasoning = {
-        createdByStepId: evaluationStep,
-        updatedAt: heuristicsJustification.timestamp,
-        justifications: [...existingJustifications, heuristicsJustification],
-        heuristicWeights: heuristics
+    const verificationStep = tracker.start(
+      'verification',
+      'Vérification préliminaire',
+      'Détection des calculs et anomalies évidentes',
+    );
+    let preliminary;
+    try {
+      preliminary = await this.deps.verificationService.performPreliminaryVerification(
+        content,
+        Boolean(params.containsCalculations || params.requestVerification),
+      );
+      tracker.complete(verificationStep, {
+        calculations: preliminary.verifiedCalculations?.length ?? 0,
+      });
+    } catch (error) {
+      tracker.fail(verificationStep, error);
+      preliminary = {
+        verifiedCalculations: undefined,
+        initialVerification: false,
+        verificationInProgress: false,
+        preverifiedThought: content,
       };
     }
-    this.decorateConnections(thoughtGraph, thoughtId, params.connections ?? [], heuristics, evaluationStep);
 
-    const response: SmartThinkingResponse = {
-      thoughtId,
-      thought: preliminaryVerification.preverifiedThought,
-      thoughtType: params.thoughtType ?? 'regular',
-      qualityMetrics: metrics,
-      sessionId,
-      isVerified: preliminaryVerification.initialVerification,
-      verificationStatus: preliminaryVerification.verificationInProgress
-        ? 'verification_in_progress'
-        : preliminaryVerification.initialVerification
-          ? 'partially_verified'
-          : 'unverified',
-      certaintySummary: preliminaryVerification.verificationInProgress
-        ? 'Vérification des calculs en cours...'
-        : `Information ${preliminaryVerification.initialVerification ? 'partiellement vérifiée' : 'non vérifiée'}, niveau de confiance: ${Math.round(metrics.confidence * 100)}%.`,
-      reliabilityScore: this.deps.metricsCalculator.calculateReliabilityScore(
-        metrics,
-        preliminaryVerification.initialVerification ? 'partially_verified' : 'unverified',
-        preliminaryVerification.verifiedCalculations,
-        undefined
-      )
-    };
-
-    if (preliminaryVerification.verifiedCalculations?.length) {
-      response.verification = {
-        status: 'partially_verified',
-        confidence: metrics.confidence,
-        sources: ['Vérification interne des calculs'],
-        verificationSteps: ['Annotation automatique des calculs détectés'],
-        verifiedCalculations: preliminaryVerification.verifiedCalculations
-      } as VerificationResult;
-      response.isVerified = true;
-      response.verificationStatus = 'partially_verified';
-      response.certaintySummary = `Calculs vérifiés automatiquement (${preliminaryVerification.verifiedCalculations.length}). Niveau de confiance: ${Math.round(metrics.confidence * 100)}%.`;
+    const thoughtContent = content;
+    const graphStep = tracker.start('graph', 'Intégration au graphe', 'Insertion de la pensée et connexions');
+    const thoughtId = graph.addThought(thoughtContent, params.thoughtType ?? 'regular', params.connections ?? []);
+    const thought = graph.getThought(thoughtId);
+    if (!thought) {
+      throw new ValidationError('Échec de l\'insertion de la pensée dans le graphe.');
     }
+    tracker.complete(graphStep, { thoughtId, connections: thought.connections.length });
 
-    const previousVerificationStep = tracker.start('verification', 'Recherche de vérifications antérieures', 'Consultation de la mémoire de vérification', [evaluationStep]);
-    const connectedIds = (params.connections ?? []).map(conn => conn.targetId);
-    const previousVerification = await this.deps.verificationService.checkPreviousVerification(
-      currentThought?.content || params.thought,
-      sessionId,
-      params.thoughtType ?? 'regular',
-      connectedIds
+    const inferenceStep = tracker.start(
+      'graph',
+      'Inférence relationnelle',
+      'Connexions déduites par similarité et transitivité dans la session',
     );
-    tracker.complete(previousVerificationStep, {
-      previousMatch: !!previousVerification.previousVerification,
-      similarity: previousVerification.previousVerification?.similarity
-    });
-
-    if (previousVerification.previousVerification) {
-      response.isVerified = previousVerification.isVerified;
-      response.verificationStatus = previousVerification.verificationStatus;
-      response.certaintySummary = previousVerification.certaintySummary;
-      response.verification = previousVerification.verification;
-      response.reliabilityScore = this.deps.metricsCalculator.calculateReliabilityScore(
-        metrics,
-        previousVerification.verificationStatus as VerificationStatus,
-        preliminaryVerification.verifiedCalculations,
-        response.reliabilityScore
-      );
-      if (currentThought) {
-        currentThought.metadata.previousVerification = {
-          similarity: previousVerification.previousVerification.similarity,
-          status: previousVerification.previousVerification.status,
-          confidence: previousVerification.previousVerification.confidence,
-          timestamp: previousVerification.previousVerification.timestamp
-        };
+    if (profile.runInference) {
+      try {
+        const sessionNodes = graph.getAllThoughts(sessionId);
+        const inferred = await graph.inferRelations(0.7, sessionId);
+        tracker.complete(inferenceStep, { nodes: sessionNodes.length, inferred });
+      } catch (error) {
+        tracker.fail(inferenceStep, error);
       }
+    } else {
+      tracker.skip(inferenceStep, 'Inférence désactivée pour ce profil de profondeur.');
     }
 
-    const needsDeepVerification = (metrics.confidence < VerificationConfig.CONFIDENCE.VERIFICATION_REQUIRED || params.requestVerification) && !previousVerification.previousVerification;
-    if (needsDeepVerification && currentThought) {
-      const deepVerificationStep = tracker.start('verification', 'Vérification approfondie', 'Lancement d’une vérification complète', [previousVerificationStep]);
+    const evaluationStep = tracker.start(
+      'evaluation',
+      'Évaluation heuristique',
+      'Calcul des métriques de confiance, pertinence et qualité',
+    );
+    const metrics = await this.deps.qualityEvaluator.evaluate(thoughtId, graph);
+    graph.updateThoughtMetrics(thoughtId, metrics);
+    tracker.complete(evaluationStep, { ...metrics });
+
+    const deepVerificationStep = tracker.start(
+      'verification',
+      'Vérification approfondie',
+      'Calculs, cohérence de session et sources web',
+    );
+    const connectedThoughts = graph.getConnectedThoughts(thoughtId);
+    const shouldVerify =
+      Boolean(params.requestVerification) ||
+      profile.verificationLevel === 'thorough' ||
+      Boolean(preliminary.verifiedCalculations && preliminary.verifiedCalculations.length > 0) ||
+      metrics.confidence < 0.5;
+
+    let verification: VerificationResult | undefined;
+    if (shouldVerify) {
       try {
-        const verification = await this.deps.verificationService.deepVerify(
-          currentThought,
-          params.containsCalculations ?? false,
-          false,
-          sessionId
-        );
-        response.verification = verification;
-        response.isVerified = ['verified', 'partially_verified'].includes(verification.status);
-        response.verificationStatus = verification.status as VerificationDetailedStatus;
-        response.reliabilityScore = this.deps.metricsCalculator.calculateReliabilityScore(
-          metrics,
-          verification.status as VerificationStatus,
-          verification.verifiedCalculations,
-          response.reliabilityScore
-        );
-        response.certaintySummary = this.deps.metricsCalculator.generateCertaintySummary(
-          verification.status as VerificationStatus,
-          response.reliabilityScore
-        );
-        if (verification.verifiedCalculations?.length) {
-          response.thought = this.deps.verificationService.annotateThoughtWithVerifications(
-            response.thought,
-            verification.verifiedCalculations
-          );
-          thoughtGraph.updateThoughtContent(thoughtId, response.thought);
-        }
+        const sessionSearchConfig = this.deps.sessionStore.getSearchConfig(sessionId);
+        verification = await this.deps.verificationService.verifyClaim({
+          claim: thoughtContent,
+          sessionId,
+          checkCalculation: true,
+          checkConsistency: connectedThoughts.length > 0,
+          checkWeb: profile.verificationLevel !== 'minimal',
+          connectedThoughts,
+          searchProvider: sessionSearchConfig?.provider,
+          tavilyApiKey: sessionSearchConfig?.tavilyApiKey,
+        });
         tracker.complete(deepVerificationStep, {
           status: verification.status,
-          verifiedCalculations: verification.verifiedCalculations?.length || 0
+          confidence: verification.confidence,
+          evidence: verification.evidence?.length ?? 0,
         });
       } catch (error) {
         tracker.fail(deepVerificationStep, error);
-        response.verificationStatus = 'inconclusive';
-        response.certaintySummary = `Erreur lors de la vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Niveau de confiance: ${Math.round(metrics.confidence * 100)}%.`;
       }
+    } else {
+      tracker.skip(deepVerificationStep, 'Vérification approfondie non requise pour ce profil.');
     }
 
-    if (params.suggestTools) {
-      const toolStep = tracker.start('suggestion', 'Suggestion d’outils', 'Identification des outils pertinents', [evaluationStep]);
-      response.suggestedTools = await this.deps.toolIntegrator.suggestTools(params.thought);
-      tracker.complete(toolStep, { suggestions: response.suggestedTools.length });
-    }
+    const evidence = verification?.evidence ?? [];
+    await this.deps.sessionStore.addEvidence(sessionId, evidence);
 
-    if (params.generateVisualization) {
-      const visualizationStep = tracker.start('visualization', 'Visualisation du graphe', 'Construction des vues demandées', [graphStep]);
-      try {
-        response.visualization = await this.generateVisualization(thoughtGraph, thoughtId, params);
-        tracker.complete(visualizationStep, {
-          nodeCount: response.visualization?.nodes.length || 0,
-          linkCount: response.visualization?.links.length || 0
+    const searchQueries = this.buildSearchQueries(content, plan, depth);
+
+    const memoryStep = tracker.start('memory', 'Mémoire', 'Recherche de souvenirs pertinents et enregistrement');
+    const relevantMemories = await this.safeMemories(content, sessionId);
+    const memoryId = this.deps.memoryManager.addMemory(thoughtContent, this.buildTags(params, verification), sessionId);
+    tracker.complete(memoryStep, {
+      relevant: relevantMemories.length,
+      memoryId,
+    });
+
+    const searchStep = tracker.start('search', 'Recherches suggérées', 'Requêtes web recommandées');
+    tracker.complete(searchStep, { queries: searchQueries });
+    const hypothesisReport = deriveHypothesisReport(hypotheses, [...session.evidence, ...evidence]);
+    const suggestionStep = tracker.start('suggestion', 'Suggestions', 'Prochaines étapes et outils pertinents');
+    const suggestedNextSteps = this.shouldSuggest(params, depth)
+      ? await this.safeSuggestions(graph, profile.maxSuggestions, sessionId)
+      : [];
+    const suggestedTools = params.suggestTools === false
+      ? undefined
+      : suggestToolsForContext({
+          content,
+          depth,
+          verification,
+          hasPlan: Boolean(plan),
+          openHypotheses: hypothesisReport.ranked.filter(
+            hypothesis => hypothesis.status === 'open' || hypothesis.status === 'inconclusive',
+          ).length,
+          evidenceCount: evidence.length + session.evidence.length,
         });
+    tracker.complete(suggestionStep, {
+      nextSteps: suggestedNextSteps.length,
+      tools: suggestedTools?.length ?? 0,
+    });
+
+    const critique = await this.buildCritique(thought, graph, params);
+    if (hypothesesChanged || hypothesisReport.ranked.some((hypothesis, index) => hypothesis.status !== hypotheses[index]?.status)) {
+      await this.deps.sessionStore.setHypotheses(sessionId, hypothesisReport.ranked);
+    }
+
+    let visualization;
+    if (params.generateVisualization || profile.includeVisualizationByDefault) {
+      const visualizationStep = tracker.start('visualization', 'Visualisation', 'Génération de la vue du graphe');
+      try {
+        visualization = this.generateVisualization(graph, thoughtId, params);
+        tracker.complete(visualizationStep);
       } catch (error) {
         tracker.fail(visualizationStep, error);
       }
     }
 
-    const memoryStep = tracker.start('memory', 'Mémorisation', 'Mise à jour de la mémoire persistante', [evaluationStep]);
-    const tags = params.thought
-      .toLowerCase()
-      .split(/\W+/)
-      .filter(word => word.length > 4)
-      .slice(0, 5);
-    await Promise.resolve(this.deps.memoryManager.addMemory(response.thought, tags, sessionId));
-    response.relevantMemories = await this.deps.memoryManager.getRelevantMemories(params.thought, 3, sessionId);
-    tracker.complete(memoryStep, { storedTags: tags.length, relevantMemories: response.relevantMemories.length });
-
-    const suggestionStep = tracker.start('planning', 'Prochaines étapes', 'Génération de suggestions de raisonnement', [evaluationStep]);
-    response.suggestedNextSteps = await thoughtGraph.suggestNextSteps(3, sessionId);
-    tracker.complete(suggestionStep, { suggestions: response.suggestedNextSteps.length });
-
-    const persistenceStep = tracker.start('persistence', 'Sauvegarde du graphe', 'Persistances des données de session', [graphStep]);
-    const graphState = thoughtGraph.exportEnrichedGraph();
-    await this.deps.memoryManager.saveGraphState(sessionId, graphState);
-    tracker.complete(persistenceStep, { persisted: true });
-
-    response.reasoningTrace = tracker.getSteps();
-    response.reasoningTimeline = tracker.getTimeline().map(item => ({
-      stepId: item.stepId,
-      label: item.label,
-      status: item.status,
-      timestamp: item.timestamp
-    }));
-
-    return { response, sessionId, thoughtGraph };
-  }
-
-  private buildHeuristicTraces(thoughtId: string, metrics: ThoughtMetrics): HeuristicTrace[] {
-    const breakdown = this.deps.metricsCalculator.getMetricBreakdown(thoughtId);
-    const traces: HeuristicTrace[] = [];
-    const pushBreakdown = (metric: string, _score?: number) => {
-      const metricBreakdown = breakdown?.[metric as keyof typeof breakdown];
-      if (!metricBreakdown) return;
-      for (const contribution of metricBreakdown.contributions) {
-        traces.push({
-          metric: `${metric}:${contribution.label}`,
-          weight: contribution.weight,
-          score: contribution.value,
-          rationale: contribution.rationale
-        });
-      }
-    };
-    pushBreakdown('confidence', metrics.confidence);
-    pushBreakdown('relevance', metrics.relevance);
-    pushBreakdown('quality', metrics.quality);
-    if (traces.length === 0) {
-      traces.push({
-        metric: 'confidence',
-        weight: metrics.confidence,
-        score: metrics.confidence,
-        rationale: 'Score calculé sans décomposition détaillée'
-      });
-      traces.push({
-        metric: 'relevance',
-        weight: metrics.relevance,
-        score: metrics.relevance,
-        rationale: 'Score calculé sans décomposition détaillée'
-      });
-      traces.push({
-        metric: 'quality',
-        weight: metrics.quality,
-        score: metrics.quality,
-        rationale: 'Score calculé sans décomposition détaillée'
-      });
+    const persistenceStep = tracker.start('persistence', 'Persistance', 'Sauvegarde du graphe et de la session');
+    try {
+      await this.deps.memoryManager.saveGraphState(sessionId, graph.exportEnrichedGraph());
+      await this.deps.sessionStore.addEvidence(sessionId, evidence);
+      tracker.complete(persistenceStep);
+    } catch (error) {
+      tracker.fail(persistenceStep, error);
     }
-    return traces;
+
+    this.evictStaleGraphs(sessionId);
+
+    const calculations = verification?.verifiedCalculations ?? preliminary.verifiedCalculations ?? [];
+    const incorrectCalculations = calculations.filter(calculation => !calculation.isCorrect);
+    const status: VerificationStatus = verification?.status ?? (calculations.length > 0 && incorrectCalculations.length === 0 ? 'partially_verified' : 'unverified');
+    const isVerified =
+      (status === 'verified' || status === 'partially_verified') && incorrectCalculations.length === 0;
+    const reliabilityScore = this.deps.metricsCalculator.calculateReliabilityScore(
+      metrics,
+      status,
+      calculations,
+    );
+    const certaintySummary = generateCertaintySummary(status, verification?.confidence ?? 0.4);
+
+    const response: SmartThinkingResponse = {
+      thoughtId,
+      thought: thoughtContent,
+      thoughtType: params.thoughtType ?? 'regular',
+      qualityMetrics: metrics,
+      sessionId,
+      suggestedTools,
+      visualization,
+      relevantMemories: relevantMemories.length > 0 ? relevantMemories : undefined,
+      suggestedNextSteps: suggestedNextSteps.length > 0 ? suggestedNextSteps : undefined,
+      verification,
+      isVerified,
+      verificationStatus: status,
+      certaintySummary,
+      reliabilityScore,
+      reasoningTrace: tracker.getSteps(),
+      reasoningTimeline: tracker.getTimeline(),
+      depth,
+      plan,
+      hypotheses: hypothesisReport.ranked.length > 0 ? hypothesisReport.ranked : undefined,
+      evidence: evidence.length > 0 ? evidence : undefined,
+      searchQueries: searchQueries.length > 0 ? searchQueries : undefined,
+      critique,
+      hypothesisWarnings: hypothesisReport.warnings.length > 0 ? hypothesisReport.warnings : undefined,
+      memoryId,
+    };
+
+    this.attachHeuristicTraces(tracker, thoughtId, metrics);
+    return { response, sessionId, thoughtGraph: graph };
   }
 
-  private decorateConnections(
-    thoughtGraph: ThoughtGraph,
-    sourceThoughtId: string,
-    requestedConnections: { targetId: string }[],
-    heuristics: HeuristicTrace[],
-    originatingStepId: string
-  ): void {
-    if (!requestedConnections.length) {
+  private async resolvePlan(
+    sessionId: string,
+    existing: Plan | undefined,
+    params: SmartThinkingParams,
+    depth: ReasoningDepth,
+    tracker: ReasoningStepTracker,
+  ): Promise<Plan | undefined> {
+    if (params.plan?.goal) {
+      const step = tracker.start('planning', 'Planification', 'Décomposition de l\'objectif en étapes testables');
+      const plan = createPlan(params.plan.goal, params.plan.constraints ?? [], depth, params.plan.maxSteps);
+      await this.deps.sessionStore.setPlan(sessionId, plan);
+      tracker.complete(step, { steps: plan.steps.length });
+      return plan;
+    }
+    return existing;
+  }
+
+  private async resolveHypotheses(
+    sessionId: string,
+    existing: HypothesisNode[],
+    params: SmartThinkingParams,
+    tracker: ReasoningStepTracker,
+  ): Promise<{ hypotheses: HypothesisNode[]; hypothesesChanged: boolean }> {
+    let hypotheses = existing;
+    let changed = false;
+
+    if (params.hypotheses?.length) {
+      const step = tracker.start('planning', 'Hypothèses', 'Enregistrement ou mise à jour d\'hypothèses');
+      hypotheses = upsertHypotheses(hypotheses, params.hypotheses);
+      await this.deps.sessionStore.setHypotheses(sessionId, hypotheses);
+      tracker.complete(step, { count: params.hypotheses.length });
+      changed = true;
+    }
+
+    if (params.hypothesisUpdate) {
+      const step = tracker.start('planning', 'Preuve d\'hypothèse', 'Mise à jour d\'une hypothèse avec une preuve');
+      hypotheses = recordHypothesisEvidence(hypotheses, params.hypothesisUpdate);
+      await this.deps.sessionStore.setHypotheses(sessionId, hypotheses);
+      tracker.complete(step, { id: params.hypothesisUpdate.id });
+      changed = true;
+    }
+
+    return { hypotheses, hypothesesChanged: changed };
+  }
+
+  private buildSearchQueries(content: string, plan: Plan | undefined, depth: ReasoningDepth): string[] {
+    const profile = DEPTH_PROFILES[depth];
+    if (profile.maxSearchQueries === 0) {
+      return [];
+    }
+    const queries = buildSearchQueries(content, profile.maxSearchQueries);
+    if (queries.length === 0 && plan) {
+      return suggestPlanQueries(plan.goal, profile.maxSearchQueries);
+    }
+    return queries;
+  }
+
+  private shouldSuggest(params: SmartThinkingParams, depth: ReasoningDepth): boolean {
+    if (params.requestSuggestions === false) {
+      return false;
+    }
+    return params.requestSuggestions === true || depth !== 'fast';
+  }
+
+  private async safeMemories(content: string, sessionId: string): Promise<MemoryItem[]> {
+    try {
+      return await this.deps.memoryManager.getRelevantMemories(content, 3, sessionId);
+    } catch {
+      return [];
+    }
+  }
+
+  private async safeSuggestions(
+    graph: ThoughtGraph,
+    limit: number,
+    sessionId: string,
+  ): Promise<NextStepSuggestion[]> {
+    try {
+      return await graph.suggestNextSteps(limit, sessionId);
+    } catch {
+      return [];
+    }
+  }
+
+  private async buildCritique(
+    thought: NonNullable<ReturnType<ThoughtGraph['getThought']>>,
+    graph: ThoughtGraph,
+    params: SmartThinkingParams,
+  ): Promise<CritiqueReport | undefined> {
+    try {
+      const biases = await this.deps.qualityEvaluator.detectBiases(thought);
+      const improvements = params.requestSuggestions
+        ? await this.deps.qualityEvaluator.suggestImprovements(thought, graph)
+        : [];
+      const warnings: string[] = [];
+      if (biases.length > 0) {
+        warnings.push(`Biais potentiels détectés: ${biases.map(bias => bias.type).join(', ')}.`);
+      }
+      if (improvements.length === 0 && warnings.length === 0) {
+        return undefined;
+      }
+      return { biases, improvements, warnings };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private buildTags(params: SmartThinkingParams, verification?: VerificationResult): string[] {
+    const tags = new Set<string>([params.thoughtType ?? 'regular']);
+    if (verification) {
+      tags.add(`verification:${verification.status}`);
+    }
+    if (params.depth) {
+      tags.add(`depth:${params.depth}`);
+    }
+    for (const keyword of extractKeywords(params.thought).slice(0, 3)) {
+      tags.add(keyword);
+    }
+    return Array.from(tags);
+  }
+
+  private attachHeuristicTraces(tracker: ReasoningStepTracker, thoughtId: string, metrics: ThoughtMetrics): void {
+    const breakdown = this.deps.metricsCalculator.getMetricBreakdown(thoughtId);
+    const evaluationStep = tracker
+      .getSteps()
+      .find(step => step.kind === 'evaluation' && step.status === 'completed');
+    if (!evaluationStep || !breakdown) {
       return;
     }
-    const connectionTargets = new Set(requestedConnections.map(conn => conn.targetId));
-    const sourceThought = thoughtGraph.getThought(sourceThoughtId);
-    if (!sourceThought) return;
-    const timestamp = new Date().toISOString();
-    for (const connection of sourceThought.connections) {
-      if (!connectionTargets.has(connection.targetId)) continue;
-      const justification: ReasoningJustification = {
-        summary: 'Connexion pondérée par les heuristiques de la pensée source',
-        heuristics,
-        timestamp
-      };
-      connection.createdByStepId = originatingStepId;
-      connection.heuristicWeights = heuristics;
-      connection.justification = justification;
 
-      const reciprocal = thoughtGraph.getThought(connection.targetId)?.connections.find(c => c.targetId === sourceThoughtId);
-      if (reciprocal) {
-        reciprocal.createdByStepId = originatingStepId;
-        reciprocal.heuristicWeights = heuristics;
-        reciprocal.justification = justification;
+    const traces: HeuristicTrace[] = [];
+    const sources: Array<['confidence' | 'relevance' | 'quality', number]> = [
+      ['confidence', metrics.confidence],
+      ['relevance', metrics.relevance],
+      ['quality', metrics.quality],
+    ];
+    for (const [metric, score] of sources) {
+      const metricBreakdown = breakdown[metric];
+      if (!metricBreakdown) {
+        continue;
+      }
+      for (const contribution of metricBreakdown.contributions) {
+        traces.push({
+          metric: `${metric}.${contribution.key ?? contribution.label}`,
+          weight: contribution.weight,
+          score: contribution.value,
+          rationale: contribution.rationale,
+        });
+      }
+      traces.push({
+        metric,
+        weight: 1,
+        score,
+        rationale: metricBreakdown.summary,
+      });
+    }
+
+    tracker.addJustification(evaluationStep.id, {
+      summary: `Confiance ${formatPercent(metrics.confidence)}, pertinence ${formatPercent(metrics.relevance)}, qualité ${formatPercent(metrics.quality)}.`,
+      heuristics: traces,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private async getGraph(sessionId: string): Promise<ThoughtGraph> {
+    const cached = this.graphs.get(sessionId);
+    if (cached) {
+      this.graphs.delete(sessionId);
+      this.graphs.set(sessionId, cached);
+      return cached;
+    }
+
+    const graph = new ThoughtGraph(sessionId, this.deps.similarityEngine, this.deps.qualityEvaluator);
+    try {
+      const saved = await this.deps.memoryManager.loadGraphState(sessionId);
+      if (saved) {
+        graph.importEnrichedGraph(saved);
+      }
+    } catch {
+      // A corrupt graph state must not prevent reasoning from starting.
+    }
+    this.graphs.set(sessionId, graph);
+    return graph;
+  }
+
+  private evictStaleGraphs(currentSessionId: string): void {
+    const maxGraphs = 8;
+    if (this.graphs.size <= maxGraphs) {
+      return;
+    }
+    for (const sessionId of this.graphs.keys()) {
+      if (sessionId !== currentSessionId) {
+        this.graphs.delete(sessionId);
+        if (this.graphs.size <= maxGraphs) {
+          break;
+        }
       }
     }
   }
 
-  private async generateVisualization(
-    thoughtGraph: ThoughtGraph,
+  private generateVisualization(
+    graph: ThoughtGraph,
     thoughtId: string,
-    params: SmartThinkingParams
+    params: SmartThinkingParams,
   ) {
     const type = params.visualizationType ?? 'graph';
-    const options = params.visualizationOptions || {};
+    const options = params.visualizationOptions ?? {};
     switch (type) {
       case 'chronological':
-        return this.deps.visualizer.generateChronologicalVisualization(thoughtGraph);
+        return this.deps.visualizer.generateChronologicalVisualization(graph);
       case 'thematic':
-        return this.deps.visualizer.generateThematicVisualization(thoughtGraph);
+        return this.deps.visualizer.generateThematicVisualization(graph);
       case 'hierarchical':
-        return this.deps.visualizer.generateHierarchicalVisualization(
-          thoughtGraph,
-          options.centerNode,
-          {
-            direction: options.direction as any,
-            levelSeparation: 100,
-            clusterBy: options.clusterBy as any
-          }
-        );
+        return this.deps.visualizer.generateHierarchicalVisualization(graph, options.centerNode, {
+          direction: options.direction,
+          levelSeparation: 100,
+          clusterBy: options.clusterBy,
+        } as never);
       case 'force':
-        return this.deps.visualizer.generateForceDirectedVisualization(thoughtGraph, {
-          clusterBy: options.clusterBy as any,
+        return this.deps.visualizer.generateForceDirectedVisualization(graph, {
+          clusterBy: options.clusterBy,
           forceStrength: 0.5,
-          centerNode: options.centerNode
-        });
+          centerNode: options.centerNode,
+        } as never);
       case 'radial':
-        return this.deps.visualizer.generateRadialVisualization(
-          thoughtGraph,
-          options.centerNode,
-          {
-            maxDepth: options.maxDepth,
-            radialDistance: 120
-          }
-        );
+        return this.deps.visualizer.generateRadialVisualization(graph, options.centerNode, {
+          maxDepth: options.maxDepth,
+          radialDistance: 120,
+        } as never);
       case 'graph':
       default:
-        return this.deps.visualizer.generateVisualization(thoughtGraph, thoughtId);
+        return this.deps.visualizer.generateVisualization(graph, thoughtId);
     }
   }
-
-  private formatScore(value: number): string {
-    return `${Math.round(value * 100)}%`;
-  }
 }
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+export { ReasoningStepTracker };

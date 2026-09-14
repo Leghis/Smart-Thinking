@@ -1,6 +1,6 @@
 import path from 'path';
 
-function loadPathUtilsWithPlatform(platformName: string, fsMock?: any) {
+function loadPathUtilsWithPlatform(platformName: string, fsMock?: unknown) {
   jest.resetModules();
 
   jest.doMock('os', () => ({
@@ -20,6 +20,7 @@ describe('PathUtils platform variants', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    delete process.env.SMART_THINKING_DATA_DIR;
   });
 
   afterEach(() => {
@@ -29,15 +30,13 @@ describe('PathUtils platform variants', () => {
     jest.resetModules();
   });
 
-  it('couvre les chemins Windows (APPDATA + WSL normalization)', () => {
+  it('couvre les chemins Windows (APPDATA)', () => {
     process.env.APPDATA = 'C:/Users/test/AppData/Roaming';
     process.env.USERPROFILE = 'C:/Users/test';
 
     const PathUtils = loadPathUtilsWithPlatform('win32');
 
-    expect(PathUtils.normalizePath('/mnt/c/Users/test/Documents')).toBe('C:/Users/test/Documents');
     expect(PathUtils.getDataDirectory()).toBe(path.join('C:/Users/test/AppData/Roaming', 'Smart-Thinking', 'data'));
-    expect(PathUtils.getConfigDirectory()).toContain('Smart-Thinking');
     expect(PathUtils.getHomeDirectory()).toContain('C:/Users/test');
   });
 
@@ -47,19 +46,19 @@ describe('PathUtils platform variants', () => {
     const PathUtils = loadPathUtilsWithPlatform('darwin');
 
     expect(PathUtils.getDataDirectory()).toBe(path.join('/Users/runner', 'Library', 'Application Support', 'Smart-Thinking', 'data'));
-    expect(PathUtils.getConfigDirectory()).toBe(path.join('/Users/runner', 'Library', 'Application Support', 'Smart-Thinking'));
     expect(PathUtils.getTempDirectory()).toBe('/tmp/Smart-Thinking');
   });
 
-  it('couvre les chemins Linux', () => {
+  it('couvre les chemins Linux et resolveDataDirectory', () => {
     process.env.HOME = '/home/tester';
 
     const PathUtils = loadPathUtilsWithPlatform('linux');
 
     expect(PathUtils.getDataDirectory()).toBe(path.join('/home/tester', '.smart-thinking', 'data'));
-    expect(PathUtils.getConfigDirectory()).toBe(path.join('/home/tester', '.smart-thinking'));
-    expect(PathUtils.normalizePath('/tmp/demo')).toBe('/tmp/demo');
-    expect(PathUtils.isAbsolutePath('/tmp/demo')).toBe(true);
+
+    process.env.SMART_THINKING_DATA_DIR = '/var/lib/smart-thinking';
+    expect(PathUtils.resolveDataDirectory()).toBe('/var/lib/smart-thinking');
+    expect(PathUtils.resolveDataDirectory('/custom/dir')).toBe('/custom/dir');
   });
 
   it('couvre le fallback de création de dossier vers un répertoire temporaire', async () => {

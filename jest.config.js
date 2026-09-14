@@ -3,7 +3,12 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/bench/**',
+    '!src/examples/**',
+  ],
   coverageDirectory: 'coverage',
   clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/src/test-utils/logger-setup.ts'],

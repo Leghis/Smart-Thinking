@@ -1,41 +1,112 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { buildScienceProtocol } from '../../reasoning/protocol';
 
 export function registerServerPrompts(server: McpServer): void {
+  server.registerPrompt(
+    'smartthinking-deep-reasoning',
+    {
+      title: 'Deep Reasoning Playbook',
+      description: 'Full workflow to solve a complex problem with the Smart-Thinking toolset (plan, reasoning graph, verification, web search).',
+      argsSchema: {
+        problem: z.string().min(1).describe('Le problème ou la question à résoudre'),
+        constraints: z.string().optional().describe('Contraintes, données connues, format attendu'),
+      },
+    },
+    ({ problem, constraints }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              'Tu disposes du serveur MCP Smart-Thinking. Applique ce protocole strictement.',
+              '',
+              `PROBLÈME: ${problem}`,
+              constraints ? `CONTRAINTES: ${constraints}` : '',
+              '',
+              'PROTOCOLE:',
+              '1. Appelle plan(goal, constraints) pour décomposer le problème en étapes testables.',
+              '2. Pour chaque étape: raisonne, puis consigne l\'étape avec smartthinking (thoughtType adapté, depth="balanced" ou "deep", connections vers les pensées précédentes).',
+              '3. Toute affirmation factuelle, chiffrée ou récente doit être soutenue par web_search (Tavily) puis verify. Si web_search renvoie provider="native", exécute la recherche avec ton outil natif et cite les URL.',
+              '4. Ne présente JAMAIS une conclusion dont le statut de vérification est "unverified", "uncertain" ou "absence_of_information" comme un fait établi. Signale explicitement les incertitudes.',
+              '5. Utilise hypotheses / hypothesisUpdate pour tester les hypothèses concurrentes et éliminer les plus faibles avec des preuves.',
+              '6. Termine par une conclusion qui: répond directement, liste les preuves avec sources, explicite les hypothèses et le niveau de confiance.',
+            ].filter(Boolean).join('\n'),
+          },
+        },
+      ],
+    }),
+  );
+
   server.registerPrompt(
     'smartthinking-reasoning-plan',
     {
       title: 'Reasoning Plan',
-      description: 'Build a high-quality reasoning plan before calling smartthinking.',
+      description: 'Build a testable reasoning plan before executing a task.',
       argsSchema: {
-        objective: z.string().min(1).describe('Objectif principal a atteindre'),
-        constraints: z.string().optional().describe('Contraintes non negociables'),
+        objective: z.string().min(1).describe('Objectif principal à atteindre'),
+        constraints: z.string().optional().describe('Contraintes non négociables'),
         depth: z.enum(['fast', 'balanced', 'deep']).optional().describe('Niveau de profondeur attendu'),
       },
     },
-    ({ objective, constraints, depth }) => {
-      const lines = [
-        'Construit un plan de raisonnement en etapes numerotees et testables.',
-        `Objectif: ${objective}`,
-      ];
+    ({ objective, constraints, depth }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              'Appelle l\'outil plan pour cet objectif, puis exécute le plan étape par étape.',
+              `Objectif: ${objective}`,
+              constraints ? `Contraintes: ${constraints}` : '',
+              depth ? `Profondeur demandée: ${depth}` : '',
+              'Pour chaque étape: consigne la pensée avec smartthinking, indique la preuve attendue et le critère de succès.',
+              'Si le plan évolue, mets à jour les statuts avec session(action="set_plan_step").',
+            ].filter(Boolean).join('\n'),
+          },
+        },
+      ],
+    }),
+  );
 
-      if (constraints) {
-        lines.push(`Contraintes: ${constraints}`);
-      }
 
-      if (depth) {
-        lines.push(`Profondeur demandee: ${depth}`);
-      }
-
-      lines.push('Pour chaque etape: objectif, hypothese, verification attendue, sortie.');
-
+  server.registerPrompt(
+    'smartthinking-science-protocol',
+    {
+      title: 'Science Protocol (standard)',
+      description:
+        'Standard workflow for research-level problems: domain classification, exact compute, certificates, trap checklist, required answer format. Use it before solving any hard challenge.',
+      argsSchema: {
+        problem: z.string().min(1).describe('Énoncé du problème complexe'),
+      },
+    },
+    ({ problem }) => {
+      const protocol = buildScienceProtocol(problem);
       return {
         messages: [
           {
             role: 'user' as const,
             content: {
               type: 'text' as const,
-              text: lines.join('\n'),
+              text: [
+                `Domaine détecté: ${protocol.domain}`,
+                '',
+                'ÉTAPES:',
+                ...protocol.steps,
+                '',
+                'PIÈGES À TRAITER:',
+                ...protocol.checklist.map(item => `- ${item}`),
+                '',
+                'OUTILS RECOMMANDÉS:',
+                ...protocol.toolHints.map(item => `- ${item}`),
+                '',
+                'FORMAT DE RÉPONSE:',
+                ...protocol.answerFormat,
+                '',
+                'PROBLÈME:',
+                problem,
+              ].join('\n'),
             },
           },
         ],
@@ -47,21 +118,25 @@ export function registerServerPrompts(server: McpServer): void {
     'smartthinking-verify-claim',
     {
       title: 'Verification Checklist',
-      description: 'Generate a deterministic verification checklist for a factual claim.',
+      description: 'Generate and execute a deterministic verification checklist for a factual claim.',
       argsSchema: {
-        claim: z.string().min(1).describe('Affirmation a verifier'),
+        claim: z.string().min(1).describe('Affirmation à vérifier'),
       },
     },
     ({ claim }) => ({
       messages: [
         {
-          role: 'user',
+          role: 'user' as const,
           content: {
-            type: 'text',
+            type: 'text' as const,
             text: [
-              'Genere une checklist de verification factuelle en 5 etapes maximum.',
+              'Vérifie cette affirmation avec l\'outil verify.',
               `Affirmation: ${claim}`,
-              'Chaque etape doit specifier: donnee attendue, source, critere de validation.',
+              'Démarche:',
+              '1. verify(claim) avec checkMath=true, checkConsistency=true, checkWeb=true.',
+              '2. Si des sources manquent, web_search sur chaque composante chiffrée.',
+              '3. Distingue clairement: confirmé par plusieurs sources / confirmé par une source / incertain / contredit.',
+              '4. Cite chaque source (URL + date) et liste les informations non vérifiables.',
             ].join('\n'),
           },
         },

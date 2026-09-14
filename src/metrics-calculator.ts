@@ -1,428 +1,364 @@
-import { 
-  ThoughtNode, 
-  ThoughtMetrics, 
-  Connection, 
-  ConnectionType, 
-  VerificationStatus,
+import {
+  CONFIDENCE_WEIGHTS,
+  CONNECTION_WEIGHTS,
+  METRIC_THRESHOLDS,
+  NEGATIVE_WORDS,
+  PATTERNS,
+  POSITIVE_WORDS,
+  QUALITY_INDICATORS,
+  QUALITY_WEIGHTS,
+  RELIABILITY_WEIGHTS,
+  RELEVANCE_WEIGHTS,
+  TYPE_ADJUSTMENTS,
+  TYPE_SCORES,
+  UNCERTAINTY_MODIFIERS,
+  CERTAINTY_MODIFIERS,
+  VERIFICATION_SCORE,
+} from './constants';
+import {
+  BiasFinding,
   CalculationVerificationResult,
+  Connection,
   MetricBreakdown,
+  MetricContribution,
   ThoughtMetricBreakdown,
-  MetricContribution
+  ThoughtMetrics,
+  ThoughtNode,
+  ThoughtType,
+  VerificationStatus,
 } from './types';
+import {
+  computeTokenOverlap,
+  extractAndWeightContextKeywords as weightContextKeywords,
+  extractKeywords,
+} from './keywords';
+import {
+  detectBiases as detectBiasesInThought,
+  determineVerificationRequirements as determineRequirements,
+  evaluateVerificationHeuristics as evaluateHeuristics,
+  generateCertaintySummary as buildCertaintySummary,
+  HeuristicVerificationResult,
+  VerificationRequirements,
+} from './verification-needs';
 
-/**
- * metrics-calculator.ts - VERSION OPTIMISÉE
- *
- * Système centralisé pour tous les calculs de métriques dans Smart-Thinking
- * Implémente des algorithmes avancés optimisés pour calculer la confiance, la pertinence,
- * la qualité et autres métriques utilisées par le système.
- */
+export interface TypeAdjustment {
+  confidence: number;
+  quality: number;
+  coherence: number;
+}
 
-/**
- * Classe qui centralise tous les calculs de métriques dans Smart-Thinking.
- * Cette classe implémente des algorithmes avancés pour le calcul de confiance,
- * la pertinence, la qualité et d'autres métriques utilisées dans le système.
- */
+export interface MetricsCalculatorConfig {
+  confidenceWeights: {
+    modifierAnalysis: number;
+    thoughtType: number;
+    structuralIndicators: number;
+    sentimentBalance: number;
+  };
+  relevanceWeights: {
+    keywordOverlap: number;
+    connectionStrength: number;
+  };
+  qualityWeights: {
+    wordIndicators: number;
+    typeSpecificIndicators: number;
+    structuralBalance: number;
+    coherence: number;
+  };
+  typeAdjustments: Record<ThoughtType, TypeAdjustment>;
+  tfIdf: {
+    minFrequency: number;
+    maxDocumentPercentage: number;
+  };
+}
+
+export interface MetricsCalculatorOptions {
+  confidenceWeights?: Partial<MetricsCalculatorConfig['confidenceWeights']>;
+  relevanceWeights?: Partial<MetricsCalculatorConfig['relevanceWeights']>;
+  qualityWeights?: Partial<MetricsCalculatorConfig['qualityWeights']>;
+  typeAdjustments?: Partial<Record<ThoughtType, Partial<TypeAdjustment>>>;
+  tfIdf?: Partial<MetricsCalculatorConfig['tfIdf']>;
+}
+
+const WHITESPACE = /\s+/;
+const ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+const TYPE_ADJUSTMENT_LABEL = 'Ajustement type';
+
+function escapeTerm(term: string): string {
+  return term.replace(ESCAPE_REGEX, '\\$&');
+}
+
+function buildWordRegex(words: readonly string[]): RegExp {
+  return new RegExp(`\\b(?:${words.map(escapeTerm).join('|')})\\b`, 'gi');
+}
+
+function buildIndicatorRegex(words: readonly string[]): RegExp {
+  return new RegExp(words.map(escapeTerm).join('|'), 'gi');
+}
+
+function normalizeWeightObject(
+  weights: Record<string, number>,
+  defaults: Record<string, number>,
+  warn: (message: string) => void,
+  label: string
+): void {
+  const sum = Object.values(weights).reduce(
+    (total, weight) => total + (Number.isFinite(weight) ? weight : 0),
+    0
+  );
+
+  if (sum <= 0) {
+    warn(`Poids de ${label} invalides (somme ${sum}) : retour aux valeurs par défaut.`);
+    for (const key of Object.keys(weights)) {
+      weights[key] = defaults[key] ?? 0;
+    }
+    return;
+  }
+
+  if (Math.abs(sum - 1) > METRIC_THRESHOLDS.WEIGHT_TOLERANCE) {
+    warn(`Poids de ${label} normalisés (somme initiale ${sum}).`);
+    for (const key of Object.keys(weights)) {
+      weights[key] = weights[key] / sum;
+    }
+  }
+}
+
+function mergeTypeAdjustments(
+  custom?: Partial<Record<ThoughtType, Partial<TypeAdjustment>>>
+): Record<ThoughtType, TypeAdjustment> {
+  const merged = {} as Record<ThoughtType, TypeAdjustment>;
+  for (const type of Object.keys(TYPE_ADJUSTMENTS) as ThoughtType[]) {
+    merged[type] = { ...TYPE_ADJUSTMENTS[type], ...(custom?.[type] ?? {}) };
+  }
+  return merged;
+}
+
 export class MetricsCalculator {
-
   private metricBreakdowns: Map<string, ThoughtMetricBreakdown> = new Map();
+  private readonly config: MetricsCalculatorConfig;
+  private readonly uncertaintyRegex: RegExp;
+  private readonly certaintyRegex: RegExp;
+  private readonly positiveWordRegex: RegExp;
+  private readonly negativeWordRegex: RegExp;
+  private readonly qualityRegexes: Record<ThoughtType, { positive: RegExp; negative: RegExp }>;
+  private hasWarnedWeights = false;
 
-  // Dictionnaires de mots indicateurs pour l'analyse linguistique
-  private positiveWords: string[] = [
-    'précis', 'clair', 'cohérent', 'logique', 'détaillé', 'rigoureux', 'méthodique',
-    'analytique', 'systématique', 'fondé', 'approfondi', 'équilibré', 'objectif',
-    'exact', 'raisonnable', 'valide', 'pertinent', 'significatif'
-  ];
+  constructor(customConfig: MetricsCalculatorOptions = {}) {
+    this.config = {
+      confidenceWeights: { ...CONFIDENCE_WEIGHTS, ...customConfig.confidenceWeights },
+      relevanceWeights: { ...RELEVANCE_WEIGHTS, ...customConfig.relevanceWeights },
+      qualityWeights: { ...QUALITY_WEIGHTS, ...customConfig.qualityWeights },
+      typeAdjustments: mergeTypeAdjustments(customConfig.typeAdjustments),
+      tfIdf: { minFrequency: 2, maxDocumentPercentage: 0.7, ...customConfig.tfIdf },
+    };
 
-  private negativeWords: string[] = [
-    'vague', 'confus', 'incohérent', 'illogique', 'superficiel', 'flou', 'ambigu',
-    'subjectif', 'inexact', 'imprécis', 'douteux', 'spéculatif', 'non pertinent',
-    'biaisé', 'contradictoire', 'simpliste', 'circulaire'
-  ];
+    this.normalizeWeights();
 
-  // Indicateurs de qualité par type de pensée
-  private qualityIndicators: Record<string, {positive: string[], negative: string[]}> = {
-    'regular': {
-      positive: ['clairement formulé', 'bien structuré', 'idée développée'],
-      negative: ['incomplet', 'hors sujet', 'mal structuré']
-    },
-    'meta': {
-      positive: ['auto-critique', 'réflexif', 'évaluatif', 'conscient'],
-      negative: ['superficiel', 'non réflexif', 'auto-complaisant']
-    },
-    'hypothesis': {
-      positive: ['testable', 'falsifiable', 'précis', 'fondé sur', 'prédictif'],
-      negative: ['vague', 'non testable', 'infalsifiable', 'sans fondement']
-    },
-    'conclusion': {
-      positive: ['synthétise', 'résume', 'découle de', 'cohérent avec'],
-      negative: ['déconnecté', 'sans rapport', 'non justifié', 'contradictoire']
-    },
-    'revision': {
-      positive: ['améliore', 'corrige', 'précise', 'clarifie', 'nuance'],
-      negative: ['répétitif', 'redondant', 'contredit sans justification']
+    this.uncertaintyRegex = buildWordRegex(UNCERTAINTY_MODIFIERS);
+    this.certaintyRegex = buildWordRegex(CERTAINTY_MODIFIERS);
+    this.positiveWordRegex = buildWordRegex(POSITIVE_WORDS);
+    this.negativeWordRegex = buildWordRegex(NEGATIVE_WORDS);
+
+    this.qualityRegexes = {} as Record<ThoughtType, { positive: RegExp; negative: RegExp }>;
+    for (const type of Object.keys(QUALITY_INDICATORS) as ThoughtType[]) {
+      const indicators = QUALITY_INDICATORS[type];
+      this.qualityRegexes[type] = {
+        positive: buildIndicatorRegex(indicators.positive),
+        negative: buildIndicatorRegex(indicators.negative),
+      };
     }
-  };
-
-  // Modalisateurs de certitude/incertitude pour l'analyse linguistique
-  private uncertaintyModifiers: string[] = [
-    'peut-être', 'possible', 'probablement', 'semble',
-    'pourrait', 'hypothèse', 'suppose', 'doute', 
-    'éventuellement', 'potentiellement', 'apparemment', 'suggère'
-  ];
-
-  private certaintyModifiers: string[] = [
-    'certainement', 'clairement', 'évidemment', 'sans doute', 'indiscutablement',
-    'nécessairement', 'doit', 'est', 'démontré', 'prouvé', 'assurément',
-    'incontestablement', 'manifestement', 'définitivement', 'inévitablement'
-  ];
-
-  // Mots-stop en français (stop words) - OPTIMISATION: Utilisation d'un Set pour recherche O(1)
-  private stopWords: Set<string> = new Set([
-    'le', 'la', 'les', 'un', 'une', 'des', 'ce', 'cette', 'ces',
-    'et', 'ou', 'mais', 'donc', 'car', 'ni', 'que', 'qui',
-    'dans', 'sur', 'sous', 'avec', 'sans', 'pour', 'par',
-    'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles',
-    'est', 'sont', 'être', 'avoir', 'fait', 'faire',
-    'plus', 'moins', 'très', 'trop', 'peu', 'beaucoup'
-  ]);
-
-  // OPTIMISATION: Pré-compilation des expressions régulières
-  private REGEX = {
-    REFERENCES: /\(([^)]+)\)|\[[^\]]+\]/g,
-    NUMBERS: /\d+([.,]\d+)?%?/g,
-    PUNCTUATION: /[.,\/#!$%\^&\*;:{}=\-_`~()]/g,
-    WHITESPACE: /\s+/,
-    SENTENCES: /[.!?]+/,
-    UNCERTAINTY_MODIFIERS: null as RegExp | null,
-    CERTAINTY_MODIFIERS: null as RegExp | null,
-    MATH_CALCULATION: /(?:\d+(?:\.\d+)?)\s*(?:[+\-*/^]|plus|moins|divisé|fois|multiplié)\s*(?:\d+(?:\.\d+)?)/i,
-    MATHEMATICAL_PROOF: /(?:prouvons|démontrons|supposons|soit|démonstration|preuve|CQFD|théorème|lemme|corollaire)/i,
-    LOGICAL_DEDUCTION: /(?:donc|par conséquent|ainsi|il s'ensuit que|cela implique|on en déduit|cela prouve)/i,
-    FACTUAL_CLAIM: /(?:est|sont|était|étaient|a été|ont été|sera|seront)\s+(?:un|une|des|le|la|les|du|de la)/i,
-    STRONG_EMOTION: /(?:!{2,}|incroyable|fantastique|horrible|déteste|adore|absolument|totalement|complètement|extrêmement)/i
-  };
-
-  // OPTIMISATION: Mappage pour les types de pensée
-  private typeScoresMap: Map<string, number> = new Map([
-    ['conclusion', 0.8],
-    ['hypothesis', 0.6],
-    ['meta', 0.7],
-    ['revision', 0.75],
-    ['regular', 0.65]
-  ]);
-
-  // OPTIMISATION: Mappage pour les types de connexion
-  private connectionWeightsMap: Map<ConnectionType, number> = new Map([
-    ['supports', 0.9],
-    ['contradicts', 0.7],
-    ['refines', 0.8],
-    ['branches', 0.6],
-    ['derives', 0.75],
-    ['associates', 0.5],
-    ['exemplifies', 0.7],
-    ['generalizes', 0.75],
-    ['compares', 0.6],
-    ['contrasts', 0.65],
-    ['questions', 0.5],
-    ['extends', 0.7],
-    ['analyzes', 0.8],
-    ['synthesizes', 0.85],
-    ['applies', 0.7],
-    ['evaluates', 0.8],
-    ['cites', 0.9],
-    ['extended-by', 0.7],
-    ['analyzed-by', 0.8],
-    ['component-of', 0.7],
-    ['applied-by', 0.7],
-    ['evaluated-by', 0.8],
-    ['cited-by', 0.9]
-  ]);
-
-  // OPTIMISATION: Mappage pour status de vérification
-  private verificationScoreMap: Record<VerificationStatus, number> = {
-    'verified': 0.95,
-    'partially_verified': 0.75,
-    'contradicted': 0.3,
-    'contradictory': 0.2,
-    'uncertain': 0.4,
-    'absence_of_information': 0.65,
-    'unverified': 0.45,
-    'inconclusive': 0.55
-  };
-
-  // Constantes centralisées pour les seuils utilisés dans les calculs
-  private THRESHOLDS = {
-    // Confiance
-    MIN_CONFIDENCE: 0.1,
-    MAX_CONFIDENCE: 0.95,
-    // Pertinence
-    MIN_RELEVANCE: 0.1,
-    MAX_RELEVANCE: 0.95,
-    // Qualité
-    MIN_QUALITY: 0.1,
-    MAX_QUALITY: 0.95,
-    // Fiabilité
-    MIN_RELIABILITY: 0.1,
-    MAX_RELIABILITY: 0.95,
-    // Confiance
-    HIGH_CONFIDENCE_THRESHOLD: 0.80,
-    MEDIUM_CONFIDENCE_THRESHOLD: 0.50,
-    LOW_CONFIDENCE_THRESHOLD: 0.30,
-    // Fiabilité
-    HIGH_RELIABILITY_THRESHOLD: 0.75,
-    MEDIUM_RELIABILITY_THRESHOLD: 0.45,
-    LOW_RELIABILITY_THRESHOLD: 0.25,
-    // Vérification
-    VERIFIED_THRESHOLD: 0.8,
-    PARTIALLY_VERIFIED_THRESHOLD: 0.45,
-    ABSENCE_THRESHOLD: 0.65,        
-    UNCERTAIN_THRESHOLD: 0.5,      
-    CONTRADICTION_THRESHOLD: 0.3,  
-    // Similarité
-    HIGH_SIMILARITY: 0.85,
-    // Erreur numérique
-    WEIGHT_TOLERANCE: 0.001,
-    // Nouveaux seuils pour les calculs mathématiques
-    MATH_HIGH_CONFIDENCE: 0.8, 
-    MATH_MEDIUM_CONFIDENCE: 0.65
-  };
-
-  // Paramètres configurables pour ajuster les calculs
-  private config = {
-    // Poids des différentes composantes dans le calcul de la confiance (HEURISTIQUE UNIQUEMENT)
-    confidenceWeights: {
-      modifierAnalysis: 0.4,   // Analyse des modalisateurs de certitude/incertitude
-      thoughtType: 0.2,        // Type de pensée (hypothesis, conclusion, etc.)
-      structuralIndicators: 0.2, // Indicateurs structurels (références, citations, etc.)
-      sentimentBalance: 0.2    // Équilibre des sentiments positifs/négatifs
-    },
-
-    // Poids des différentes composantes dans le calcul de la pertinence (HEURISTIQUE UNIQUEMENT)
-    relevanceWeights: {
-      keywordOverlap: 0.5,     // Chevauchement de mots-clés
-      connectionStrength: 0.5  // Force des connexions dans le graphe
-    },
-
-    // Poids des différentes composantes dans le calcul de la qualité (HEURISTIQUE UNIQUEMENT)
-    qualityWeights: {
-      wordIndicators: 0.25,    // Indicateurs de mots positifs/négatifs
-      typeSpecificIndicators: 0.25, // Indicateurs spécifiques au type
-      structuralBalance: 0.2,  // Équilibre structurel
-      coherence: 0.3           // Cohérence globale
-    },
-
-    // Ajustements par type de pensée (HEURISTIQUE UNIQUEMENT)
-    typeAdjustments: {
-      'hypothesis': { confidence: 0.9, quality: 1.0, coherence: 1.1 },
-      'conclusion': { confidence: 1.1, quality: 1.2, coherence: 1.2 },
-      'meta': { confidence: 1.0, quality: 1.1, coherence: 0.9 },
-      'revision': { confidence: 1.05, quality: 1.1, coherence: 1.05 },
-      'regular': { confidence: 1.0, quality: 1.0, coherence: 1.0 }
-    },
-
-    // Paramètres pour l'algorithme TF-IDF (HEURISTIQUE UNIQUEMENT)
-    tfIdf: {
-      minFrequency: 2,         // Fréquence minimale pour qu'un terme soit considéré
-      maxDocumentPercentage: 0.7 // Pourcentage maximum de documents contenant un terme
-    }
-  };
-
-  /**
-   * Constructeur
-   * @param customConfig Configuration personnalisée (optionnelle)
-   */
-  constructor(customConfig?: Partial<typeof MetricsCalculator.prototype.config>) {
-    if (customConfig) {
-      this.config = { ...this.config, ...customConfig };
-    }
-    
-    // Vérifier que les poids s'additionnent à 1.0
-    this.validateWeights();
-    
-    // OPTIMISATION: Précompiler les expressions régulières pour les modalisateurs
-    this.REGEX.UNCERTAINTY_MODIFIERS = new RegExp('\\b(' + this.uncertaintyModifiers.join('|') + ')\\b', 'gi');
-    this.REGEX.CERTAINTY_MODIFIERS = new RegExp('\\b(' + this.certaintyModifiers.join('|') + ')\\b', 'gi');
   }
-  
-  /**
-   * Valide et normalise tous les poids dans les configurations pour s'assurer qu'ils s'additionnent à 1.0
-   * Affiche un avertissement si ce n'est pas le cas et corrige automatiquement
-   */
-  private validateWeights(): void {
-    const categories = [
-      { name: 'confiance', weights: this.config.confidenceWeights as Record<string, number> },
-      { name: 'pertinence', weights: this.config.relevanceWeights as Record<string, number> },
-      { name: 'qualité', weights: this.config.qualityWeights as Record<string, number> }
-    ];
-    
-    for (const category of categories) {
-      const sum = Object.values(category.weights).reduce((total, w) => total + w, 0);
-      
-      // Vérifier si la somme des poids est proche de 1.0
-      if (Math.abs(sum - 1.0) > this.THRESHOLDS.WEIGHT_TOLERANCE) {
-        console.error(`AVERTISSEMENT: Les poids de ${category.name} s'additionnent à ${sum}, pas à 1.0`);
-        
-        // Normaliser automatiquement les poids
-        const factor = 1.0 / sum;
-        for (const key in category.weights) {
-          category.weights[key] *= factor;
-        }
-        
-        console.error(`Correction automatique appliquée aux poids de ${category.name}`);
+
+  private normalizeWeights(): void {
+    const warnOnce = (message: string): void => {
+      if (!this.hasWarnedWeights) {
+        this.hasWarnedWeights = true;
+        console.warn(`MetricsCalculator: ${message}`);
       }
-    }
+    };
+    normalizeWeightObject(this.config.confidenceWeights, CONFIDENCE_WEIGHTS, warnOnce, 'confiance');
+    normalizeWeightObject(this.config.relevanceWeights, RELEVANCE_WEIGHTS, warnOnce, 'pertinence');
+    normalizeWeightObject(this.config.qualityWeights, QUALITY_WEIGHTS, warnOnce, 'qualité');
   }
 
-  /**
-   * OPTIMISATION: Compter les modalisateurs avec RegExp (plus rapide)
-   * 
-   * @param content Contenu à analyser
-   * @param regex Expression régulière à utiliser
-   * @returns Nombre d'occurrences
-   */
-  private countModifiers(content: string, regex: RegExp): number {
-    const matches = content.match(regex);
-    return matches ? matches.length : 0;
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
   }
 
-  /**
-   * Calcule la métrique de confiance pour une pensée.
-   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
-   *
-   * @param thought La pensée à évaluer
-   * @param connectedThoughts Les pensées connectées (pour le contexte)
-   * @returns Niveau de confiance entre 0 et 1
-   */
-  async calculateConfidence(thought: ThoughtNode, connectedThoughts: ThoughtNode[] = []): Promise<number> { 
+  private countMatches(content: string, regex: RegExp): number {
+    return content.match(regex)?.length ?? 0;
+  }
+
+  async calculateConfidence(thought: ThoughtNode, connectedThoughts: ThoughtNode[] = []): Promise<number> {
     const breakdown = this.computeConfidenceBreakdown(thought, connectedThoughts);
     this.storeBreakdown(thought.id, 'confidence', breakdown);
     return breakdown.score;
   }
 
-  private computeConfidenceBreakdown(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): MetricBreakdown {
+  private computeConfidenceBreakdown(
+    thought: ThoughtNode,
+    connectedThoughts: ThoughtNode[]
+  ): MetricBreakdown {
     const content = thought.content.toLowerCase();
     const weights = this.config.confidenceWeights;
     const typeAdjustment = this.config.typeAdjustments[thought.type]?.confidence ?? 1;
 
-    const uncertaintyCount = this.countModifiers(content, this.REGEX.UNCERTAINTY_MODIFIERS!);
-    const certaintyCount = this.countModifiers(content, this.REGEX.CERTAINTY_MODIFIERS!);
+    const uncertaintyCount = this.countMatches(content, this.uncertaintyRegex);
+    const certaintyCount = this.countMatches(content, this.certaintyRegex);
     const totalModifiers = uncertaintyCount + certaintyCount;
     const modifierScore = totalModifiers === 0 ? 0.5 : this.clamp(certaintyCount / totalModifiers, 0, 1);
 
-    const referenceMatches = content.match(this.REGEX.REFERENCES) || [];
-    const numberMatches = content.match(this.REGEX.NUMBERS) || [];
+    const referenceMatches = content.match(PATTERNS.REFERENCES) ?? [];
+    const numberMatches = content.match(PATTERNS.NUMBERS) ?? [];
     const referenceScore = this.clamp(0.5 + Math.min(referenceMatches.length * 0.05, 0.2), 0, 1);
     const numberScore = Math.min(numberMatches.length * 0.03, 0.15);
     const structuralScore = this.clamp(referenceScore + numberScore, 0.3, 0.9);
 
-    const typeScore = this.typeScoresMap.get(thought.type) || 0.65;
+    const typeScore = TYPE_SCORES[thought.type] ?? 0.65;
 
-    const positiveWordsRegex = new RegExp('\\b(' + this.positiveWords.join('|') + ')\\b', 'gi');
-    const negativeWordsRegex = new RegExp('\\b(' + this.negativeWords.join('|') + ')\\b', 'gi');
-    const positiveMatches = content.match(positiveWordsRegex) || [];
-    const negativeMatches = content.match(negativeWordsRegex) || [];
+    const positiveMatches = content.match(this.positiveWordRegex) ?? [];
+    const negativeMatches = content.match(this.negativeWordRegex) ?? [];
     const totalSentiment = positiveMatches.length + negativeMatches.length;
-    const sentimentBalance = totalSentiment === 0 ? 0.5 : this.clamp(0.5 + (positiveMatches.length - negativeMatches.length) / (totalSentiment * 2), 0, 1);
+    const sentimentBalance =
+      totalSentiment === 0
+        ? 0.5
+        : this.clamp(
+            0.5 + (positiveMatches.length - negativeMatches.length) / (totalSentiment * 2),
+            0,
+            1
+          );
 
-    let connectionContextBoost = 0;
-    if (connectedThoughts.length > 0 && thought.connections.length > 0) {
-      const firstConnection = thought.connections[0];
-      const prevThought = connectedThoughts.find(t => t.id === firstConnection.targetId);
-      if (prevThought) {
-        const overlap = this.computeTokenOverlap(thought.content, prevThought.content);
-        connectionContextBoost = overlap * 0.1;
-        if (['contradicts', 'questions'].includes(firstConnection.type)) {
-          connectionContextBoost -= 0.05;
-        }
-      }
-    }
+    const connectionBoost = this.computeConnectionBoost(thought, connectedThoughts);
 
     const contributions: MetricContribution[] = [
       {
+        key: 'confidence.modifier',
         label: 'Modalisateurs de certitude',
         weight: weights.modifierAnalysis,
         value: modifierScore,
         impact: modifierScore * weights.modifierAnalysis,
-        rationale: totalModifiers === 0
-          ? 'Peu de modalisateurs explicites détectés.'
-          : `${certaintyCount} marqueurs de certitude contre ${uncertaintyCount} d\'incertitude.`
+        rationale:
+          totalModifiers === 0
+            ? 'Peu de modalisateurs explicites détectés.'
+            : `${certaintyCount} marqueurs de certitude contre ${uncertaintyCount} d'incertitude.`,
       },
       {
+        key: 'confidence.structural',
         label: 'Structure factuelle',
         weight: weights.structuralIndicators,
         value: structuralScore,
         impact: structuralScore * weights.structuralIndicators,
-        rationale: `${referenceMatches.length} références et ${numberMatches.length} éléments chiffrés détectés.`
+        rationale: `${referenceMatches.length} références et ${numberMatches.length} éléments chiffrés détectés.`,
       },
       {
+        key: 'confidence.type',
         label: 'Type de pensée',
         weight: weights.thoughtType,
         value: typeScore,
         impact: typeScore * weights.thoughtType,
-        rationale: `Le type ${thought.type} est associé à un niveau de certitude ${typeScore >= 0.7 ? 'élevé' : 'modéré'}.`
+        rationale: `Le type ${thought.type} est associé à un niveau de certitude ${typeScore >= 0.7 ? 'élevé' : 'modéré'}.`,
       },
       {
+        key: 'confidence.sentiment',
         label: 'Équilibre lexical',
         weight: weights.sentimentBalance,
         value: sentimentBalance,
         impact: sentimentBalance * weights.sentimentBalance,
-        rationale: totalSentiment === 0
-          ? 'Aucun lexique évaluatif particulier.'
-          : `${positiveMatches.length} termes positifs contre ${negativeMatches.length} négatifs.`
-      }
+        rationale:
+          totalSentiment === 0
+            ? 'Aucun lexique évaluatif particulier.'
+            : `${positiveMatches.length} termes positifs contre ${negativeMatches.length} négatifs.`,
+      },
     ];
 
-    if (connectionContextBoost !== 0) {
+    if (connectionBoost.impact !== 0) {
       contributions.push({
+        key: 'confidence.connection',
         label: 'Contexte des connexions',
-        weight: 0.1,
-        value: this.clamp(connectionContextBoost + 0.5, 0, 1),
-        impact: connectionContextBoost,
-        rationale: connectionContextBoost > 0
-          ? 'Overlap lexical avec les pensées reliées.'
-          : 'Connexions contradictoires réduisant la certitude.'
+        weight: 0,
+        value: this.clamp(0.5 + connectionBoost.impact, 0, 1),
+        impact: connectionBoost.impact,
+        rationale: connectionBoost.rationale,
       });
     }
 
     const baseScore = contributions.reduce((sum, item) => sum + item.impact, 0);
-    const adjustedScore = this.clamp(baseScore * typeAdjustment, this.THRESHOLDS.MIN_CONFIDENCE, this.THRESHOLDS.MAX_CONFIDENCE);
+    const adjustedScore = this.clamp(
+      baseScore * typeAdjustment,
+      METRIC_THRESHOLDS.MIN_CONFIDENCE,
+      METRIC_THRESHOLDS.MAX_CONFIDENCE
+    );
 
     contributions.push({
-      label: 'Ajustement type',
+      key: 'confidence.typeAdjustment',
+      label: TYPE_ADJUSTMENT_LABEL,
       weight: typeAdjustment,
       value: this.clamp(typeAdjustment, 0, 2),
       impact: adjustedScore - baseScore,
-      rationale: `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`
+      rationale: `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`,
     });
-
-    const summary = this.buildMetricSummary('confiance', adjustedScore, contributions);
 
     return {
       score: adjustedScore,
       contributions,
-      summary
+      summary: this.buildMetricSummary('confiance', adjustedScore, contributions),
     };
   }
 
-  /**
-   * Calcule la métrique de pertinence pour une pensée.
-   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
-   *
-   * @param thought La pensée à évaluer
-   * @param connectedThoughts Les pensées connectées (contexte)
-   * @returns Niveau de pertinence entre 0 et 1
-   */
+  private computeConnectionBoost(
+    thought: ThoughtNode,
+    connectedThoughts: ThoughtNode[]
+  ): { impact: number; rationale: string } {
+    if (connectedThoughts.length === 0 || thought.connections.length === 0) {
+      return { impact: 0, rationale: '' };
+    }
+
+    const byId = new Map(connectedThoughts.map(node => [node.id, node]));
+    let supportImpact = 0;
+    let contradictionImpact = 0;
+
+    for (const connection of thought.connections) {
+      const neighbor = byId.get(connection.targetId);
+      if (!neighbor) {
+        continue;
+      }
+      const overlap = computeTokenOverlap(thought.content, neighbor.content);
+      const isNegative = connection.type === 'contradicts' || connection.type === 'questions';
+      if (isNegative) {
+        contradictionImpact = Math.min(
+          contradictionImpact + connection.strength * (0.05 + overlap * 0.1),
+          0.15,
+        );
+      } else {
+        supportImpact = Math.max(supportImpact, Math.min(overlap * 0.1, 0.1));
+      }
+    }
+
+    const impact = this.clamp(supportImpact - contradictionImpact, -0.15, 0.15);
+    if (impact === 0) {
+      return { impact: 0, rationale: '' };
+    }
+    return {
+      impact,
+      rationale:
+        impact > 0
+          ? 'Soutien lexical pondéré des pensées reliées.'
+          : 'Contradictions reliées réduisant la certitude.',
+    };
+  }
+
   async calculateRelevance(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): Promise<number> {
     const breakdown = this.computeRelevanceBreakdown(thought, connectedThoughts);
     this.storeBreakdown(thought.id, 'relevance', breakdown);
     return breakdown.score;
   }
 
-  private computeRelevanceBreakdown(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): MetricBreakdown {
-    const contextContent = connectedThoughts.map(t => t.content).join(' ');
+  private computeRelevanceBreakdown(
+    thought: ThoughtNode,
+    connectedThoughts: ThoughtNode[]
+  ): MetricBreakdown {
+    const contextContent = connectedThoughts.map(node => node.content).join(' ');
     const keywordWeights = this.extractAndWeightContextKeywords(contextContent);
-    const thoughtKeywords = this.extractKeywords(thought.content);
+    const thoughtKeywords = extractKeywords(thought.content);
 
     let keywordScore = 0;
     let totalWeight = 0;
@@ -434,114 +370,156 @@ export class MetricsCalculator {
     }
     const keywordOverlapScore = totalWeight > 0 ? keywordScore / totalWeight : 0.4;
 
-    let outgoingScore = 0.5;
-    if (thought.connections.length > 0) {
-      const total = thought.connections.reduce((sum, conn) => {
-        const typeWeight = this.connectionWeightsMap.get(conn.type) || 0.5;
-        return sum + conn.strength * typeWeight;
-      }, 0);
-      outgoingScore = total / thought.connections.length;
-    }
+    const { score: connectionScore, outbound, inbound } = this.computeConnectionScore(
+      thought,
+      connectedThoughts
+    );
 
-    let incomingScore = 0.5;
-    const incomingConnections: Connection[] = [];
-    for (const node of connectedThoughts) {
-      for (const conn of node.connections) {
-        if (conn.targetId === thought.id) {
-          incomingConnections.push(conn);
-        }
-      }
-    }
-    if (incomingConnections.length > 0) {
-      const total = incomingConnections.reduce((sum, conn) => sum + conn.strength, 0);
-      incomingScore = total / incomingConnections.length;
-    }
-
-    const connectionScore = (outgoingScore + incomingScore) / 2;
     const weights = this.config.relevanceWeights;
-    const baseScore = keywordOverlapScore * weights.keywordOverlap + connectionScore * weights.connectionStrength;
+    const baseScore =
+      keywordOverlapScore * weights.keywordOverlap + connectionScore * weights.connectionStrength;
 
     let typeAdjustment = 1;
     if (thought.type === 'revision') typeAdjustment = 1.1;
     if (thought.type === 'meta') typeAdjustment = 0.9;
 
-    const adjustedScore = this.clamp(baseScore * typeAdjustment, this.THRESHOLDS.MIN_RELEVANCE, this.THRESHOLDS.MAX_RELEVANCE);
+    const adjustedScore = Math.max(
+      METRIC_THRESHOLDS.MIN_RELEVANCE,
+      Math.min(baseScore * typeAdjustment, METRIC_THRESHOLDS.MAX_RELEVANCE)
+    );
 
     const contributions: MetricContribution[] = [
       {
+        key: 'relevance.keyword',
         label: 'Recoupement lexical',
         weight: weights.keywordOverlap,
         value: this.clamp(keywordOverlapScore, 0, 1),
         impact: keywordOverlapScore * weights.keywordOverlap,
-        rationale: totalWeight === 0
-          ? 'Peu de mots-clés partagés avec le contexte.'
-          : `${Math.round(keywordScore * 100) / 100} poids cumulés sur ${Math.round(totalWeight * 100) / 100}.`
+        rationale:
+          totalWeight === 0
+            ? 'Peu de mots-clés partagés avec le contexte.'
+            : `${Math.round(keywordScore * 100) / 100} poids cumulés sur ${Math.round(totalWeight * 100) / 100}.`,
       },
       {
+        key: 'relevance.connection',
         label: 'Connexions',
         weight: weights.connectionStrength,
         value: this.clamp(connectionScore, 0, 1),
         impact: connectionScore * weights.connectionStrength,
-        rationale: `Connexions sortantes ${outgoingScore.toFixed(2)} | entrantes ${incomingScore.toFixed(2)}.`
+        rationale: `Connexions sortantes ${outbound.toFixed(2)} | entrantes non réciproques ${inbound.toFixed(2)}.`,
       },
       {
-        label: 'Ajustement type',
+        key: 'relevance.typeAdjustment',
+        label: TYPE_ADJUSTMENT_LABEL,
         weight: typeAdjustment,
         value: this.clamp(typeAdjustment, 0, 2),
         impact: adjustedScore - baseScore,
-        rationale: typeAdjustment === 1
-          ? 'Type ne modifiant pas la pertinence.'
-          : `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`
-      }
+        rationale:
+          typeAdjustment === 1
+            ? 'Type ne modifiant pas la pertinence.'
+            : `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`,
+      },
     ];
-
-    const summary = this.buildMetricSummary('pertinence', adjustedScore, contributions);
 
     return {
       score: adjustedScore,
       contributions,
-      summary
+      summary: this.buildMetricSummary('pertinence', adjustedScore, contributions),
     };
   }
 
-  /**
-   * Calcule la métrique de qualité globale pour une pensée.
-   * Priorise l'appel LLM avec contexte, utilise l'heuristique en fallback.
-   *
-   * @param thought La pensée à évaluer
-   * @param connectedThoughts Les pensées connectées (contexte)
-   * @returns Niveau de qualité entre 0 et 1
-   */
+  private computeConnectionScore(
+    thought: ThoughtNode,
+    connectedThoughts: ThoughtNode[]
+  ): { score: number; outbound: number; inbound: number } {
+    const outboundEdges: number[] = [];
+    const inboundEdges: number[] = [];
+    const negativeEdges: number[] = [];
+    const reciprocalTargets = new Set<string>();
+
+    const signedWeight = (type: Connection['type'], strength: number): number =>
+      strength * (CONNECTION_WEIGHTS[type] ?? 0.5);
+
+    for (const connection of thought.connections) {
+      reciprocalTargets.add(connection.targetId);
+      const weight = signedWeight(connection.type, connection.strength);
+      outboundEdges.push(weight);
+      if (connection.type === 'contradicts' || connection.type === 'questions') {
+        negativeEdges.push(weight);
+      }
+    }
+
+    for (const node of connectedThoughts) {
+      if (reciprocalTargets.has(node.id)) {
+        continue;
+      }
+      for (const connection of node.connections) {
+        if (connection.targetId === thought.id) {
+          const weight = signedWeight(connection.type, connection.strength);
+          inboundEdges.push(weight);
+          if (connection.type === 'contradicts' || connection.type === 'questions') {
+            negativeEdges.push(weight);
+          }
+        }
+      }
+    }
+
+    const edges = [...outboundEdges, ...inboundEdges];
+    const average = (values: number[], fallback: number): number =>
+      values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback;
+
+    const positiveAverage = average(
+      edges.filter(edge => !negativeEdges.includes(edge)),
+      0.5,
+    );
+    const negativePenalty = negativeEdges.length > 0 ? average(negativeEdges, 0) : 0;
+
+    return {
+      score: this.clamp(positiveAverage - negativePenalty * 0.5, 0, 1),
+      outbound: average(outboundEdges, 0.5),
+      inbound: average(inboundEdges, 0.5),
+    };
+  }
+
   async calculateQuality(thought: ThoughtNode, connectedThoughts: ThoughtNode[] = []): Promise<number> {
     const breakdown = this.computeQualityBreakdown(thought, connectedThoughts);
     this.storeBreakdown(thought.id, 'quality', breakdown);
     return breakdown.score;
   }
 
-  private computeQualityBreakdown(thought: ThoughtNode, connectedThoughts: ThoughtNode[]): MetricBreakdown {
+  private computeQualityBreakdown(
+    thought: ThoughtNode,
+    connectedThoughts: ThoughtNode[]
+  ): MetricBreakdown {
     const content = thought.content.toLowerCase();
     const weights = this.config.qualityWeights;
     const typeAdjustment = this.config.typeAdjustments[thought.type]?.quality ?? 1;
 
-    const positiveWordsRegex = new RegExp('\\b(' + this.positiveWords.join('|') + ')\\b', 'gi');
-    const negativeWordsRegex = new RegExp('\\b(' + this.negativeWords.join('|') + ')\\b', 'gi');
-    const positiveMatches = content.match(positiveWordsRegex) || [];
-    const negativeMatches = content.match(negativeWordsRegex) || [];
+    const positiveMatches = content.match(this.positiveWordRegex) ?? [];
+    const negativeMatches = content.match(this.negativeWordRegex) ?? [];
     const totalMatches = positiveMatches.length + negativeMatches.length;
-    const lexicalScore = totalMatches === 0 ? 0.5 : this.clamp(0.5 + (positiveMatches.length - negativeMatches.length) / (totalMatches * 2), 0.25, 0.95);
+    const lexicalScore =
+      totalMatches === 0
+        ? 0.5
+        : this.clamp(
+            0.5 + (positiveMatches.length - negativeMatches.length) / (totalMatches * 2),
+            0.25,
+            0.95
+          );
 
-    const typeIndicators = this.qualityIndicators[thought.type] || this.qualityIndicators['regular'];
-    const positiveTypeRegex = new RegExp(typeIndicators.positive.join('|'), 'gi');
-    const negativeTypeRegex = new RegExp(typeIndicators.negative.join('|'), 'gi');
-    const positiveTypeMatches = content.match(positiveTypeRegex) || [];
-    const negativeTypeMatches = content.match(negativeTypeRegex) || [];
-    const typeIndicatorScoreRaw = positiveTypeMatches.length - negativeTypeMatches.length;
-    const typeIndicatorScore = this.clamp(0.5 + typeIndicatorScoreRaw * 0.1, 0.2, 0.95);
+    const qualityRegex = this.qualityRegexes[thought.type] ?? this.qualityRegexes.regular;
+    const positiveTypeMatches = content.match(qualityRegex.positive) ?? [];
+    const negativeTypeMatches = content.match(qualityRegex.negative) ?? [];
+    const typeIndicatorScore = this.clamp(
+      0.5 + (positiveTypeMatches.length - negativeTypeMatches.length) * 0.1,
+      0.2,
+      0.95
+    );
 
-    const wordsArray = content.split(this.REGEX.WHITESPACE).filter(Boolean);
+    const wordsArray = content.split(WHITESPACE).filter(Boolean);
     const wordCount = wordsArray.length;
-    const sentencesArray = content.split(this.REGEX.SENTENCES).filter(s => s.trim().length > 0);
-    const sentenceCount = sentencesArray.length;
+    const sentenceCount = content.split(PATTERNS.SENTENCES).filter(sentence => sentence.trim().length > 0)
+      .length;
     const avgSentenceLength = sentenceCount === 0 ? wordCount : wordCount / sentenceCount;
 
     let structuralScore: number;
@@ -555,18 +533,22 @@ export class MetricsCalculator {
       structuralScore *= 0.85;
     }
 
-    const hasOrderedMarkers = /(premièrement|deuxièmement|en conclusion|pour commencer)/i.test(content);
-    if (hasOrderedMarkers) {
+    if (PATTERNS.ORDERED_MARKERS.test(content)) {
       structuralScore = this.clamp(structuralScore + 0.1, 0, 1);
     }
 
     let coherenceScore = 0.5;
     if (thought.connections.length > 0) {
-      const avgStrength = thought.connections.reduce((sum, conn) => sum + conn.strength, 0) / thought.connections.length;
+      const avgStrength =
+        thought.connections.reduce((sum, connection) => sum + connection.strength, 0) /
+        thought.connections.length;
       coherenceScore = this.clamp(0.5 + avgStrength * 0.3, 0.4, 0.9);
     }
     if (connectedThoughts.length > 0) {
-      const overlap = connectedThoughts.reduce((acc, node) => acc + this.computeTokenOverlap(thought.content, node.content), 0);
+      const overlap = connectedThoughts.reduce(
+        (acc, node) => acc + computeTokenOverlap(thought.content, node.content),
+        0
+      );
       coherenceScore = this.clamp(coherenceScore + overlap * 0.1, 0.4, 0.95);
     }
 
@@ -576,84 +558,83 @@ export class MetricsCalculator {
       structuralScore * weights.structuralBalance +
       coherenceScore * weights.coherence;
 
-    const adjustedScore = this.clamp(baseScore * typeAdjustment, this.THRESHOLDS.MIN_QUALITY, this.THRESHOLDS.MAX_QUALITY);
+    const adjustedScore = this.clamp(
+      baseScore * typeAdjustment,
+      METRIC_THRESHOLDS.MIN_QUALITY,
+      METRIC_THRESHOLDS.MAX_QUALITY
+    );
 
     const contributions: MetricContribution[] = [
       {
+        key: 'quality.lexical',
         label: 'Lexique qualitatif',
         weight: weights.wordIndicators,
         value: lexicalScore,
         impact: lexicalScore * weights.wordIndicators,
-        rationale: totalMatches === 0
-          ? 'Aucun terme qualitatif spécifique détecté.'
-          : `${positiveMatches.length} indices positifs vs ${negativeMatches.length} négatifs.`
+        rationale:
+          totalMatches === 0
+            ? 'Aucun terme qualitatif spécifique détecté.'
+            : `${positiveMatches.length} indices positifs vs ${negativeMatches.length} négatifs.`,
       },
       {
+        key: 'quality.typeIndicators',
         label: 'Indicateurs spécifiques au type',
         weight: weights.typeSpecificIndicators,
         value: typeIndicatorScore,
         impact: typeIndicatorScore * weights.typeSpecificIndicators,
-        rationale: `${positiveTypeMatches.length} indices attendus, ${negativeTypeMatches.length} signaux défavorables.`
+        rationale: `${positiveTypeMatches.length} indices attendus, ${negativeTypeMatches.length} signaux défavorables.`,
       },
       {
+        key: 'quality.structural',
         label: 'Structure',
         weight: weights.structuralBalance,
         value: structuralScore,
         impact: structuralScore * weights.structuralBalance,
-        rationale: `${wordCount} mots, ${sentenceCount} phrases (longueur moyenne ${avgSentenceLength.toFixed(1)}).`
+        rationale: `${wordCount} mots, ${sentenceCount} phrases (longueur moyenne ${avgSentenceLength.toFixed(1)}).`,
       },
       {
+        key: 'quality.coherence',
         label: 'Cohérence',
         weight: weights.coherence,
         value: coherenceScore,
         impact: coherenceScore * weights.coherence,
-        rationale: thought.connections.length === 0
-          ? 'Peu de liens explicites avec d\'autres pensées.'
-          : `${thought.connections.length} connexions utilisées pour valider la cohérence.`
+        rationale:
+          thought.connections.length === 0
+            ? "Peu de liens explicites avec d'autres pensées."
+            : `${thought.connections.length} connexions utilisées pour valider la cohérence.`,
       },
       {
-        label: 'Ajustement type',
+        key: 'quality.typeAdjustment',
+        label: TYPE_ADJUSTMENT_LABEL,
         weight: typeAdjustment,
         value: this.clamp(typeAdjustment, 0, 2),
         impact: adjustedScore - baseScore,
-        rationale: typeAdjustment === 1
-          ? 'Type sans ajustement spécifique.'
-          : `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`
-      }
+        rationale:
+          typeAdjustment === 1
+            ? 'Type sans ajustement spécifique.'
+            : `Le type ${thought.type} applique un facteur ${typeAdjustment.toFixed(2)}.`,
+      },
     ];
-
-    const summary = this.buildMetricSummary('qualité', adjustedScore, contributions);
 
     return {
       score: adjustedScore,
       contributions,
-      summary
+      summary: this.buildMetricSummary('qualité', adjustedScore, contributions),
     };
   }
 
-  private computeTokenOverlap(a: string, b: string): number {
-    const aTokens = new Set(this.extractKeywords(a));
-    const bTokens = new Set(this.extractKeywords(b));
-    if (aTokens.size === 0 || bTokens.size === 0) {
-      return 0;
-    }
-    let overlap = 0;
-    for (const token of aTokens) {
-      if (bTokens.has(token)) {
-        overlap += 1;
-      }
-    }
-    return overlap / Math.min(aTokens.size, bTokens.size);
+  private extractAndWeightContextKeywords(text: string): Record<string, number> {
+    return weightContextKeywords(text);
   }
 
-  private clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  private buildMetricSummary(metricLabel: string, score: number, contributions: MetricContribution[]): string {
+  private buildMetricSummary(
+    metricLabel: string,
+    score: number,
+    contributions: MetricContribution[]
+  ): string {
     const formattedScore = (Math.round(score * 100) / 100).toFixed(2);
     const descriptors = contributions
-      .filter(item => item.label !== 'Ajustement type')
+      .filter(item => item.label !== TYPE_ADJUSTMENT_LABEL)
       .sort((a, b) => b.impact - a.impact)
       .slice(0, 3)
       .map(item => `${item.label.toLowerCase()} (${(item.value * 100).toFixed(0)}%)`);
@@ -661,10 +642,13 @@ export class MetricsCalculator {
     return `Score de ${metricLabel} ${formattedScore}. Principaux facteurs : ${descriptors.join(', ')}.`;
   }
 
-  private storeBreakdown(thoughtId: string, metric: keyof ThoughtMetricBreakdown, breakdown: MetricBreakdown): void {
+  private storeBreakdown(
+    thoughtId: string,
+    metric: keyof ThoughtMetricBreakdown,
+    breakdown: MetricBreakdown
+  ): void {
     const existing = this.metricBreakdowns.get(thoughtId) ?? {};
-    const updated: ThoughtMetricBreakdown = { ...existing, [metric]: breakdown };
-    this.metricBreakdowns.set(thoughtId, updated);
+    this.metricBreakdowns.set(thoughtId, { ...existing, [metric]: breakdown });
   }
 
   public getMetricBreakdown(thoughtId: string): ThoughtMetricBreakdown | undefined {
@@ -673,9 +657,15 @@ export class MetricsCalculator {
       return undefined;
     }
     return {
-      confidence: breakdown.confidence ? { ...breakdown.confidence, contributions: [...breakdown.confidence.contributions] } : undefined,
-      relevance: breakdown.relevance ? { ...breakdown.relevance, contributions: [...breakdown.relevance.contributions] } : undefined,
-      quality: breakdown.quality ? { ...breakdown.quality, contributions: [...breakdown.quality.contributions] } : undefined
+      confidence: breakdown.confidence
+        ? { ...breakdown.confidence, contributions: [...breakdown.confidence.contributions] }
+        : undefined,
+      relevance: breakdown.relevance
+        ? { ...breakdown.relevance, contributions: [...breakdown.relevance.contributions] }
+        : undefined,
+      quality: breakdown.quality
+        ? { ...breakdown.quality, contributions: [...breakdown.quality.contributions] }
+        : undefined,
     };
   }
 
@@ -687,645 +677,67 @@ export class MetricsCalculator {
     }
   }
 
-  private hasAny(text: string, terms: string[]): boolean {
-    return terms.some(term => text.includes(term));
+  public clear(): void {
+    this.metricBreakdowns.clear();
   }
 
   /**
-   * Calcule un score global de fiabilité basé sur différentes métriques et vérifications
-   * avec une normalisation automatique des poids - VERSION OPTIMISÉE
-   *
-   * @param metrics Les métriques de base
-   * @param verificationStatus Statut de vérification actuel
-   * @param calculationResults Résultats de vérification des calculs (optionnel)
-   * @param previousScore Score précédent (optionnel)
-   * @returns Score de fiabilité entre 0 et 1
+   * `previousScore` must be a genuine prior reliability score; passing the current
+   * score would double-count the same evidence through the smoothing factor.
    */
   calculateReliabilityScore(
-      metrics: ThoughtMetrics, 
-      verificationStatus: VerificationStatus,
-      calculationResults?: CalculationVerificationResult[],
-      previousScore?: number
+    metrics: ThoughtMetrics,
+    verificationStatus: VerificationStatus,
+    calculationResults?: CalculationVerificationResult[],
+    previousScore?: number
   ): number {
-    // OPTIMISATION: Utiliser Map pour accéder au score de vérification
-    const verificationScore = this.verificationScoreMap[verificationStatus] || 0.45;
+    const verificationScore = VERIFICATION_SCORE[verificationStatus] ?? 0.45;
+    const weights =
+      calculationResults && calculationResults.length > 0
+        ? RELIABILITY_WEIGHTS.withCalculations
+        : RELIABILITY_WEIGHTS.withoutCalculations;
 
-    // OPTIMISATION: Déterminer les poids avec moins de conditions
-    // Poids pour chaque métrique
-    let weights = calculationResults && calculationResults.length > 0 
-        ? { confidence: 0.25, relevance: 0.10, quality: 0.10, verification: 0.55 }
-        : { confidence: 0.35, relevance: 0.15, quality: 0.15, verification: 0.35 };
-
-    // Calcul du score brut pondéré
-    let rawScore = 
+    let rawScore =
       weights.confidence * metrics.confidence +
       weights.relevance * metrics.relevance +
       weights.quality * metrics.quality +
       weights.verification * verificationScore;
-    
-    // OPTIMISATION: Bonus pour les calculs corrects en une seule passe
+
     if (calculationResults && calculationResults.length > 0) {
-      let correctCalculations = 0;
-      for (const result of calculationResults) {
-        if (result.isCorrect) correctCalculations++;
-      }
-      const correctRatio = correctCalculations / calculationResults.length;
-      rawScore += correctRatio * 0.1;
+      const correctCalculations = calculationResults.filter(result => result.isCorrect).length;
+      rawScore += (correctCalculations / calculationResults.length) * 0.1;
     }
-    
-    // OPTIMISATION: Ajustement selon le statut spécifique avec moins de conditions
-    if (verificationStatus === 'verified' && metrics.confidence > this.THRESHOLDS.HIGH_CONFIDENCE_THRESHOLD) {
+
+    if (verificationStatus === 'verified' && metrics.confidence > METRIC_THRESHOLDS.HIGH_CONFIDENCE) {
       rawScore *= 1.1;
     } else if (verificationStatus === 'absence_of_information') {
-      rawScore = rawScore > 0.75 ? 0.75 : rawScore;
+      rawScore = Math.min(rawScore, 0.75);
     }
-    
-    // Lissage temporel si score précédent disponible
+
     if (previousScore !== undefined) {
       rawScore = 0.7 * rawScore + 0.3 * previousScore;
     }
-    
-    // OPTIMISATION: Normalisation finale directe
-    if (rawScore < this.THRESHOLDS.MIN_RELIABILITY) {
-      return this.THRESHOLDS.MIN_RELIABILITY;
-    } else if (rawScore > this.THRESHOLDS.MAX_RELIABILITY) {
-      return this.THRESHOLDS.MAX_RELIABILITY;
-    }
-    return rawScore;
+
+    return this.clamp(rawScore, METRIC_THRESHOLDS.MIN_RELIABILITY, METRIC_THRESHOLDS.MAX_RELIABILITY);
   }
 
-  /**
-   * Calcule un score de pertinence basé sur la correspondance avec le contexte - VERSION OPTIMISÉE
-   * 
-   * @param thought La pensée à évaluer
-   * @param context Le contexte actuel
-   * @returns Score de pertinence (0-1)
-   */
-  calculateRelevanceScore(thought: ThoughtNode, context: string): number {
-    // OPTIMISATION: Extraction des mots-clés
-    const thoughtKeywords = this.extractKeywords(thought.content);
-    const contextKeywordWeights = this.extractAndWeightContextKeywords(context);
-    
-    let relevanceScore = 0;
-    let totalWeight = 0;
-    
-    // OPTIMISATION: Boucle unique pour calculer le score
-    for (const keyword of thoughtKeywords) {
-      const weight = contextKeywordWeights[keyword];
-      if (weight) {
-        relevanceScore += weight;
-        totalWeight += weight;
-      }
-    }
-    
-    // Normaliser le score
-    if (totalWeight > 0) {
-      relevanceScore = relevanceScore / totalWeight;
-    } else {
-      // Aucune correspondance, score minimal
-      relevanceScore = this.THRESHOLDS.MIN_RELEVANCE;
-    }
-    
-    // OPTIMISATION: Pondérer en fonction des connexions et du type de pensée
-    let connectionFactor = 1.0;
-    
-    // Bonus pour les connexions fortes avec d'autres pensées pertinentes
-    if (thought.connections && thought.connections.length > 0) {
-      let connectionScore = 0;
-      for (const connection of thought.connections) {
-        // OPTIMISATION: Utiliser Map
-        const typeWeight = this.connectionWeightsMap.get(connection.type) || 0.5;
-        connectionScore += typeWeight * connection.strength;
-      }
-      connectionFactor += (connectionScore / thought.connections.length) * 0.5;
-    }
-    
-    relevanceScore *= connectionFactor;
-    
-    // OPTIMISATION: Normaliser entre MIN et MAX directement
-    if (relevanceScore < this.THRESHOLDS.MIN_RELEVANCE) {
-      return this.THRESHOLDS.MIN_RELEVANCE;
-    } else if (relevanceScore > this.THRESHOLDS.MAX_RELEVANCE) {
-      return this.THRESHOLDS.MAX_RELEVANCE;
-    }
-    return relevanceScore;
-  }
-
-  /**
-   * Extrait les mots-clés d'un texte donné - VERSION OPTIMISÉE
-   * 
-   * @param text Le texte à analyser
-   * @returns Un tableau de mots-clés
-   */
   extractKeywords(text: string): string[] {
-    // OPTIMISATION: Convertir en minuscules et supprimer la ponctuation
-    const processedText = text.toLowerCase().replace(this.REGEX.PUNCTUATION, '');
-    
-    // OPTIMISATION: Utiliser Map pour le comptage (plus efficace)
-    const wordCountsMap = new Map<string, number>();
-    
-    // OPTIMISATION: Diviser et traiter en une seule passe
-    const words = processedText.split(this.REGEX.WHITESPACE);
-    for (const word of words) {
-      if (word.length > 2 && !this.stopWords.has(word)) {
-        wordCountsMap.set(word, (wordCountsMap.get(word) || 0) + 1);
-      }
-    }
-    
-    // OPTIMISATION: Convertir en tableau et trier
-    const sortedEntries = Array.from(wordCountsMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 15);
-    
-    // Extraire les mots uniquement
-    return sortedEntries.map(entry => entry[0]);
+    return extractKeywords(text);
   }
 
-  /**
-   * Extrait et pondère les mots-clés du contexte - VERSION OPTIMISÉE
-   * 
-   * @param text Le texte du contexte
-   * @returns Un objet avec les mots-clés et leurs poids
-   */
-  extractAndWeightContextKeywords(text: string): Record<string, number> {
-    const keywords = this.extractKeywords(text);
-    const weightedKeywords: Record<string, number> = {};
-    
-    // OPTIMISATION: Calculer la longueur une seule fois
-    const keywordsLength = keywords.length;
-    const factor = 1 / (keywordsLength * 2);
-    
-    // OPTIMISATION: Assigner des poids en une seule passe
-    for (let i = 0; i < keywordsLength; i++) {
-      const keyword = keywords[i];
-      weightedKeywords[keyword] = 1 - (i * factor);
-    }
-    
-    return weightedKeywords;
-  }
-
-  /**
-   * Obtient le poids associé à un type de connexion - VERSION OPTIMISÉE
-   * 
-   * @param type Le type de connexion
-   * @returns Le poids de ce type de connexion
-   */
-  getConnectionTypeWeight(type: ConnectionType): number {
-    // OPTIMISATION: Utiliser Map pour un accès plus rapide
-    return this.connectionWeightsMap.get(type) || 0.5;
-  }
-
-  /**
-   * Détermine le statut de vérification en fonction du score de confiance
-   * et d'autres facteurs - VERSION OPTIMISÉE
-   * 
-   * @param confidenceOrResults Niveau de confiance dans la vérification (0-1) ou résultats de vérification
-   * @param hasContradictions Indique s'il y a des contradictions
-   * @param hasInformation Indique s'il y a des informations disponibles
-   * @returns Le statut de vérification
-   */
-  determineVerificationStatus(
-    confidenceOrResults: number | any[], 
-    hasContradictions: boolean = false, 
-    hasInformation: boolean = true
-  ): VerificationStatus {
-    // Si le premier paramètre est un tableau, on est dans le cas d'un appel depuis verification-service
-    if (Array.isArray(confidenceOrResults)) {
-      return this.determineVerificationStatusFromResults(confidenceOrResults);
-    }
-    
-    // OPTIMISATION: Logic simplifiée avec retours immédiats
-    const confidence = confidenceOrResults as number;
-    
-    // Absence d'information
-    if (!hasInformation) {
-      return 'absence_of_information';
-    }
-    
-    // Contradictions
-    if (hasContradictions) {
-      return confidence < this.THRESHOLDS.CONTRADICTION_THRESHOLD 
-        ? 'contradictory' 
-        : 'uncertain';
-    }
-    
-    // Vérification normale basée sur le niveau de confiance
-    if (confidence >= this.THRESHOLDS.VERIFIED_THRESHOLD) {
-      return 'verified';
-    } else if (confidence >= this.THRESHOLDS.PARTIALLY_VERIFIED_THRESHOLD) {
-      return 'partially_verified';
-    }
-    
-    return 'unverified';
-  }
-  
-  /**
-   * Détermine le statut de vérification à partir des résultats de multiples sources - VERSION OPTIMISÉE
-   * Algorithme amélioré pour gérer les cas ambigus
-   *
-   * @param results Résultats de vérification provenant de différentes sources
-   * @returns Statut de vérification (VerificationStatus)
-   */
-  private determineVerificationStatusFromResults(results: any[]): VerificationStatus {
-    if (!results || results.length === 0) {
-      return 'unverified';
-    }
-    
-    // OPTIMISATION: Comptage direct sans créer des objets intermédiaires
-    let verifiedCount = 0;
-    let contradictedCount = 0;
-    let uncertainCount = 0;
-    let absenceCount = 0;
-    let totalConfidence = 0;
-    
-    // OPTIMISATION: Une seule passe pour tous les comptages
-    for (const result of results) {
-      const confidence = result.confidence || 0.5;
-      totalConfidence += confidence;
-      const isValid = result.result?.isValid;
-      
-      if (isValid === true) {
-        verifiedCount += confidence;
-      } else if (isValid === false) {
-        contradictedCount += confidence;
-      } else if (isValid === 'uncertain') {
-        uncertainCount += confidence;
-      } else if (isValid === 'absence_of_information') {
-        absenceCount += confidence;
-      }
-    }
-    
-    // Calcul des ratios
-    const verifiedRatio = verifiedCount / totalConfidence;
-    const contradictedRatio = contradictedCount / totalConfidence;
-    const uncertainRatio = uncertainCount / totalConfidence;
-    const absenceRatio = absenceCount / totalConfidence;
-    
-    // OPTIMISATION: Logique de décision simplifiée avec retours immédiats
-    
-    // 1. Contradiction forte prend priorité
-    if (contradictedRatio > 0.5) {
-      return 'contradictory';
-    }
-    
-    // 2. Désaccord franc entre vérifié et contredit
-    if (verifiedRatio > 0.3 && contradictedRatio > 0.3) {
-      return 'uncertain';
-    }
-    
-    // 3. Vérification forte si le ratio est suffisant
-    if (verifiedRatio > this.THRESHOLDS.VERIFIED_THRESHOLD) {
-      return 'verified';
-    }
-    
-    // 4. Vérification partielle pour les cas intermédiaires
-    if (verifiedRatio > this.THRESHOLDS.PARTIALLY_VERIFIED_THRESHOLD) {
-      return 'partially_verified';
-    }
-    
-    // 5. Cas d'incertitude forte
-    if (uncertainRatio > this.THRESHOLDS.UNCERTAIN_THRESHOLD) {
-      return 'uncertain';
-    }
-    
-    // 6. Absence d'information comme cas particulier
-    if (absenceRatio > this.THRESHOLDS.ABSENCE_THRESHOLD) {
-      return 'absence_of_information';
-    }
-    
-    // 7. Par défaut, vérification partielle si au moins quelques éléments positifs
-    if (verifiedRatio > 0) {
-      return 'partially_verified';
-    }
-    
-    // 8. Sinon, considérer comme non vérifié
-    return 'unverified';
-  }
-
-  /**
-   * Génère un résumé explicatif du niveau de certitude - VERSION OPTIMISÉE
-   * 
-   * @param status Statut de vérification
-   * @param confidence Niveau de confiance (0-1)
-   * @returns Résumé textuel du niveau de certitude
-   */
   generateCertaintySummary(status: VerificationStatus, confidence: number = 0.5): string {
-    // Formater le pourcentage pour l'affichage
-    const percentage = Math.round(confidence * 100);
-    
-    // OPTIMISATION: Utiliser un modèle de chaîne de base et personnaliser selon le statut
-    const statusDescriptions: Record<VerificationStatus, string> = {
-      'verified': `Information vérifiée avec un niveau de confiance de ${percentage}%. Plusieurs sources fiables confirment cette information.`,
-      'partially_verified': `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains éléments sont confirmés par des sources fiables.`,
-      'unverified': `Information non vérifiée. Niveau de confiance: ${percentage}%. Aucune source ne confirme ou n'infirme cette information.`,
-      'contradicted': `Information contredite. Niveau de confiance: ${percentage}%. Des sources fiables contredisent cette information.`,
-      'contradictory': `Information contradictoire. Niveau de confiance: ${percentage}%. Des sources crédibles se contredisent sur ce sujet.`,
-      'absence_of_information': `Aucune information trouvée sur ce sujet. Niveau de confiance: ${percentage}%. Cette absence d'information est elle-même une information pertinente.`,
-      'uncertain': `Information incertaine. Niveau de confiance: ${percentage}%. Les sources disponibles ne permettent pas de conclure avec certitude.`,
-      'inconclusive': `Résultat non concluant. Niveau de confiance: ${percentage}%. Les données sont insuffisantes ou ambiguës pour tirer une conclusion définitive.`
-    };
-    
-    let summary = statusDescriptions[status] || `Niveau de confiance: ${percentage}%.`;
-    
-    // Ajouter des conseils supplémentaires selon le niveau de confiance
-    if (confidence < 0.3) {
-      summary += ' Cette information doit être considérée comme hautement spéculative.';
-    } else if (confidence > 0.85) {
-      summary += ' Cette information peut être considérée comme fiable.';
-    }
-    
-    return summary;
+    return buildCertaintySummary(status, confidence);
   }
 
-  evaluateVerificationHeuristics(thought: ThoughtNode): { status: VerificationStatus; confidence: number; notes: string; keyFactors: string[] } {
-    const lower = thought.content.toLowerCase();
-    const keyFactors: string[] = [];
-
-    let status: VerificationStatus = 'unverified';
-    let confidence = 0.45;
-
-    const hasNumbers = /\d/.test(lower);
-    const hasFactualClaim = this.REGEX.FACTUAL_CLAIM.test(lower);
-    if (hasNumbers || hasFactualClaim) {
-      keyFactors.push('Présence d\'éléments factuels nécessitant une confirmation.');
-      confidence = Math.max(confidence, 0.5);
-    }
-
-    const hasSpeculation = this.hasAny(lower, this.uncertaintyModifiers);
-    const hasAbsolute = /(toujours|jamais|impossible|certainement|indiscutablement|absolument)/i.test(lower);
-    const hasStrongEmotion = this.REGEX.STRONG_EMOTION.test(lower);
-
-    if (hasAbsolute && hasSpeculation) {
-      status = 'contradicted';
-      confidence = Math.max(confidence, 0.55);
-      keyFactors.push('Combinaison de certitudes absolues et de formulations spéculatives.');
-    } else if (hasAbsolute && !hasSpeculation && !hasStrongEmotion) {
-      status = 'verified';
-      confidence = Math.max(confidence, 0.6);
-      keyFactors.push('Affirmations catégoriques sans marqueurs d\'incertitude.');
-    } else if (!hasNumbers && hasSpeculation) {
-      status = 'uncertain';
-      confidence = Math.min(confidence, 0.48);
-      keyFactors.push('Énoncé spéculatif sans soutien factuel explicite.');
-    }
-
-    if (hasStrongEmotion) {
-      keyFactors.push('Langage émotionnel détecté, à vérifier avec prudence.');
-      confidence = Math.min(confidence, 0.5);
-    }
-
-    if (keyFactors.length === 0) {
-      keyFactors.push('Aucun indice heuristique fort détecté.');
-    }
-
-    const notes = keyFactors.join(' ');
-
-    return {
-      status,
-      confidence: this.clamp(confidence, 0.2, 0.85),
-      notes,
-      keyFactors
-    };
+  async detectBiases(thought: ThoughtNode): Promise<BiasFinding[]> {
+    return detectBiasesInThought(thought);
   }
 
-  /**
-   * Détecte les biais potentiels dans une pensée - VERSION OPTIMISÉE
-   * 
-   * @param thought La pensée à analyser
-   * @returns Un tableau des biais détectés avec leur score (0-1) (basé sur LLM ou heuristique)
-   */
-  async detectBiases(thought: ThoughtNode): Promise<Array<{type: string, score: number, description: string}>> {
-    const content = thought.content.toLowerCase();
-    const biases = [];
-
-    // OPTIMISATION: Liste des patterns de biais cognitifs courants
-    const biasPatterns = [
-      {
-        type: 'confirmation_bias',
-        regex: /je savais déjà|comme prévu|confirme que|toujours été|évidemment/gi,
-        patterns: ['je savais déjà', 'comme prévu', 'confirme que', 'toujours été', 'évidemment'],
-        description: 'Tendance à favoriser les informations qui confirment des croyances préexistantes'
-      },
-      {
-        type: 'recency_bias',
-        regex: /récemment|dernièrement|ces jours-ci|tendance actuelle|de nos jours/gi,
-        patterns: ['récemment', 'dernièrement', 'ces jours-ci', 'tendance actuelle', 'de nos jours'],
-        description: 'Tendance à donner plus d\'importance aux événements récents'
-      },
-      {
-        type: 'availability_heuristic',
-        regex: /souvent|fréquemment|généralement|habituellement|couramment/gi,
-        patterns: ['souvent', 'fréquemment', 'généralement', 'habituellement', 'couramment'],
-        description: 'Jugement basé sur des exemples qui viennent facilement à l\'esprit'
-      },
-      {
-        type: 'black_white_thinking',
-        regex: /toujours|jamais|impossible|absolument|parfaitement|totalement/gi,
-        patterns: ['toujours', 'jamais', 'impossible', 'absolument', 'parfaitement', 'totalement'],
-        description: 'Tendance à voir les choses en termes absolus sans nuances'
-      },
-      {
-        type: 'authority_bias',
-        regex: /expert dit|selon les experts|études montrent|scientifiquement prouvé/gi,
-        patterns: ['expert dit', 'selon les experts', 'études montrent', 'scientifiquement prouvé'],
-        description: 'Tendance à attribuer plus de poids aux opinions des figures d\'autorité'
-      }
-    ];
-    
-    // OPTIMISATION: Détecter les biais avec RegExp
-    for (const bias of biasPatterns) {
-      const matches = content.match(bias.regex);
-      if (matches && matches.length > 0) {
-        // Calculer un score basé sur le nombre de correspondances
-        const score = Math.min(matches.length / bias.patterns.length * 1.5, 1);
-        if (score > 0.2) { // Seuil minimum pour considérer un biais
-          biases.push({
-            type: bias.type,
-            score,
-            description: bias.description
-          });
-        }
-      }
-    }
-    
-    // Analyse de sentiment pour détecter le biais émotionnel
-    if (this.REGEX.STRONG_EMOTION.test(content)) {
-      biases.push({
-        type: 'emotional_bias',
-        score: 0.7,
-        description: 'Jugement influencé par une forte charge émotionnelle'
-      });
-    }
-    
-    return biases;
+  evaluateVerificationHeuristics(thought: ThoughtNode): HeuristicVerificationResult {
+    return evaluateHeuristics(thought);
   }
 
-  /**
-   * Détermine les besoins de vérification pour un contenu donné - VERSION OPTIMISÉE
-   * 
-   * @param content Le contenu textuel à analyser
-   * @returns Configuration recommandée pour la vérification (basée sur LLM ou heuristique)
-   */
-  async determineVerificationRequirements(content: string): Promise<{
-    needsFactCheck: boolean;
-    needsMathCheck: boolean;
-    needsSourceCheck: boolean;
-    priority: 'low' | 'medium' | 'high';
-    suggestedTools: string[];
-    requiresMultipleVerifications: boolean;
-    reasons: string[];
-    recommendedVerificationsCount: number;
-  }> {
-    const lowercaseContent = content.toLowerCase();
-
-    // Initialiser les résultats
-    const result = {
-      needsFactCheck: false,
-      needsMathCheck: false,
-      needsSourceCheck: false,
-      priority: 'low' as 'low' | 'medium' | 'high',
-      suggestedTools: [] as string[],
-      requiresMultipleVerifications: false,
-      reasons: [] as string[],
-      recommendedVerificationsCount: 1
-    };
-    let score = 0;
-
-    if (/\d/.test(lowercaseContent)) {
-      result.needsFactCheck = true;
-      if (!result.reasons.includes('Présence de données chiffrées.')) {
-        result.reasons.push('Présence de données chiffrées.');
-      }
-      if (!result.suggestedTools.includes('web_search')) {
-        result.suggestedTools.push('web_search');
-      }
-      score += 2;
-    }
-
-    // OPTIMISATION: Détection par RegExp
-    
-    // Détection des affirmations factuelles
-    if (this.REGEX.FACTUAL_CLAIM.test(content)) {
-      result.needsFactCheck = true;
-      result.suggestedTools.push('web_search');
-      result.reasons.push('Contient des affirmations factuelles');
-      score += 1;
-    }
-    
-    // Détection des calculs mathématiques
-    if (this.REGEX.MATH_CALCULATION.test(content) || 
-        this.REGEX.MATHEMATICAL_PROOF.test(content)) {
-      result.needsMathCheck = true;
-      result.suggestedTools.push('math_evaluator');
-      result.reasons.push('Contient des calculs ou preuves mathématiques');
-    }
-    
-    // OPTIMISATION: Utiliser RegExp pour détecter les références à des sources
-    const sourceRegex = /selon|d'après|source|cité|référence|étude|recherche|publication/i;
-    if (sourceRegex.test(content)) {
-      result.needsSourceCheck = true;
-      result.suggestedTools.push('citation_checker');
-      result.reasons.push('Contient des références à des sources');
-    }
-    
-    // OPTIMISATION: Détermination de la priorité avec RegExp
-    // Augmenter le score si contient des affirmations fortes
-    if (/certainement|absolument|sans aucun doute|clairement|évidemment|forcément/i.test(lowercaseContent)) {
-      score += 2;
-      result.reasons.push('Contient des affirmations fortes');
-    }
-    
-    // Augmenter le score si contient des statistiques ou chiffres précis
-    if (/\d+\s?%|\d+\.\d+|millions?|milliards?/i.test(lowercaseContent)) {
-      score += 2;
-      result.reasons.push('Contient des statistiques ou chiffres précis');
-      result.needsFactCheck = true;
-      if (!result.suggestedTools.includes('web_search')) {
-        result.suggestedTools.push('web_search');
-      }
-    }
-    
-    // Augmenter le score si contient des références temporelles récentes
-    if (/récemment|cette année|ce mois|cette semaine|aujourd'hui|actuellement/i.test(lowercaseContent)) {
-      score += 1;
-      result.reasons.push('Contient des références temporelles récentes');
-    }
-    if (score >= 4) {
-      result.priority = 'high';
-    } else if (score >= 2) {
-      result.priority = 'medium';
-    }
-
-    // OPTIMISATION: Déterminer si plusieurs vérifications sont nécessaires
-    // Basé sur la complexité et l'importance du contenu
-    result.requiresMultipleVerifications = 
-      (result.needsFactCheck && (result.needsMathCheck || result.needsSourceCheck)) ||
-      (result.priority === 'high');
-    
-    // OPTIMISATION: Calculer le nombre de vérifications recommandées directement
-    if (result.requiresMultipleVerifications) {
-      result.recommendedVerificationsCount = 
-        (result.needsFactCheck && result.needsMathCheck && result.needsSourceCheck) ? 3 : 2;
-    }
-    
-    return result;
-  }
-
-  /**
-   * Calcule un niveau de confiance pour un ensemble de résultats de vérification - VERSION OPTIMISÉE
-   * en utilisant une approche bayésienne
-   * 
-   * @param results Résultats de vérification
-   * @returns Score de confiance entre 0 et 1
-   */
-  calculateVerificationConfidence(results: any[]): number {
-    if (!results || results.length === 0) {
-      return 0.5; // Confiance neutre par défaut
-    }
-    
-    // OPTIMISATION: Facteurs de pondération pour différentes sources
-    const sourceTypeWeights = new Map([
-      ['search', 0.8],
-      ['database', 0.9],
-      ['calculation', 0.95],
-      ['external_api', 0.85]
-    ]);
-    const defaultWeight = 0.7;
-    
-    // OPTIMISATION: Compter directement sans objets intermédiaires
-    let positiveWeight = 0;
-    let negativeWeight = 0;
-    
-    // OPTIMISATION: Analyser chaque résultat en une seule passe
-    for (const result of results) {
-      // Déterminer le poids de cette source
-      const sourceWeight = sourceTypeWeights.get(result.toolType) || defaultWeight;
-      const confidence = result.confidence || 0.5;
-      
-      // Ajuster la confiance en fonction de la validité
-      if (result.result?.isValid === true) {
-        positiveWeight += sourceWeight * confidence;
-      } else if (result.result?.isValid === false) {
-        negativeWeight += sourceWeight * confidence;
-      }
-    }
-    
-    // Si aucun résultat positif ou négatif clair, retourner une confiance neutre
-    if (positiveWeight === 0 && negativeWeight === 0) {
-      return 0.5;
-    }
-    
-    // OPTIMISATION: Calculer le ratio de vraisemblance bayésien directement
-    const likelihoodRatio = (positiveWeight + 0.5) / (negativeWeight + 0.5);
-    
-    // Convertir les odds en probabilité
-    let confidence = likelihoodRatio / (1 + likelihoodRatio);
-    
-    // Bonus pour le nombre de sources consultées
-    const sourceCountBonus = Math.min(results.length * 0.05, 0.2);
-    confidence = Math.min(confidence + sourceCountBonus, 0.95);
-    
-    // Limite inférieure pour éviter une confiance trop basse
-    return Math.max(confidence, 0.2);
+  async determineVerificationRequirements(content: string): Promise<VerificationRequirements> {
+    return determineRequirements(content);
   }
 }

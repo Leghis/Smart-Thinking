@@ -1,1126 +1,663 @@
-import { ThoughtNode, VerificationStatus, VerificationResult, CalculationVerificationResult, VerificationDetailedStatus, SuggestedTool } from '../types';
-import { VerificationMemory } from '../verification-memory';
-import { ToolIntegrator } from '../tool-integrator';
-import { MetricsCalculator } from '../metrics-calculator';
+import { createHash } from 'node:crypto';
 import { MathEvaluator } from '../utils/math-evaluator';
-import { VerificationConfig, SystemConfig } from '../config';
-import { IVerificationService, PreliminaryVerificationResult, PreviousVerificationResult } from './verification-service.interface';
+import { VerificationMemory } from '../verification-memory';
+import { SearchService } from '../search/search-service';
+import { extractKeywords } from '../keywords';
+import {
+  evaluateVerificationHeuristics,
+  determineVerificationRequirements,
+} from '../verification-needs';
+import { PATTERNS, SIMILARITY_THRESHOLDS } from '../constants';
+import type {
+  CalculationVerificationResult,
+  EvidenceItem,
+  EvidenceStance,
+  ThoughtNode,
+  VerificationCheck,
+  VerificationDetailedStatus,
+  VerificationResult,
+  VerificationStatus,
+  WebSearchResult,
+} from '../types';
+import { assistJudge, type AssistClient, type JudgeResult } from '../reasoning/assist';
+import type {
+  ClaimVerificationRequest,
+  IVerificationService,
+  PreliminaryVerificationResult,
+  PreviousVerificationResult,
+  VerificationStoreExtras,
+} from './verification-service.interface';
 
-/**
- * Classe LRUCache optimisée pour la mise en cache des résultats
- * @template K Type de clé
- * @template V Type de valeur
- */
-class LRUCache<K, V> {
-  private capacity: number;
-  private cache: Map<K, V> = new Map();
-  
-  /**
-   * Crée une nouvelle instance de LRUCache
-   * @param capacity Capacité maximale du cache
-   */
-  constructor(capacity: number) {
-    this.capacity = capacity;
-  }
-  
-  /**
-   * Récupère une valeur du cache
-   * @param key Clé à rechercher
-   * @returns Valeur associée à la clé ou undefined si non trouvée
-   */
-  get(key: K): V | undefined {
-    if (!this.cache.has(key)) return undefined;
-    
-    // Déplacer l'élément à la fin pour le LRU
-    const value = this.cache.get(key);
-    this.cache.delete(key);
-    this.cache.set(key, value!);
-    
-    return value;
-  }
-  
-  /**
-   * Ajoute ou met à jour une entrée dans le cache
-   * @param key Clé de l'entrée
-   * @param value Valeur à stocker
-   */
-  put(key: K, value: V): void {
-    // Supprimer l'élément s'il existe déjà
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-    // Supprimer le plus ancien si la capacité est atteinte
-    else if (this.cache.size >= this.capacity) {
-      const oldestKey = this.cache.keys().next().value;
-      // Vérifier que oldestKey n'est pas undefined avant de l'utiliser
-      if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
-      }
-    }
-    
-    // Ajouter le nouvel élément
-    this.cache.set(key, value);
-  }
-  
-  /**
-   * Vide le cache
-   */
-  clear(): void {
-    this.cache.clear();
-  }
-  
-  /**
-   * Retourne la taille actuelle du cache
-   */
-  get size(): number {
-    return this.cache.size;
-  }
-  
-  /**
-   * Vérifie si une clé existe dans le cache
-   * @param key Clé à vérifier
-   * @returns true si la clé existe, false sinon
-   */
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
+export interface VerificationServiceOptions {
+  verificationMemory: VerificationMemory;
+  searchService?: SearchService;
+  enableWebVerification?: boolean;
+  cacheMaxEntries?: number;
+  offline?: boolean;
+  assist?: AssistClient;
 }
 
-/**
- * Interface pour les caractéristiques du contenu
- */
-interface ContentCharacteristics {
-  hasFactualClaims: boolean;
-  hasOpinions: boolean;
-  hasStatistics: boolean;
-  hasExternalRefs: boolean;
-  hasCalculations: boolean;
+interface CacheEntry {
+  expiresAt: number;
+  result: VerificationResult;
 }
 
-/**
- * Service optimisé pour la vérification des informations
- * Utilise des expressions régulières précompilées, un cache LRU, et des promesses optimisées
- */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_CACHE_MAX = 256;
+
 export class VerificationService implements IVerificationService {
-  private toolIntegrator: ToolIntegrator;
-  private metricsCalculator: MetricsCalculator;
-  private verificationMemory: VerificationMemory;
-  
-  /**
-   * Expressions régulières précompilées et mises en cache
-   * pour une détection optimisée des caractéristiques
-   */
-  private static readonly REGEX_CACHE = {
-    FACTUAL_CLAIMS: new RegExp('\\b(est|sont|a été|ont été|existe|existait|a démontré|montre|prouve|confirme|indique|révèle)\\b', 'i'),
-    STATISTICS: new RegExp('\\b(\\d+\\s*%|moyenne|médiane|écart.type|statistique|données|étude|sondage|enquête)\\b', 'i'),
-    OPINIONS: new RegExp('\\b(je pense|selon moi|à mon avis|je crois|il me semble|pourrait|devrait|semble|apparemment|probablement|peut-être)\\b', 'i'),
-    EXTERNAL_REFS: new RegExp('(https?:\\/\\/[^\\s]+|selon\\s+[^,.]+|d\'après\\s+[^,.]+|\\bcit[eé]\\b|d\'(une|l\') étude|référence|source|publié|rapport|article)', 'i'),
-    CALCULATIONS: new RegExp('(\\d+\\s*[\\+\\-\\*\\/]\\s*\\d+\\s*=|\\d+(?:[\\³\\²\\¹])|calcul\\s*(?:complexe|avancé)?\\s*:?\\s*([^=]+)=\\s*\\d+|=\\s*[\\d\\-+]+\\s*=\\s*[\\d\\-+]+)', 'i')
-  };
-  
-  /**
-   * Cache LRU pour les résultats de vérification
-   */
-  private static readonly verificationCache = new LRUCache<string, VerificationResult>(100);
-  
-  /**
-   * Cache LRU pour les résultats de calcul
-   */
-  private static readonly calculationCache = new LRUCache<string, CalculationVerificationResult[]>(50);
+  private readonly verificationMemory: VerificationMemory;
+  private readonly searchService?: SearchService;
+  private readonly enableWebVerification: boolean;
+  private readonly cacheMaxEntries: number;
+  private readonly offline: boolean;
+  private readonly assist?: AssistClient;
+  private readonly cache = new Map<string, CacheEntry>();
 
-  /**
-   * Constructeur du service de vérification
-   * 
-   * @param toolIntegrator L'intégrateur d'outils pour les vérifications externes
-   * @param metricsCalculator Le calculateur de métriques pour évaluer la fiabilité
-   * @param verificationMemory La mémoire de vérification pour la persistance
-   */
-  constructor(
-    toolIntegrator: ToolIntegrator,
-    metricsCalculator: MetricsCalculator,
-    verificationMemory: VerificationMemory
-  ) {
-    this.toolIntegrator = toolIntegrator;
-    this.metricsCalculator = metricsCalculator;
-    this.verificationMemory = verificationMemory;
+  constructor(options: VerificationServiceOptions) {
+    this.verificationMemory = options.verificationMemory;
+    this.searchService = options.searchService;
+    this.enableWebVerification = options.enableWebVerification ?? true;
+    this.cacheMaxEntries = options.cacheMaxEntries ?? DEFAULT_CACHE_MAX;
+    this.offline = options.offline ?? false;
+    this.assist = options.assist;
   }
 
-  /**
-   * Effectue une vérification préliminaire d'une pensée pour détecter des calculs
-   * Version optimisée utilisant le cache et une détection plus efficace
-   * 
-   * @param content Le contenu de la pensée à vérifier
-   * @param explicitlyRequested Si la vérification est explicitement demandée
-   * @returns Résultat de la vérification préliminaire
-   */
-  public async performPreliminaryVerification(
+  async performPreliminaryVerification(
     content: string,
-    explicitlyRequested: boolean = false
+    explicitlyRequested: boolean = false,
   ): Promise<PreliminaryVerificationResult> {
-    let verifiedCalculations: CalculationVerificationResult[] | undefined = undefined;
-    let initialVerification = false;
-    let verificationInProgress = false;
-    let preverifiedThought = content;
-    
-    // Détection optimisée des calculs en utilisant l'expression régulière précompilée
-    const hasCalculations = VerificationService.REGEX_CACHE.CALCULATIONS.test(content);
-    
-    if (explicitlyRequested || hasCalculations) {
-      console.error('Smart-Thinking: Détection de calculs, recherche d\'outils de vérification externe...');
-      verificationInProgress = true;
-      
-      // Générer une clé de cache basée sur le contenu
-      const cacheKey = `prelim_${this.hashString(content)}`;
-      
-      // Vérifier si le résultat est dans le cache
-      const cachedResults = VerificationService.calculationCache.get(cacheKey);
-      if (cachedResults) {
-        console.error('Smart-Thinking: Utilisation des résultats préliminaires en cache');
-        verifiedCalculations = cachedResults;
-        initialVerification = true;
-        
-        if (verifiedCalculations && verifiedCalculations.length > 0) {
-          preverifiedThought = this.annotateThoughtWithVerifications(content, verifiedCalculations);
-        }
-        
-        return {
-          verifiedCalculations,
-          initialVerification,
-          verificationInProgress,
-          preverifiedThought
-        };
-      }
-      
-      // Vérifier s'il existe des outils de vérification adaptés (maintenant asynchrone)
-      const suggestedTools = await this.toolIntegrator.suggestVerificationTools(content); // Added await
-      const calculationTools = suggestedTools
-        .filter((tool: SuggestedTool) => tool.name.toLowerCase().includes('calc') || // Added type annotation
-               tool.name.toLowerCase().includes('math') ||
-               tool.name.toLowerCase().includes('python') ||
-               tool.name.toLowerCase().includes('javascript'));
-      
-      if (calculationTools.length > 0) {
-        console.error(`Smart-Thinking: Utilisation de l'outil externe ${calculationTools[0].name} pour vérifier les calculs`);
-        try {
-          // Utiliser executeWithTimeout pour éviter les opérations bloquantes
-          const result = await this.executeWithTimeout(
-            this.toolIntegrator.executeVerificationTool(calculationTools[0].name, content), 
-            5000
-          );
-          
-          if (result && result.verifiedCalculations) {
-            verifiedCalculations = result.verifiedCalculations;
-            initialVerification = true;
-            
-            if (verifiedCalculations && verifiedCalculations.length > 0) {
-              preverifiedThought = this.annotateThoughtWithVerifications(content, verifiedCalculations);
-              console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs vérifiés via outil externe`);
-              
-              // Mettre en cache les résultats
-              VerificationService.calculationCache.put(cacheKey, verifiedCalculations);
-            }
-            
-            return {
-              verifiedCalculations,
-              initialVerification,
-              verificationInProgress,
-              preverifiedThought
-            };
-          }
-        } catch (error) {
-          console.error(`Smart-Thinking: Erreur lors de l'utilisation de l'outil externe:`, error);
-        }
-      }
-      
-      // Utiliser la vérification interne
-      console.error('Smart-Thinking: Vérification interne des calculs...');
-      
-      try {
-        verifiedCalculations = await this.detectAndVerifyCalculations(content);
-        initialVerification = verifiedCalculations.length > 0;
-        
-        if (verifiedCalculations.length > 0) {
-          preverifiedThought = this.annotateThoughtWithVerifications(content, verifiedCalculations);
-          console.error(`Smart-Thinking: ${verifiedCalculations.length} calculs détectés et vérifiés`);
-          
-          // Mettre en cache les résultats
-          VerificationService.calculationCache.put(cacheKey, verifiedCalculations);
-        }
-      } catch (error) {
-        console.error('Smart-Thinking: Erreur lors de la vérification préliminaire des calculs:', error);
-        verificationInProgress = true;
-        initialVerification = false;
+    const containsMath = PATTERNS.MATH_CALCULATION.test(content) || explicitlyRequested;
+    let verifiedCalculations: CalculationVerificationResult[] | undefined;
+
+    if (containsMath) {
+      verifiedCalculations = await this.detectAndVerifyCalculations(content);
+      if (verifiedCalculations.length === 0) {
+        verifiedCalculations = undefined;
       }
     }
-    
+
+    const preverifiedThought = verifiedCalculations
+      ? this.annotateThoughtWithVerifications(content, verifiedCalculations)
+      : content;
+
     return {
       verifiedCalculations,
-      initialVerification,
-      verificationInProgress,
-      preverifiedThought
+      initialVerification: Boolean(verifiedCalculations),
+      verificationInProgress: false,
+      preverifiedThought,
     };
   }
 
-  /**
-   * Vérifie si une pensée similaire a déjà été vérifiée
-   * Version optimisée avec gestion de cache
-   * 
-   * @param content Le contenu de la pensée à vérifier
-   * @param sessionId ID de session
-   * @param thoughtType Type de pensée (regular, conclusion, etc.)
-   * @param connectedThoughtIds IDs des pensées connectées  
-   * @returns Résultat de la vérification précédente si trouvée
-   */
-  public async checkPreviousVerification(
+  async checkPreviousVerification(
     content: string,
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    thoughtType: string = 'regular',
-    connectedThoughtIds: string[] = []
+    sessionId?: string,
+    _thoughtType?: string,
+    _connectedThoughtIds?: string[],
   ): Promise<PreviousVerificationResult> {
-    // Générer une clé de cache
-    const cacheKey = `prev_${this.hashString(content)}_${sessionId}`;
-    
-    // Vérifier le cache local pour les vérifications précédentes
-    const cachedResult = VerificationService.verificationCache.get(cacheKey);
-    if (cachedResult) {
-      console.error('Smart-Thinking: Résultat de vérification précédente trouvé dans le cache');
-      
-      // Construire un résultat à partir du cache
+    const previous = await this.verificationMemory.findVerification(
+      content,
+      sessionId,
+      SIMILARITY_THRESHOLDS.HIGH,
+    );
+
+    if (!previous) {
       return {
-        previousVerification: {
-          id: cacheKey,
-          status: cachedResult.status as VerificationStatus,
-          confidence: cachedResult.confidence,
-          sources: cachedResult.sources || [],
-          timestamp: new Date(),
-          similarity: 1.0, // Correspondance exacte du cache
-          text: content
-        },
-        isVerified: cachedResult.status === 'verified' || cachedResult.status === 'partially_verified',
-        verificationStatus: cachedResult.status as VerificationDetailedStatus,
-        certaintySummary: `Information vérifiée précédemment (mise en cache).`,
-        verification: cachedResult
+        previousVerification: null,
+        isVerified: false,
+        verificationStatus: 'unverified',
+        certaintySummary: 'Aucune vérification antérieure trouvée pour cette pensée.',
       };
     }
-    
-    // Valeurs par défaut
-    const result: PreviousVerificationResult = {
-      previousVerification: null,
-      isVerified: false,
-      verificationStatus: 'unverified' as VerificationDetailedStatus,
-      certaintySummary: 'Information non vérifiée'
+
+    const checks = previous.checks ?? [];
+    const evidence = previous.evidence ?? [];
+    const verification: VerificationResult = {
+      status: previous.status,
+      confidence: previous.confidence,
+      sources: previous.sources,
+      verificationSteps: ['Vérification récupérée depuis la mémoire de session.'],
+      checks,
+      evidence,
     };
-    
-    try {
-      // Seuil de similarité élevé pour éviter les fausses correspondances
-      const similarityThreshold = VerificationConfig.SIMILARITY.HIGH_SIMILARITY;
-      
-      console.error(`Smart-Thinking: Recherche de vérifications précédentes avec seuil ${similarityThreshold}...`);
-      
-      const previousVerification = await this.verificationMemory.findVerification(
-        content,
-        sessionId,
-        similarityThreshold
-      );
-      
-      if (previousVerification) {
-        console.error(`Smart-Thinking: Vérification précédente trouvée avec similarité: ${previousVerification.similarity}`);
-        
-        // Ne marquer comme vérifié que si le niveau de similarité est vraiment élevé
-        // et si les sources sont valides
-        const isValidSource = previousVerification.sources && 
-                              previousVerification.sources.length > 0 && 
-                              !previousVerification.sources.includes("Information non vérifiable");
-        
-        const isVerified = ['verified', 'partially_verified'].includes(previousVerification.status) && 
-                           previousVerification.similarity >= VerificationConfig.SIMILARITY.HIGH_SIMILARITY &&
-                           isValidSource;
-        
-        // Ajuster le niveau de confiance en fonction de la similarité
-        const adjustedConfidence = Math.min(previousVerification.confidence, previousVerification.similarity);
-        
-        // Construire la réponse avec les informations de vérification précédente
-        const result = {
-          previousVerification,
-          isVerified,
-          verificationStatus: isVerified ? previousVerification.status as VerificationDetailedStatus : 'uncertain',
-          certaintySummary: isVerified 
-            ? `Information vérifiée précédemment avec ${Math.round(previousVerification.similarity * 100)}% de similarité. Niveau de confiance: ${Math.round(adjustedConfidence * 100)}%.`
-            : `Information partiellement similaire (${Math.round(previousVerification.similarity * 100)}%) à une vérification précédente, mais nécessite une nouvelle vérification.`,
-          verification: isVerified ? {
-            status: previousVerification.status,
-            confidence: adjustedConfidence,
-            sources: previousVerification.sources || [],
-            verificationSteps: ['Information vérifiée dans une étape précédente du raisonnement'],
-            notes: `Cette information est similaire (${Math.round(previousVerification.similarity * 100)}%) à une information déjà vérifiée.`
-          } : undefined
-        };
-        
-        // Mettre en cache le résultat si vérifié
-        if (isVerified && result.verification) {
-          VerificationService.verificationCache.put(cacheKey, result.verification);
-        }
-        
-        return result;
-      } 
-      // Propagation du statut pour les pensées de type conclusion ou revision
-      else if ((thoughtType === 'conclusion' || thoughtType === 'revision') && connectedThoughtIds.length > 0) {
-        // Chercher les statuts de vérification des pensées connectées
-        const connectedStatuses = await this.getConnectedThoughtsVerificationStatus(connectedThoughtIds);
-        
-        // Si au moins une pensée connectée est vérifiée ou partiellement vérifiée
-        if (connectedStatuses.some(s => s === 'verified' || s === 'partially_verified')) {
-          result.isVerified = true;
-          result.verificationStatus = 'partially_verified';
-          result.certaintySummary = `${thoughtType === 'conclusion' ? 'Conclusion' : 'Révision'} basée sur des informations partiellement vérifiées.`;
-          
-          // Construire un résultat de vérification simulé
-          result.verification = {
-            status: 'partially_verified',
-            confidence: 0.7, // Valeur par défaut raisonnable
-            sources: ['Propagation depuis pensées connectées'],
-            verificationSteps: [`Héritage du statut de vérification des pensées ${thoughtType === 'conclusion' ? 'précédentes' : 'associées'}`]
-          };
-          
-          // Mettre en cache ce résultat également
-          VerificationService.verificationCache.put(cacheKey, result.verification);
-        }
-      } else {
-        console.error('Smart-Thinking: Aucune vérification précédente trouvée.');
+
+    return {
+      previousVerification: previous,
+      verification,
+      isVerified: previous.status === 'verified' || previous.status === 'partially_verified',
+      verificationStatus: mapToDetailedStatus(previous.status),
+      certaintySummary: buildCertaintySummary(previous.status, previous.confidence),
+    };
+  }
+
+  async deepVerify(
+    thought: ThoughtNode,
+    containsCalculations?: boolean,
+    forceVerification: boolean = false,
+    sessionId?: string,
+    connectedThoughts: ThoughtNode[] = [],
+  ): Promise<VerificationResult> {
+    if (!forceVerification) {
+      const previous = await this.checkPreviousVerification(thought.content, sessionId, thought.type);
+      if (previous.verification && previous.previousVerification) {
+        return previous.verification;
       }
-    } catch (error) {
-      console.error('Smart-Thinking: Erreur lors de la vérification avec la mémoire:', error);
     }
-    
-    // Aucune vérification précédente n'a été trouvée
+
+    return this.verifyClaim({
+      claim: thought.content,
+      sessionId,
+      checkCalculation: containsCalculations ?? true,
+      checkConsistency: connectedThoughts.length > 0,
+      checkWeb: this.enableWebVerification && !this.offline,
+      connectedThoughts,
+    });
+  }
+
+  async verifyClaim(request: ClaimVerificationRequest): Promise<VerificationResult> {
+    const sessionId = request.sessionId;
+    const connectedIds = (request.connectedThoughts ?? [])
+      .map(node => node.id)
+      .sort()
+      .join(',');
+    const cacheKey = request.searchProvider
+      ? undefined
+      : [
+          sessionId ?? 'default',
+          hashContent(request.claim),
+          `calc:${request.checkCalculation !== false ? 1 : 0}`,
+          `cons:${request.checkConsistency ? 1 : 0}`,
+          `web:${request.checkWeb ? 1 : 0}`,
+          `ctx:${hashContent(connectedIds)}`,
+          `key:${request.tavilyApiKey ? hashContent(request.tavilyApiKey) : 'none'}`,
+        ].join('|');
+    if (cacheKey) {
+      const cached = this.cache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.result;
+      }
+    }
+
+    const checks: VerificationCheck[] = [];
+    const evidence: EvidenceItem[] = [];
+    const contradictions: string[] = [];
+    const methodsUnavailable: string[] = [];
+    let verifiedCalculations: CalculationVerificationResult[] | undefined;
+    let webCounts: { supports: number; contradicts: number } = { supports: 0, contradicts: 0 };
+    let judgeVerdict: JudgeResult | null = null;
+
+    if (request.checkCalculation !== false) {
+      const calculations = await this.detectAndVerifyCalculations(request.claim);
+      if (calculations.length > 0) {
+        verifiedCalculations = calculations;
+        const incorrect = calculations.filter(calculation => !calculation.isCorrect);
+        checks.push({
+          name: 'calculation',
+          outcome: incorrect.length > 0 ? 'failed' : 'passed',
+          summary:
+            incorrect.length > 0
+              ? `${incorrect.length}/${calculations.length} calcul(s) incorrect(s).`
+              : `${calculations.length} calcul(s) vérifié(s) avec succès.`,
+          details: calculations.map(calculation =>
+            calculation.isCorrect
+              ? `✓ ${calculation.original} → ${calculation.verified}`
+              : `✗ ${calculation.original} → ${calculation.verified}`,
+          ),
+        });
+        for (const calculation of calculations) {
+          if (!calculation.isCorrect) {
+            contradictions.push(calculation.reason ?? `Calcul incorrect: ${calculation.original}`);
+          }
+        }
+      }
+    }
+
+    if (request.checkConsistency && (request.connectedThoughts?.length ?? 0) > 0) {
+      const conflicts = findConsistencyConflicts(request.claim, request.connectedThoughts ?? []);
+      contradictions.push(...conflicts);
+      checks.push({
+        name: 'consistency',
+        outcome: conflicts.length > 0 ? 'failed' : 'passed',
+        summary:
+          conflicts.length > 0
+            ? `${conflicts.length} contradiction(s) avec le graphe de session.`
+            : 'Aucune contradiction détectée dans le graphe de session.',
+        details: conflicts,
+      });
+    }
+
+    if (request.checkWeb && this.searchService) {
+      const webOutcome = await this.runWebCheck(request, evidence);
+      checks.push(webOutcome.check);
+      methodsUnavailable.push(...webOutcome.unavailable);
+      contradictions.push(...webOutcome.contradictions);
+      webCounts = webOutcome.counts;
+
+      if (this.assist?.available && evidence.length > 0) {
+        const judgeStep = trackerlessJudge(this.assist, request.claim, evidence);
+        try {
+          judgeVerdict = await judgeStep;
+          checks.push({
+            name: 'source_quality',
+            outcome:
+              judgeVerdict?.verdict === 'supports'
+                ? 'passed'
+                : judgeVerdict?.verdict === 'contradicts'
+                  ? 'failed'
+                  : 'inconclusive',
+            summary: judgeVerdict
+              ? `Juge LLM (${judgeVerdict.verdict}, ${Math.round(judgeVerdict.confidence * 100)}%) : ${judgeVerdict.reason}`
+              : 'Juge LLM indisponible.',
+          });
+          if (judgeVerdict?.verdict === 'contradicts') {
+            contradictions.push(`Juge LLM: ${judgeVerdict.reason}`);
+          }
+        } catch {
+          judgeVerdict = null;
+        }
+      }
+    } else if (request.checkWeb) {
+      methodsUnavailable.push('web');
+      checks.push({
+        name: 'web',
+        outcome: 'unavailable',
+        summary: 'Aucun service de recherche web n\'est disponible.',
+      });
+    }
+
+    const heuristic = evaluateVerificationHeuristics({
+      id: 'claim',
+      content: request.claim,
+      type: 'regular',
+      timestamp: new Date(),
+      connections: [],
+      metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 },
+      metadata: {},
+    });
+    checks.push({
+      name: 'heuristics',
+      outcome:
+        heuristic.status === 'contradicted'
+          ? 'failed'
+          : heuristic.status === 'uncertain'
+            ? 'inconclusive'
+            : 'passed',
+      summary: heuristic.notes,
+      details: heuristic.keyFactors,
+    });
+
+    const requirements = determineVerificationRequirements(request.claim);
+    if (requirements.priority === 'high') {
+      checks.push({
+        name: 'source_quality',
+        outcome: 'inconclusive',
+        summary: `Vérification renforcée recommandée: ${requirements.reasons.join(' ')}`,
+        details: requirements.suggestedTools,
+      });
+    }
+
+    const status = this.aggregateStatus(checks, contradictions, webCounts, judgeVerdict);
+    const confidence = this.aggregateConfidence(status, checks, evidence);
+    const sources = evidence.map(item => item.source);
+
+    const result: VerificationResult = {
+      status,
+      confidence,
+      sources,
+      verificationSteps: checks.map(check => `[${check.outcome}] ${check.name}: ${check.summary}`),
+      contradictions: contradictions.length > 0 ? contradictions : undefined,
+      checks,
+      evidence: evidence.length > 0 ? evidence : undefined,
+      methodsUnavailable: methodsUnavailable.length > 0 ? methodsUnavailable : undefined,
+      notes: buildNotes(status, checks),
+      verifiedCalculations,
+    };
+
+    if (cacheKey) {
+      this.storeInCache(cacheKey, result);
+    }
+
+    try {
+      await this.storeVerification(
+        request.claim,
+        status,
+        confidence,
+        sources,
+        sessionId,
+        { evidence: result.evidence, checks },
+      );
+    } catch {
+      // Persistence failures must never break reasoning.
+    }
+
     return result;
   }
 
-  /**
-   * Vérification approfondie d'une pensée
-   * Version refactorisée et optimisée
-   * 
-   * @param thought La pensée à vérifier
-   * @param containsCalculations Indique si la pensée contient des calculs à vérifier
-   * @param forceVerification Force une nouvelle vérification même si déjà vérifiée
-   * @param sessionId Identifiant de la session de conversation actuelle
-   * @returns Le résultat de la vérification
-   */
-  public async deepVerify(
-    thought: ThoughtNode, 
-    containsCalculations: boolean = false,
-    forceVerification: boolean = false,
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID
-  ): Promise<VerificationResult> {
-    const content = thought.content;
-    console.error(`Smart-Thinking: Début de la vérification approfondie`);
-    
-    // Vérifier le cache local si la vérification n'est pas forcée
-    if (!forceVerification) {
-      const cacheKey = `verify_${this.hashString(content)}`;
-      const cachedResult = VerificationService.verificationCache.get(cacheKey);
-      
-      if (cachedResult) {
-        console.error('Smart-Thinking: Résultat de vérification trouvé dans le cache');
-        
-        // Mettre à jour les métadonnées de la pensée
-        thought.metadata.isVerified = cachedResult.status === 'verified' || cachedResult.status === 'partially_verified';
-        thought.metadata.verificationSource = 'cache';
-        thought.metadata.verificationTimestamp = new Date();
-        thought.metadata.verificationSessionId = sessionId;
-        
-        return cachedResult;
-      }
+  async detectAndVerifyCalculations(content: string): Promise<CalculationVerificationResult[]> {
+    const evaluations = MathEvaluator.detectAndEvaluate(content);
+    if (evaluations.length === 0) {
+      return [];
     }
-    
-    // Étape 1: Vérifier si l'information a déjà été vérifiée
-    const previousVerification = await this.checkForPreviousVerification(thought, forceVerification, sessionId);
-    if (previousVerification) return previousVerification;
-    
-    // Étape 2: Déterminer les besoins de vérification
-    const verificationNeeds = await this.analyzeVerificationNeeds(thought.content);
-    
-    // Étape 3: Sélectionner et exécuter les outils appropriés
-    const verificationResults = await this.executeVerificationTools(thought.content, verificationNeeds);
-    
-    // Étape 4: Vérifier les calculs si nécessaire
-    const verifiedCalculations = containsCalculations ? 
-      await this.verifyCalculations(thought.content, verificationResults) : undefined;
-    
-    // Étape 5: Agréger et analyser les résultats
-    return this.analyzeAndAggregateResults(thought, verificationResults, verifiedCalculations, sessionId);
+    return MathEvaluator.convertToVerificationResults(evaluations);
   }
-  
-  /**
-   * Étape 1: Vérifier si l'information a déjà été vérifiée dans les vérifications précédentes
-   * 
-   * @param thought La pensée à vérifier
-   * @param forceVerification Si true, ignore les vérifications précédentes
-   * @param sessionId Identifiant de la session
-   * @returns Le résultat de vérification si trouvé, null sinon
-   */
-  private async checkForPreviousVerification(
-    thought: ThoughtNode, 
-    forceVerification: boolean,
-    sessionId: string
-  ): Promise<VerificationResult | null> {
-    if (forceVerification) {
-      console.error('Smart-Thinking: Vérification forcée, ignorer les vérifications précédentes');
-      return null;
-    }
-    
-    const previousCheckResult = await this.checkPreviousVerification(
-      thought.content, 
-      sessionId, 
-      thought.type, 
-      thought.connections.map(c => c.targetId)
-    );
-    
-    if (previousCheckResult.previousVerification && previousCheckResult.isVerified && previousCheckResult.verification) {
-      console.error('Smart-Thinking: Utilisation d\'une vérification précédente trouvée en mémoire');
-      
-      // Mettre à jour les métadonnées de la pensée
-      thought.metadata.isVerified = previousCheckResult.isVerified;
-      thought.metadata.verificationSource = 'memory';
-      thought.metadata.verificationTimestamp = previousCheckResult.previousVerification.timestamp;
-      thought.metadata.verificationSessionId = sessionId;
-      thought.metadata.semanticSimilarity = previousCheckResult.previousVerification.similarity;
-      
-      // Retourner la vérification existante
-      return previousCheckResult.verification;
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Étape 2: Analyser les besoins de vérification
-   * 
-   * @param content Contenu à analyser
-   * @returns Les besoins de vérification déterminés
-   */
-  private async analyzeVerificationNeeds(
-    content: string
-  ): Promise<{
-    contentCharacteristics: ContentCharacteristics;
-    verificationRequirements: any;
-  }> {
-    console.error('Smart-Thinking: Analyse des besoins de vérification');
-    
-    // Analyser le contenu en une seule passe (optimisé)
-    const contentCharacteristics = this.analyzeContentCharacteristics(content);
-    
-    // Étiqueter les catégories de contenu détectées
-    const contentCategories = [];
-    if (contentCharacteristics.hasFactualClaims) contentCategories.push('claims');
-    if (contentCharacteristics.hasCalculations) contentCategories.push('calculations');
-    if (contentCharacteristics.hasOpinions) contentCategories.push('opinions');
-    if (contentCharacteristics.hasStatistics) contentCategories.push('statistics');
-    if (contentCharacteristics.hasExternalRefs) contentCategories.push('references');
-    
-    console.error(`Smart-Thinking: Catégories de contenu détectées: ${contentCategories.join(', ') || 'aucune spécifique'}`);
-    // Déterminer les besoins de vérification (maintenant asynchrone)
-    const verificationRequirements = await this.metricsCalculator.determineVerificationRequirements(content); // Added await
 
-    return {
-      contentCharacteristics,
-      verificationRequirements
-    };
-  }
-  
-  /**
-   * Étape 3: Sélectionner et exécuter les outils de vérification
-   * 
-   * @param content Contenu à vérifier
-   * @param verificationNeeds Besoins de vérification déterminés
-   * @returns Résultats de vérification
-   */
-  private async executeVerificationTools(
+  annotateThoughtWithVerifications(
     content: string,
-    verificationNeeds: any
-  ): Promise<any[]> {
-    console.error('Smart-Thinking: Sélection et exécution des outils de vérification');
-
-    // Obtenir les outils de vérification recommandés (maintenant asynchrone)
-    const verificationTools: SuggestedTool[] = await this.toolIntegrator.suggestVerificationTools(content); // Added await
-
-    if (verificationTools.length === 0) {
-      console.error('Smart-Thinking: Aucun outil de vérification disponible');
-      return [];
+    verifications: CalculationVerificationResult[],
+  ): string {
+    if (verifications.length === 0) {
+      return content;
     }
-    
-    console.error(`Smart-Thinking: ${verificationTools.length} outils de vérification disponibles`);
-
-    // Calculer le nombre optimal d'outils à utiliser
-    const baseToolCount = Math.min(
-      verificationNeeds.verificationRequirements.requiresMultipleVerifications ? 
-        verificationNeeds.verificationRequirements.recommendedVerificationsCount : 1,
-      Math.max(1, verificationTools.length)
+    const annotations = verifications.map(verification =>
+      verification.isCorrect
+        ? `[✓ ${verification.original} = ${verification.verified}]`
+        : `[✗ ${verification.original} — ${verification.reason ?? verification.verified}]`,
     );
-
-    // Ajuster le nombre d'outils en fonction de la complexité
-    const contentCategories = Object.values(verificationNeeds.contentCharacteristics)
-      .filter(value => value === true).length;
-    
-    const toolsToUse = Math.min(
-      contentCategories > 2 ? baseToolCount + 1 : baseToolCount,
-      verificationTools.length
-    );
-
-    console.error(`Smart-Thinking: Utilisation de ${toolsToUse} outil(s) externe(s) pour la vérification`);
-    // Exécuter les vérifications avec Promise.allSettled et timeouts
-    const verificationPromises = verificationTools.slice(0, toolsToUse).map(
-      async (tool: SuggestedTool) => { // Explicit type for tool
-        return this.executeWithTimeout(
-          (async () => {
-            try {
-              console.error(`Smart-Thinking: Utilisation de l'outil de vérification "${tool.name}"...`);
-              const result = await this.toolIntegrator.executeVerificationTool(tool.name, content);
-              
-              // Vérifier si l'outil a retourné un résultat exploitable
-              const isValidResult = result && 
-                (result.isValid !== undefined || 
-                result.verifiedCalculations || 
-                result.sources || 
-                result.details);
-              
-              if (isValidResult) {
-                console.info(`Smart-Thinking: Vérification avec "${tool.name}" terminee avec succes`);
-                return {
-                  toolName: tool.name,
-                  result,
-                  confidence: tool.confidence,
-                  stage: 'primary'
-                };
-              } else {
-                console.error(`Smart-Thinking: Résultat de ${tool.name} incomplet ou invalide`);
-                return null;
-              }
-            } catch (error) {
-              console.error(`Smart-Thinking: Erreur lors de la vérification avec l'outil "${tool.name}":`, error);
-              return null;
-            }
-          })(),
-          10000 // 10 secondes de timeout
-        );
-      }
-    );
-    
-    // Attendre la résolution de toutes les promesses avec Promise.allSettled
-    const settledResults = await Promise.allSettled(verificationPromises);
-    
-    // Filtrer les résultats réussis
-    const verificationResults = settledResults
-      .filter((result): result is PromiseFulfilledResult<any> => // Type assertion for filter
-        result.status === 'fulfilled' && result.value !== null)
-      .map((result: PromiseFulfilledResult<any>) => result.value); // Explicit type for map parameter
-
-    console.error(`Smart-Thinking: ${verificationResults.length}/${verificationPromises.length} vérifications réussies`);
-    
-    return verificationResults;
-  }
-  
-  /**
-   * Étape 4: Vérifier les calculs si nécessaire
-   * 
-   * @param content Contenu à vérifier
-   * @param verificationResults Résultats de vérification existants
-   * @returns Résultats de vérification des calculs
-   */
-  private async verifyCalculations(
-    content: string,
-    verificationResults: any[]
-  ): Promise<CalculationVerificationResult[] | undefined> {
-    console.error('Smart-Thinking: Vérification des calculs');
-    
-    // Vérifier si des calculs ont déjà été vérifiés par les outils externes
-    for (const result of verificationResults) {
-      if (result && result.result && result.result.verifiedCalculations) {
-        console.error(`Smart-Thinking: Calculs vérifiés par l'outil externe "${result.toolName}"`);
-        return result.result.verifiedCalculations;
-      }
-    }
-    
-    console.error('Smart-Thinking: Aucun outil externe n\'a vérifié les calculs, utilisation de la vérification interne');
-    
-    // Générer une clé de cache pour les calculs
-    const cacheKey = `calc_${this.hashString(content)}`;
-    
-    // Vérifier si les résultats sont dans le cache
-    const cachedResults = VerificationService.calculationCache.get(cacheKey);
-    if (cachedResults) {
-      console.error('Smart-Thinking: Utilisation des résultats de calcul en cache');
-      return cachedResults;
-    }
-    
-    // Si pas dans le cache, utiliser la détection interne
-    const verifiedCalculations = await this.detectAndVerifyCalculations(content);
-    
-    // Mettre en cache les résultats
-    if (verifiedCalculations.length > 0) {
-      VerificationService.calculationCache.put(cacheKey, verifiedCalculations);
-    }
-    
-    return verifiedCalculations;
-  }
-  
-  /**
-   * Étape 5: Analyser et agréger les résultats
-   * 
-   * @param thought Pensée à vérifier
-   * @param verificationResults Résultats de vérification
-   * @param verifiedCalculations Résultats de vérification des calculs
-   * @param sessionId ID de session
-   * @returns Résultat final de vérification
-   */
-  private async analyzeAndAggregateResults(
-    thought: ThoughtNode,
-    verificationResults: any[],
-    verifiedCalculations: CalculationVerificationResult[] | undefined,
-    sessionId: string
-  ): Promise<VerificationResult> {
-    console.error('Smart-Thinking: Analyse et agrégation des résultats');
-
-    let heuristicVerificationResult: { status: VerificationStatus; confidence: number; notes: string; keyFactors: string[] } | null = null;
-
-    // Call internal LLM for verification if results are sparse or inconclusive, or if forced
-    const initialStatusCheck = this.determineVerificationStatusAndConfidence(verificationResults, thought);
-    const needsHeuristicCheck = verificationResults.length < 2 || ['unverified', 'uncertain'].includes(initialStatusCheck.status);
-
-    if (needsHeuristicCheck) {
-        console.error('Smart-Thinking: Évaluation heuristique interne supplémentaire...');
-        heuristicVerificationResult = this.metricsCalculator.evaluateVerificationHeuristics(thought);
-        verificationResults.push({
-          toolName: 'heuristic_analysis',
-          result: {
-            isValid: heuristicVerificationResult.status === 'verified'
-              ? true
-              : heuristicVerificationResult.status === 'contradicted'
-                ? false
-                : undefined,
-            details: heuristicVerificationResult.notes,
-            source: 'Analyse heuristique locale'
-          },
-          confidence: heuristicVerificationResult.confidence,
-          stage: 'secondary'
-        });
-    }
-
-    // Déterminer le statut et le niveau de confiance de manière optimisée (now includes potential LLM result)
-    const { status, confidence } = this.determineVerificationStatusAndConfidence(
-      verificationResults,
-      thought
-    );
-    
-    console.error(`Smart-Thinking: Statut préliminaire: ${status}, confiance: ${confidence.toFixed(2)}`);
-    
-    // Construire la liste des sources et des étapes
-    const sources = verificationResults.map(r => {
-      const source = r.result.source || `${r.toolName} (source non spécifiée)`;
-      return `${r.toolName}: ${source}`;
-    });
-    
-    const verificationStages = ['vérification principale'];
-    if (verifiedCalculations && verifiedCalculations.length > 0) {
-      verificationStages.push('vérification des calculs');
-    }
-    
-    const steps = [
-      ...verificationStages.map(stage => `Étape de ${stage}`),
-      ...verificationResults.map(r => `Vérifié avec ${r.toolName} (${r.stage || 'primary'})`) // Ensure stage exists
-    ];
-    if (heuristicVerificationResult) {
-        steps.push('Évaluation heuristique interne (secondary)');
-    }
-
-    // Détecter les contradictions
-    const contradictions = this.detectContradictions(verificationResults);
-    // Générer des notes de vérification
-    let notes = this.generateVerificationNotes(verificationResults, verifiedCalculations);
-    if (heuristicVerificationResult) {
-        notes += ` | Analyse heuristique: ${heuristicVerificationResult.notes}`;
-    }
-
-    // IMPORTANT: Mettre à jour les métadonnées de la pensée
-    thought.metadata.isVerified = status === 'verified' || status === 'partially_verified';
-    thought.metadata.verificationTimestamp = new Date();
-    thought.metadata.verificationSource = verificationResults.some(r => r.toolName !== 'heuristic_analysis')
-      ? 'tools'
-      : (heuristicVerificationResult ? 'heuristic' : 'internal');
-    thought.metadata.verificationSessionId = sessionId;
-    thought.metadata.verificationToolsUsed = verificationResults.map(r => r.toolName); // Store all tool names
-    thought.metadata.verificationStages = verificationStages;
-    
-    // Ajustement spécial pour "absence d'information"
-    if (status === 'absence_of_information') {
-      thought.metadata.isVerified = true; // Nous considérons qu'une absence d'information est une information vérifiée
-    }
-    
-    // Construire le résultat final
-    const verificationResult: VerificationResult = {
-      status,
-      confidence,
-      sources,
-      verificationSteps: steps,
-      contradictions: contradictions.length > 0 ? contradictions : undefined,
-      notes,
-      verifiedCalculations
-    };
-    
-    // Stocker le résultat dans le cache
-    const cacheKey = `verify_${this.hashString(thought.content)}`;
-    VerificationService.verificationCache.put(cacheKey, verificationResult);
-    
-    // Stocker le résultat dans la mémoire de vérification
-    await this.storeVerification(
-      thought.content,
-      status,
-      confidence,
-      sources,
-      sessionId
-    );
-    
-    console.error(`Smart-Thinking: Vérification complétée, statut final: ${status}, confiance: ${confidence.toFixed(2)}`);
-    
-    return verificationResult;
-  }
-  
-  /**
-   * Détermine le statut et la confiance de la vérification à partir des résultats
-   * Version optimisée et factorisée
-   * 
-   * @param results Résultats de vérification
-   * @param thought Pensée à vérifier
-   * @returns Statut et niveau de confiance
-   */
-  private determineVerificationStatusAndConfidence(
-    results: any[], // Includes external tools AND internal LLM result if run
-    thought: ThoughtNode
-  ): { status: VerificationStatus; confidence: number } {
-    if (results.length === 0) {
-      return { status: 'unverified', confidence: Math.min(0.3, thought.metrics?.confidence || 0.3) };
-    }
-
-    const counts = {
-      verified: results.filter(r => r?.result?.isValid === true).length,
-      contradicted: results.filter(r => r?.result?.isValid === false).length,
-      partial: results.filter(r => r?.result?.isValid === 'partial').length,
-      absence: results.filter(r => r?.result?.isValid === 'absence_of_information' || (typeof r?.result?.isValid === 'string' && r.result.isValid.includes('absence'))).length,
-      uncertain: results.filter(r => r?.result?.isValid === null || r?.result?.isValid === undefined).length
-    };
-
-    const totalResults = results.length;
-
-    // --- Revised Logic ---
-    // Priority 1: Contradiction - If ANY source contradicts, the status is contradicted.
-    if (counts.contradicted > 0) {
-      const contradictionConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === false));
-      // Confidence in contradiction is high if source is reliable, use average confidence but ensure it's reasonably high
-      return { status: 'contradicted', confidence: Math.max(0.7, contradictionConfidence) };
-    }
-
-    // Priority 2: Verified - Requires stronger evidence now.
-    if (counts.verified > 0) {
-      const verificationConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === true));
-      // Condition for 'verified': At least 2 verified sources OR 1 verified source with high confidence (>0.8) AND no uncertain results.
-      if ((counts.verified >= 2 || (counts.verified === 1 && verificationConfidence > 0.8)) && counts.uncertain === 0) {
-         return { status: 'verified', confidence: Math.min(0.95, verificationConfidence + (counts.verified * 0.05)) };
-      }
-      // Otherwise, if there's verification but not enough consensus or confidence, or if there are uncertain results, it's partial.
-      return { status: 'partially_verified', confidence: Math.min(0.75, verificationConfidence) };
-    }
-
-    // Priority 3: Absence of Information - If this is the only type of result (besides uncertain).
-    if (counts.absence > 0 && counts.verified === 0 && counts.contradicted === 0 && counts.partial === 0) {
-       return { status: 'absence_of_information' as VerificationStatus, confidence: Math.min(0.8, 0.6 + (counts.absence * 0.05)) };
-    }
-
-    // Priority 4: Partially Verified - If explicitly partial results exist and no contradiction/verification.
-    if (counts.partial > 0) {
-       const partialConfidence = this.calculateAverageConfidence(results.filter(r => r?.result?.isValid === 'partial'));
-       return { status: 'partially_verified', confidence: Math.min(0.75, partialConfidence) };
-    }
-
-    // Priority 5: Uncertain / Unverified - If only uncertain results, or a mix that didn't meet other criteria.
-    // If we have results but none led to a conclusion above, it's uncertain.
-    if (totalResults > 0) {
-      return { status: 'uncertain', confidence: 0.3 };
-    }
-
-    // Default fallback (should only be reached if results array was initially empty, handled at the start)
-    return { status: 'unverified', confidence: 0.3 };
-  }
-  
-  /**
-   * Calcule la confiance moyenne à partir des résultats
-   * 
-   * @param results Résultats pour lesquels calculer la moyenne
-   * @returns Confiance moyenne
-   */
-  private calculateAverageConfidence(results: any[]): number {
-    if (results.length === 0) return 0.5;
-    
-    return results.reduce((sum, r) => sum + (r ? r.confidence : 0), 0) / results.length;
+    return `${content}\n${annotations.join('\n')}`;
   }
 
-  /**
-   * Détecte et vérifie les calculs dans un texte de manière asynchrone
-   * Version optimisée avec mise en cache
-   * 
-   * @param content Le texte contenant potentiellement des calculs
-   * @returns Une promesse résolvant vers un tableau de résultats de vérification de calculs
-   */
-  public async detectAndVerifyCalculations(content: string): Promise<CalculationVerificationResult[]> {
-    // Générer une clé de cache basée sur le contenu
-    const cacheKey = `calc_${this.hashString(content)}`;
-    
-    // Vérifier si le résultat est dans le cache
-    const cachedResults = VerificationService.calculationCache.get(cacheKey);
-    if (cachedResults) {
-      console.error('Smart-Thinking: Utilisation des résultats de calcul en cache');
-      return cachedResults;
-    }
-    
-    console.error('Smart-Thinking: Détection et vérification des calculs avec MathEvaluator');
-    
-    try {
-      const evaluationResults = MathEvaluator.detectAndEvaluate(content);
-      console.error(`Smart-Thinking: ${evaluationResults.length} calcul(s) détecté(s)`);
-      
-      // Filtrer les évaluations vides ou les notations de fonctions
-      const filteredResults = evaluationResults.filter((result: any) => 
-        !isNaN(result.result) || 
-        (result.context === "notation_fonction")
-      );
-      
-      // Convertir les résultats au format CalculationVerificationResult
-      const results = MathEvaluator.convertToVerificationResults(filteredResults);
-      
-      // Mettre en cache les résultats
-      VerificationService.calculationCache.put(cacheKey, results);
-      
-      return results;
-    } catch (error) {
-      console.error('Smart-Thinking: Erreur lors de la détection des calculs:', error);
-      return [];
-    }
-  }
-  
-  /**
-   * Annote une pensée avec les résultats de vérification des calculs
-   * 
-   * @param content Le texte de la pensée à annoter
-   * @param verifications Les résultats de vérification des calculs
-   * @returns Le texte annoté avec les résultats de vérification
-   */
-  public annotateThoughtWithVerifications(content: string, verifications: CalculationVerificationResult[]): string {
-    let annotatedThought = content;
-    
-    // Extraire les notations de fonctions pour les traiter différemment
-    const calcVerifications = verifications.filter(v => 
-      !v.verified.includes("Notation de fonction")
-    );
-    
-    // Parcourir les vérifications de calculs dans l'ordre inverse pour ne pas perturber les indices
-    for (let i = calcVerifications.length - 1; i >= 0; i--) {
-      const verification = calcVerifications[i];
-      const original = verification.original;
-      
-      // Créer une annotation selon que le calcul est correct ou non
-      if (verification.isCorrect) {
-        annotatedThought = annotatedThought.replace(
-          original, 
-          `${original} [✓ Vérifié]`
-        );
-      } else if (verification.verified.includes("vérifier") || verification.verified.includes("Vérification")) {
-        annotatedThought = annotatedThought.replace(
-          original, 
-          `${original} [⏳ Vérification en cours...]`
-        );
-      } else {
-        // Même si le calcul est incorrect, il a été vérifié
-        annotatedThought = annotatedThought.replace(
-          original, 
-          `${original} [✗ Incorrect: ${verification.verified}]`
-        );
-      }
-    }
-    
-    return annotatedThought;
-  }
-
-  /**
-   * Version optimisée de la détection des contradictions
-   * 
-   * @param results Résultats à analyser
-   * @returns Tableau des contradictions détectées
-   */
-  private detectContradictions(results: any[]): string[] {
-    if (results.length < 2) return [];
-    
-    // Structure de données pour stocker les contradictions
-    const contradictions: string[] = [];
-    const validResults = results.filter(r => r && r.result && r.result.isValid !== undefined);
-    
-    // Tableau d'assertions positives et négatives
-    const positiveResults = validResults.filter(r => r.result.isValid === true);
-    const negativeResults = validResults.filter(r => r.result.isValid === false);
-    
-    // Si pas de contradiction, retourner tableau vide
-    if (positiveResults.length === 0 || negativeResults.length === 0) {
-      return [];
-    }
-    
-    // Génération des contradictions
-    for (const pos of positiveResults) {
-      for (const neg of negativeResults) {
-        contradictions.push(`Contradiction entre ${pos.toolName} (confirme) et ${neg.toolName} (contredit)`);
-      }
-    }
-    
-    // Limiter le nombre de contradictions rapportées
-    return contradictions.slice(0, 5);
-  }
-
-  /**
-   * Version optimisée et plus informative de la génération des notes de vérification
-   * 
-   * @param results Résultats de vérification
-   * @param calculations Résultats de vérification des calculs
-   * @returns Notes de vérification
-   */
-  private generateVerificationNotes(results: any[], calculations?: CalculationVerificationResult[]): string {
-    if (results.length === 0 && (!calculations || calculations.length === 0)) {
-      return "Aucune vérification n'a été effectuée.";
-    }
-    
-    const notes: string[] = [];
-    
-    // Ajouter informations sur les outils externes
-    if (results.length > 0) {
-      const toolsUsed = Array.from(new Set(results.map(r => r.toolName))).join(', ');
-      notes.push(`Vérification effectuée avec les outils externes suivants: ${toolsUsed}.`);
-      
-      // Ajouter statistiques sur les résultats
-      const confirmedCount = results.filter(r => r.result?.isValid === true).length;
-      const contradictedCount = results.filter(r => r.result?.isValid === false).length;
-      const uncertainCount = results.filter(r => r.result?.isValid !== true && r.result?.isValid !== false).length;
-      
-      if (confirmedCount > 0) {
-        notes.push(`${confirmedCount} source(s) a(ont) confirmé l'information.`);
-      }
-      if (contradictedCount > 0) {
-        notes.push(`${contradictedCount} source(s) a(ont) contredit l'information.`);
-      }
-      if (uncertainCount > 0) {
-        notes.push(`${uncertainCount} source(s) n'a(ont) pas pu se prononcer.`);
-      }
-    }
-    
-    // Ajouter informations sur les calculs vérifiés
-    if (calculations && calculations.length > 0) {
-      const correctCount = calculations.filter(c => c.isCorrect).length;
-      const incorrectCount = calculations.length - correctCount;
-      
-      notes.push(`${calculations.length} calcul(s) mathématique(s) vérifié(s), dont ${correctCount} correct(s) et ${incorrectCount} incorrect(s).`);
-    }
-    
-    return notes.join(' ');
-  }
-
-  /**
-   * Stocke une vérification dans la mémoire
-   * 
-   * @param content Le contenu vérifié
-   * @param status Le statut de vérification
-   * @param confidence Le niveau de confiance
-   * @param sources Les sources utilisées
-   * @param sessionId L'identifiant de la session
-   * @returns L'identifiant de la vérification stockée
-   */
-  public async storeVerification(
+  async storeVerification(
     content: string,
     status: VerificationStatus,
     confidence: number,
-    sources: string[] = [],
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID
+    sources: string[],
+    sessionId?: string,
+    extras: VerificationStoreExtras = {},
   ): Promise<string> {
     return this.verificationMemory.addVerification(
       content,
       status,
       confidence,
       sources,
-      sessionId
+      sessionId,
+      { evidence: extras.evidence, checks: extras.checks, ttl: extras.ttl },
     );
   }
-  
-  /**
-   * Récupère les statuts de vérification des pensées connectées
-   * 
-   * @param thoughtIds IDs des pensées connectées à vérifier
-   * @returns Tableau des statuts de vérification
-   */
-  private async getConnectedThoughtsVerificationStatus(thoughtIds: string[]): Promise<VerificationStatus[]> {
-    // Ici, il faudrait implémenter la logique pour récupérer les statuts
-    // Dans une implémentation réelle, nous interrogerions le graphe de pensées
-    // Pour le moment, on utilise une valeur par défaut pour démontrer le principe
-    return thoughtIds.map(_ => 'partially_verified' as VerificationStatus);
+
+  clearCache(): void {
+    this.cache.clear();
   }
-  
-  /**
-   * Analyse les caractéristiques du contenu en une seule passe
-   * 
-   * @param content Contenu à analyser
-   * @returns Caractéristiques détectées
-   */
-  private analyzeContentCharacteristics(content: string): ContentCharacteristics {
+
+  private async runWebCheck(
+    request: ClaimVerificationRequest,
+    evidence: EvidenceItem[],
+  ): Promise<{
+    check: VerificationCheck;
+    unavailable: string[];
+    contradictions: string[];
+    counts: { supports: number; contradicts: number };
+  }> {
+    const searchService = this.searchService;
+    if (!searchService) {
+      return {
+        check: { name: 'web', outcome: 'unavailable', summary: 'Recherche web non configurée.' },
+        unavailable: ['web'],
+        contradictions: [],
+        counts: { supports: 0, contradicts: 0 },
+      };
+    }
+
+    const provider = searchService.resolveProvider(
+      request.searchProvider,
+      undefined,
+      request.tavilyApiKey,
+    );
+    if (provider === 'native' || provider === 'none') {
+      return {
+        check: {
+          name: 'web',
+          outcome: provider === 'none' ? 'unavailable' : 'inconclusive',
+          summary:
+            provider === 'none'
+              ? 'Recherche web désactivée ou sans clé Tavily.'
+              : 'Recherche web déléguée au client natif (aucun appel serveur effectué).',
+        },
+        unavailable: [provider === 'none' ? 'web' : 'web-native'],
+        contradictions: [],
+        counts: { supports: 0, contradicts: 0 },
+      };
+    }
+
+    const queries = buildVerificationQueries(request.claim);
+    const contradictions: string[] = [];
+    let supports = 0;
+    let contradicts = 0;
+
+    for (const query of queries) {
+      try {
+        const response = await searchService.webSearch(
+          { query, maxResults: 5, provider: 'tavily', tavilyApiKey: request.tavilyApiKey },
+          undefined,
+        );
+        for (const result of response.results) {
+          const stance = classifyStance(request.claim, result);
+          evidence.push(toEvidenceItem(request.claim, result, stance));
+          if (stance === 'supports') supports += 1;
+          if (stance === 'contradicts') {
+            contradicts += 1;
+            contradictions.push(`Source opposée: ${result.title} (${result.url})`);
+          }
+        }
+      } catch (error) {
+        return {
+          check: {
+            name: 'web',
+            outcome: 'unavailable',
+            summary: `Échec de la recherche web: ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+          },
+          unavailable: ['web'],
+          contradictions,
+          counts: { supports, contradicts },
+        };
+      }
+    }
+
+    const outcome = supports > contradicts ? (supports > 0 ? 'passed' : 'inconclusive') : contradicts > 0 ? 'failed' : 'inconclusive';
     return {
-      hasFactualClaims: VerificationService.REGEX_CACHE.FACTUAL_CLAIMS.test(content),
-      hasOpinions: VerificationService.REGEX_CACHE.OPINIONS.test(content),
-      hasStatistics: VerificationService.REGEX_CACHE.STATISTICS.test(content),
-      hasExternalRefs: VerificationService.REGEX_CACHE.EXTERNAL_REFS.test(content),
-      hasCalculations: VerificationService.REGEX_CACHE.CALCULATIONS.test(content)
+      check: {
+        name: 'web',
+        outcome,
+        summary: `${supports} source(s) favorable(s), ${contradicts} source(s) opposée(s).`,
+        evidenceIds: evidence.map(item => item.id),
+      },
+      unavailable: [],
+      contradictions,
+      counts: { supports, contradicts },
     };
   }
 
-  /**
-   * Exécute une promesse avec un timeout pour éviter les opérations bloquantes
-   * 
-   * @param promise Promesse à exécuter
-   * @param timeoutMs Délai d'expiration en millisecondes
-   * @returns Résultat de la promesse ou null en cas de timeout
-   */
-  private async executeWithTimeout<T>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T | null> {
-    let timeoutHandle: NodeJS.Timeout;
-    
-    const timeoutPromise = new Promise<null>(resolve => {
-      timeoutHandle = setTimeout(() => resolve(null), timeoutMs);
-    });
-    
-    try {
-      const result = await Promise.race([promise, timeoutPromise]);
-      clearTimeout(timeoutHandle!);
-      return result;
-    } catch (error) {
-      clearTimeout(timeoutHandle!);
-      console.error('Smart-Thinking: Erreur ou timeout lors de l\'exécution:', error);
-      return null;
+  private aggregateStatus(
+    checks: VerificationCheck[],
+    contradictions: string[],
+    webCounts: { supports: number; contradicts: number },
+    judgeVerdict?: JudgeResult | null,
+  ): VerificationStatus {
+    if (judgeVerdict?.verdict === 'contradicts') {
+      return 'contradicted';
+    }
+    const calculation = checks.find(check => check.name === 'calculation');
+    if (calculation?.outcome === 'failed') {
+      return 'contradicted';
+    }
+
+    const consistency = checks.find(check => check.name === 'consistency');
+    if (consistency?.outcome === 'failed') {
+      return 'contradictory';
+    }
+
+    const web = checks.find(check => check.name === 'web');
+    const supportCount = webCounts.supports;
+    const opposeCount = webCounts.contradicts;
+
+    if (web?.outcome === 'failed' || (opposeCount > 0 && supportCount === 0)) {
+      return 'contradicted';
+    }
+    if (supportCount >= 2 && opposeCount === 0) {
+      return 'verified';
+    }
+    if (supportCount >= 1 && opposeCount === 0) {
+      return 'partially_verified';
+    }
+    if (supportCount > 0 && opposeCount > 0) {
+      return 'contradictory';
+    }
+    if (calculation?.outcome === 'passed') {
+      return 'partially_verified';
+    }
+    if (judgeVerdict?.verdict === 'supports' && judgeVerdict.confidence >= 0.7) {
+      return 'partially_verified';
+    }
+    if (contradictions.length > 0) {
+      return 'uncertain';
+    }
+    return 'unverified';
+  }
+
+  private aggregateConfidence(
+    status: VerificationStatus,
+    checks: VerificationCheck[],
+    evidence: EvidenceItem[],
+  ): number {
+    if (status === 'contradicted') {
+      return 0.85;
+    }
+    if (status === 'contradictory') {
+      return 0.5;
+    }
+    if (status === 'verified') {
+      return evidence.length > 0 ? 0.8 : 0.7;
+    }
+    if (status === 'partially_verified') {
+      const hasCalculation = checks.some(check => check.name === 'calculation' && check.outcome === 'passed');
+      return hasCalculation ? 0.65 : 0.55;
+    }
+    if (status === 'uncertain') {
+      return 0.35;
+    }
+    return 0.3;
+  }
+
+  private storeInCache(key: string, result: VerificationResult): void {
+    if (this.cache.size >= this.cacheMaxEntries) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) {
+        this.cache.delete(oldest);
+      }
+    }
+    this.cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, result });
+  }
+}
+
+
+async function trackerlessJudge(
+  assist: AssistClient,
+  claim: string,
+  evidence: EvidenceItem[],
+): Promise<JudgeResult | null> {
+  const evidenceText = evidence
+    .slice(0, 6)
+    .map(item => `- [${item.title ?? item.source}] ${item.quote}`)
+    .join('\n');
+  return assistJudge(assist, claim, evidenceText);
+}
+
+function hashContent(content: string): string {
+  return createHash('sha1').update(content).digest('hex').slice(0, 16);
+}
+
+function mapToDetailedStatus(status: VerificationStatus): VerificationDetailedStatus {
+  return status;
+}
+
+function buildCertaintySummary(status: VerificationStatus, confidence: number): string {
+  const percentage = Math.round(confidence * 100);
+  const labels: Record<VerificationStatus, string> = {
+    verified: `Information vérifiée (${percentage}% de confiance).`,
+    partially_verified: `Information partiellement vérifiée (${percentage}% de confiance).`,
+    unverified: `Information non vérifiée (${percentage}% de confiance).`,
+    contradicted: `Information contredite (${percentage}% de confiance).`,
+    contradictory: `Sources contradictoires (${percentage}% de confiance).`,
+    absence_of_information: `Aucune information trouvée (${percentage}% de confiance).`,
+    uncertain: `Information incertaine (${percentage}% de confiance).`,
+    inconclusive: `Résultat non concluant (${percentage}% de confiance).`,
+  };
+  return labels[status];
+}
+
+function buildNotes(status: VerificationStatus, checks: VerificationCheck[]): string | undefined {
+  const failed = checks.filter(check => check.outcome === 'failed');
+  if (failed.length === 0) {
+    return undefined;
+  }
+  return `Points d'attention: ${failed.map(check => check.summary).join(' ')}`;
+}
+
+function findConsistencyConflicts(claim: string, connectedThoughts: ThoughtNode[]): string[] {
+  const conflicts: string[] = [];
+  const claimKeywords = new Set(extractKeywords(claim));
+
+  for (const thought of connectedThoughts) {
+    const overlap = extractKeywords(thought.content).filter(keyword => claimKeywords.has(keyword)).length;
+    const hasNegation = /(?:n'est pas|ne sont pas|faux|fausse|jamais|contraire|opposé|opposée|refute|réfute|contredit|contredite)/i.test(thought.content);
+    if (hasNegation && overlap >= 2) {
+      conflicts.push(`Contradiction avec "${truncate(thought.content, 160)}"`);
     }
   }
-  
-  /**
-   * Génère un hash simple pour une chaîne (utilisé pour les clés de cache)
-   * 
-   * @param str Chaîne à hacher
-   * @returns Hash sous forme de chaîne
-   */
-  private hashString(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString(36);
+
+  return conflicts;
+}
+
+function classifyStance(claim: string, result: WebSearchResult): EvidenceStance {
+  const claimKeywords = new Set(extractKeywords(claim));
+  if (claimKeywords.size === 0) {
+    return 'neutral';
   }
+  const snippetKeywords = extractKeywords(`${result.title} ${result.text}`);
+  const overlap = snippetKeywords.filter(keyword => claimKeywords.has(keyword)).length / claimKeywords.size;
+  const text = `${result.title} ${result.text}`.toLowerCase();
+  const negation = /(?:n'est pas|ne sont pas|faux|fausse|erroné|incorrect|contredit|dément|démenti|refut|réfut|debunk|not true|false|no evidence)/i.test(text);
+  const support = /(?:confirme|confirment|selon|indique|révèle|montre|démontre|rapporte|à raison|true|correct|validé)/i.test(text);
+
+  if (overlap < 0.2) {
+    return 'neutral';
+  }
+  if (negation && !support) {
+    return 'contradicts';
+  }
+  if (support || overlap >= 0.45) {
+    return 'supports';
+  }
+  return 'neutral';
+}
+
+function toEvidenceItem(claim: string, result: WebSearchResult, stance: EvidenceStance): EvidenceItem {
+  const snippet = result.text.length > 500 ? `${result.text.slice(0, 500)}...` : result.text;
+  return {
+    id: result.id,
+    claim,
+    quote: snippet,
+    sourceType: 'web',
+    source: result.url,
+    title: result.title,
+    stance,
+    confidence: stance === 'neutral' ? 0.4 : 0.6,
+    retrievedAt: new Date().toISOString(),
+  };
+}
+
+function buildVerificationQueries(claim: string): string[] {
+  const keywords = extractKeywords(claim);
+  if (keywords.length === 0) {
+    return [truncate(claim, 120)];
+  }
+  const queries = new Set<string>();
+  queries.add(keywords.slice(0, 6).join(' '));
+  if (keywords.length > 6) {
+    queries.add(keywords.slice(0, 10).join(' '));
+  }
+  return Array.from(queries);
+}
+
+function truncate(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength)}...`;
 }

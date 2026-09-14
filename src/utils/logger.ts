@@ -1,47 +1,45 @@
 /**
- * Logger utilitaire minimaliste avec niveaux configurables et sortie structurée.
- * S'aligne sur les bonnes pratiques de journalisation Node.js : niveaux, structure JSON,
- * et contrôle par variables d'environnement.
+ * Smart-Thinking v13 — structured logger.
+ *
+ * All diagnostics go to stderr so the stdio JSON-RPC stream stays clean.
+ * Console methods are patched once on import for backward compatibility.
  */
 
-const LEVELS = {
+export type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+
+const LEVELS: Record<LogLevel, number> = {
   silent: 0,
   error: 1,
   warn: 2,
   info: 3,
   debug: 4,
-} as const;
-
-type LogLevel = keyof typeof LEVELS;
-
-type LogPayload = {
-  level: LogLevel;
-  timestamp: string;
-  message: string;
-  origin?: string;
-  context?: Record<string, unknown>;
 };
 
-const GLOBAL_SYMBOL = Symbol.for('smart-thinking.logger.initialized');
+interface LogContext {
+  [key: string]: unknown;
+}
 
-type ConsoleMethod = (...args: unknown[]) => void;
+interface StructuredLogger {
+  error(message: string, context?: LogContext | unknown): void;
+  warn(message: string, context?: LogContext | unknown): void;
+  info(message: string, context?: LogContext | unknown): void;
+  debug(message: string, context?: LogContext | unknown): void;
+  child(scope: string): StructuredLogger;
+}
 
 let currentLevel: LogLevel = resolveInitialLevel();
 let useJsonFormat = resolveInitialFormat();
 
 function resolveInitialLevel(): LogLevel {
-  const envLevel = (process.env.SMART_THINKING_LOG_LEVEL || '').toLowerCase();
-  if (envLevel && envLevel in LEVELS) {
-    return envLevel as LogLevel;
+  const envLevel = (process.env.SMART_THINKING_LOG_LEVEL ?? '').toLowerCase() as LogLevel;
+  if (envLevel in LEVELS) {
+    return envLevel;
   }
-  if (process.env.NODE_ENV === 'test') {
-    return 'silent';
-  }
-  return 'info';
+  return process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 }
 
 function resolveInitialFormat(): boolean {
-  const format = (process.env.SMART_THINKING_LOG_FORMAT || '').toLowerCase();
+  const format = (process.env.SMART_THINKING_LOG_FORMAT ?? '').toLowerCase();
   if (format === 'json') {
     return true;
   }
@@ -51,115 +49,89 @@ function resolveInitialFormat(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-function shouldLog(level: LogLevel): boolean {
+export function configureLogger(options: { level?: LogLevel; format?: 'json' | 'pretty' }): void {
+  if (options.level && options.level in LEVELS) {
+    currentLevel = options.level;
+  }
+  if (options.format) {
+    useJsonFormat = options.format === 'json';
+  }
+}
+
+export function setLogLevel(level: LogLevel): void {
+  configureLogger({ level });
+}
+
+export function setLogFormat(format: 'json' | 'pretty'): void {
+  configureLogger({ format });
+}
+
+function shouldLog(level: Exclude<LogLevel, 'silent'>): boolean {
   return LEVELS[level] <= LEVELS[currentLevel];
 }
 
-function formatArgs(args: unknown[]): string {
-  if (args.length === 1 && typeof args[0] === 'string') {
-    return args[0];
+function stringify(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
   }
-  return args
-    .map((arg) => {
-      if (typeof arg === 'string') {
-        return arg;
-      }
-      if (arg instanceof Error) {
-        return `${arg.name}: ${arg.message}\n${arg.stack}`;
-      }
-      try {
-        return JSON.stringify(arg);
-      } catch {
-        return String(arg);
-      }
-    })
-    .join(' ');
+  if (value instanceof Error) {
+    return `${value.name}: ${value.message}`;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
-function getOrigin(): string | undefined {
-  const error = new Error();
-  if (!error.stack) {
-    return undefined;
-  }
-  const stackLines = error.stack.split('\n').slice(3);
-  for (const line of stackLines) {
-    const trimmed = line.trim();
-    if (!trimmed.includes('logger.ts')) {
-      return trimmed;
-    }
-  }
-  return undefined;
-}
-
-function write(payload: LogPayload, stream: NodeJS.WriteStream): void {
-  if (useJsonFormat) {
-    stream.write(`${JSON.stringify(payload)}\n`);
+function write(level: Exclude<LogLevel, 'silent'>, scope: string, message: string, context?: unknown): void {
+  if (!shouldLog(level)) {
     return;
   }
-  const contextInfo = payload.origin ? ` (${payload.origin})` : '';
-  stream.write(`[${payload.timestamp}] ${payload.level.toUpperCase()}${contextInfo}: ${payload.message}\n`);
+  if (useJsonFormat) {
+    process.stderr.write(
+      `${JSON.stringify({
+        level,
+        time: new Date().toISOString(),
+        scope,
+        message,
+        ...(context === undefined ? {} : { context }),
+      })}\n`,
+    );
+    return;
+  }
+  const contextInfo = context === undefined ? '' : ` ${stringify(context)}`;
+  process.stderr.write(`[${level.toUpperCase()}] ${scope}: ${message}${contextInfo}\n`);
 }
 
-function buildConsoleMethod(level: LogLevel): ConsoleMethod {
-  const stream = process.stderr;
-  return (...args: unknown[]) => {
-    if (!shouldLog(level)) {
-      return;
-    }
-
-    const payload: LogPayload = {
-      level,
-      timestamp: new Date().toISOString(),
-      message: formatArgs(args),
-      origin: getOrigin(),
-    };
-
-    write(payload, stream);
+export function createLogger(scope: string): StructuredLogger {
+  return {
+    error: (message, context) => write('error', scope, message, context),
+    warn: (message, context) => write('warn', scope, message, context),
+    info: (message, context) => write('info', scope, message, context),
+    debug: (message, context) => write('debug', scope, message, context),
+    child: (childScope: string) => createLogger(`${scope}:${childScope}`),
   };
 }
 
+const GLOBAL_SYMBOL = Symbol.for('smart-thinking.logger.initialized');
+
 function patchConsole(): void {
-  if ((global as any)[GLOBAL_SYMBOL]) {
+  if ((globalThis as Record<symbol, unknown>)[GLOBAL_SYMBOL]) {
     return;
   }
+  (globalThis as Record<symbol, unknown>)[GLOBAL_SYMBOL] = true;
 
-  (global as any)[GLOBAL_SYMBOL] = true;
-
-  const originalConsole = { ...console };
-
-  console.error = buildConsoleMethod('error') as typeof console.error;
-  console.warn = buildConsoleMethod('warn') as typeof console.warn;
-  console.info = buildConsoleMethod('info') as typeof console.info;
-  console.log = buildConsoleMethod('info') as typeof console.log;
-  console.debug = buildConsoleMethod('debug') as typeof console.debug;
-  console.trace = ((...args: unknown[]) => {
-    if (!shouldLog('debug')) {
-      return;
-    }
-    originalConsole.trace(...args);
-  }) as typeof console.trace;
+  console.log = (...args: unknown[]) => write('info', 'console', args.map(stringify).join(' '));
+  console.info = (...args: unknown[]) => write('info', 'console', args.map(stringify).join(' '));
+  console.warn = (...args: unknown[]) => write('warn', 'console', args.map(stringify).join(' '));
+  console.error = (...args: unknown[]) => write('error', 'console', args.map(stringify).join(' '));
+  console.debug = (...args: unknown[]) => write('debug', 'console', args.map(stringify).join(' '));
 }
-
-/**
- * Permet de modifier dynamiquement le niveau de log.
- */
-export function setLogLevel(level: LogLevel): void {
-  if (!(level in LEVELS)) {
-    throw new Error(`Niveau de log inconnu: ${level}`);
-  }
-  currentLevel = level;
-}
-
-/**
- * Permet de basculer entre format JSON (production) et format texte lisible.
- */
-export function setLogFormat(format: 'json' | 'pretty'): void {
-  useJsonFormat = format === 'json';
-}
-
-patchConsole();
 
 export const Logger = {
-  setLevel: setLogLevel,
-  setFormat: setLogFormat,
+  setLevel: (level: LogLevel) => configureLogger({ level }),
+  setFormat: (format: 'json' | 'pretty') => configureLogger({ format }),
 };
+
+patchConsole();

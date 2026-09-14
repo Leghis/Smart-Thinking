@@ -7,14 +7,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (npm install because the lockfile is not committed)
+RUN npm install
 
 # Copy the rest of the source
 COPY . .
 
 # Build the project
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
-# Default command to run the MCP server
-CMD ["node", "build/index.js"]
+# Default command to run the MCP server over stdio
+CMD ["node", "build/cli.js"]

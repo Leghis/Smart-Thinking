@@ -92,25 +92,29 @@ function buildServerCard(options: CliOptions): Record<string, unknown> {
   const tools: Array<Record<string, unknown>> = [
     {
       name: 'search',
-      description: 'Recherche semantique dans les memoires locales Smart-Thinking.',
+      description: 'Recherche unifiée: mémoires locales + recherche web (Tavily ou délégation native).',
       inputSchema: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Requete de recherche.' },
-          limit: { type: 'integer', minimum: 1, maximum: 20, default: 5, description: 'Nombre maximal de resultats.' },
-          sessionId: { type: 'string', description: 'Session cible optionnelle.' },
+          query: { type: 'string', description: 'Requête de recherche.' },
+          limit: { type: 'integer', minimum: 1, maximum: 20, default: 5 },
+          sessionId: { type: 'string' },
+          includeWeb: { type: 'boolean', default: true },
+          includeMemory: { type: 'boolean', default: true },
+          provider: { type: 'string', enum: ['auto', 'tavily', 'native', 'off'] },
         },
         required: ['query'],
       },
     },
     {
       name: 'fetch',
-      description: 'Recupere une memoire complete par identifiant.',
+      description: 'Récupère une mémoire par identifiant ou le contenu d\'une URL.',
       inputSchema: {
         type: 'object',
         properties: {
-          id: { type: 'string', description: 'Identifiant de la memoire.' },
-          sessionId: { type: 'string', description: 'Session cible optionnelle.' },
+          id: { type: 'string', description: 'Identifiant de mémoire ou URL.' },
+          sessionId: { type: 'string' },
+          maxChars: { type: 'integer' },
         },
         required: ['id'],
       },
@@ -118,28 +122,119 @@ function buildServerCard(options: CliOptions): Record<string, unknown> {
   ];
 
   if (options.mode !== 'connector') {
-    tools.unshift({
-      name: 'smartthinking',
-      description: 'Pipeline de raisonnement graphe local, deterministe et persistant.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          thought: { type: 'string', description: 'Pensee a analyser.' },
-          thoughtType: {
-            type: 'string',
-            enum: ['regular', 'revision', 'meta', 'hypothesis', 'conclusion'],
-            default: 'regular',
-            description: 'Type de pensee.',
+    tools.push(
+      {
+        name: 'protocol',
+        description: 'Protocole scientifique standard pour problèmes complexes.',
+        inputSchema: { type: 'object', properties: { problem: { type: 'string' } }, required: ['problem'] },
+      },
+      {
+        name: 'compute',
+        description: 'Sandbox Python exact (sympy/numpy/scipy) pour certificats.',
+        inputSchema: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] },
+      },
+      {
+        name: 'calculate',
+        description: 'Calcule une expression arithmétique de façon déterministe.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            expression: { type: 'string' },
           },
-          sessionId: { type: 'string', description: 'Identifiant de session optionnel.' },
-          requestSuggestions: { type: 'boolean', default: false, description: 'Demande des suggestions d amelioration.' },
-          requestVerification: { type: 'boolean', default: false, description: 'Active la verification explicite.' },
-          containsCalculations: { type: 'boolean', default: false, description: 'Indique la presence de calculs.' },
-          generateVisualization: { type: 'boolean', default: false, description: 'Active la visualisation.' },
-          help: { type: 'boolean', default: false, description: 'Retourne le guide d utilisation.' },
+          required: ['expression'],
         },
       },
-    });
+      {
+        name: 'smartthinking',
+        description: 'Graphe de raisonnement persistant: métriques, vérification, plan et hypothèses.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thought: { type: 'string' },
+            thoughtType: { type: 'string', enum: ['regular', 'revision', 'meta', 'hypothesis', 'conclusion'], default: 'regular' },
+            depth: { type: 'string', enum: ['fast', 'balanced', 'deep'], default: 'balanced' },
+            sessionId: { type: 'string' },
+            requestVerification: { type: 'boolean', default: false },
+            containsCalculations: { type: 'boolean', default: false },
+            plan: { type: 'object' },
+            hypotheses: { type: 'array', items: { type: 'object' } },
+          },
+          required: ['thought'],
+        },
+      },
+      {
+        name: 'plan',
+        description: 'Décompose un objectif en étapes testables avec critères de succès.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            goal: { type: 'string' },
+            constraints: { type: 'array', items: { type: 'string' } },
+            depth: { type: 'string', enum: ['fast', 'balanced', 'deep'], default: 'balanced' },
+            sessionId: { type: 'string' },
+          },
+          required: ['goal'],
+        },
+      },
+      {
+        name: 'verify',
+        description: 'Vérifie une affirmation (calculs, cohérence de session, sources web).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            claim: { type: 'string' },
+            sessionId: { type: 'string' },
+            checkMath: { type: 'boolean', default: true },
+            checkConsistency: { type: 'boolean', default: true },
+            checkWeb: { type: 'boolean', default: true },
+          },
+          required: ['claim'],
+        },
+      },
+      {
+        name: 'web_search',
+        description: 'Recherche web via Tavily ou délégation au client natif.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            maxResults: { type: 'integer', minimum: 1, maximum: 10, default: 5 },
+            provider: { type: 'string', enum: ['auto', 'tavily', 'native', 'off'] },
+            sessionId: { type: 'string' },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'web_crawl',
+        description: 'Explore un site: contenu des pages (crawl) ou liste des URLs (map) via Tavily.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            mode: { type: 'string', enum: ['crawl', 'map'], default: 'crawl' },
+            instructions: { type: 'string' },
+            maxDepth: { type: 'integer', minimum: 1, maximum: 5 },
+            limit: { type: 'integer', minimum: 1, maximum: 100 },
+          },
+          required: ['url'],
+        },
+      },
+      {
+        name: 'session',
+        description: 'État, export, reset et configuration de la recherche Tavily par session.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', enum: ['status', 'summary', 'export', 'reset', 'configure_search', 'set_plan_step'] },
+            sessionId: { type: 'string' },
+            provider: { type: 'string', enum: ['auto', 'tavily', 'native', 'off'] },
+            tavilyApiKey: { type: 'string' },
+          },
+          required: ['action'],
+        },
+      },
+    );
   }
 
   return {
@@ -159,19 +254,27 @@ function buildServerCard(options: CliOptions): Record<string, unknown> {
     tools,
     prompts: [
       {
+        name: 'smartthinking-deep-reasoning',
+        description: 'Protocole complet de résolution de problème (plan, graphe, vérification, recherche).',
+        arguments: [
+          { name: 'problem', required: true, description: 'Problème à résoudre.' },
+          { name: 'constraints', required: false, description: 'Contraintes et données connues.' },
+        ],
+      },
+      {
         name: 'smartthinking-reasoning-plan',
-        description: 'Construit un plan de raisonnement testable avant execution.',
+        description: 'Construit un plan de raisonnement testable avant exécution.',
         arguments: [
           { name: 'objective', required: true, description: 'Objectif principal.' },
           { name: 'constraints', required: false, description: 'Contraintes.' },
-          { name: 'depth', required: false, description: 'Niveau de profondeur (fast|balanced|deep).' },
+          { name: 'depth', required: false, description: 'Profondeur (fast|balanced|deep).' },
         ],
       },
       {
         name: 'smartthinking-verify-claim',
-        description: 'Genere une checklist de verification factuelle.',
+        description: 'Génère et exécute une checklist de vérification factuelle.',
         arguments: [
-          { name: 'claim', required: true, description: 'Affirmation a verifier.' },
+          { name: 'claim', required: true, description: 'Affirmation à vérifier.' },
         ],
       },
     ],
@@ -334,7 +437,8 @@ async function startStdIoServer(options: CliOptions): Promise<void> {
     console.info('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
   const { server } = createSmartThinkingServer(undefined, {
-    includeSmartThinkingTool: options.mode !== 'connector'
+    includeSmartThinkingTool: options.mode !== 'connector',
+    includeWebTools: options.mode !== 'connector'
   });
   const transport = new EnhancedStdioServerTransport();
   try {
@@ -396,7 +500,8 @@ async function startHttpServer(options: CliOptions): Promise<void> {
         }
 
         const { server } = createSmartThinkingServer(undefined, {
-          includeSmartThinkingTool: options.mode !== 'connector'
+          includeSmartThinkingTool: options.mode !== 'connector',
+          includeWebTools: options.mode !== 'connector'
         });
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
@@ -455,7 +560,8 @@ async function startHttpServer(options: CliOptions): Promise<void> {
     app.get('/sse', async (req, res) => {
       try {
         const { server } = createSmartThinkingServer(undefined, {
-          includeSmartThinkingTool: options.mode !== 'connector'
+          includeSmartThinkingTool: options.mode !== 'connector',
+          includeWebTools: options.mode !== 'connector'
         });
         const transport = new SSEServerTransport('/messages', res, {
           enableDnsRebindingProtection: dnsProtectionEnabled,

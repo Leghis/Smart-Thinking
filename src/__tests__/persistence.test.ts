@@ -6,25 +6,24 @@ import path from 'path';
 import { MemoryManager } from '../memory-manager';
 import { VerificationMemory } from '../verification-memory';
 import { PathUtils } from '../utils/path-utils';
-import { SimilarityEngine } from '../similarity-engine';
-
-const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
-
-const waitUntil = async (predicate: () => boolean | Promise<boolean>, timeoutMs = 500): Promise<void> => {
-  const start = Date.now();
-  while (!(await predicate())) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error('Timed out waiting for condition');
-    }
-    await sleep(10);
-  }
-};
+import { SimilarityEngine, type TermVector } from '../similarity-engine';
+import { LIMITS } from '../constants';
+import { ValidationError } from '../errors';
+import {
+  assertSafeSessionId,
+  sanitizeMemoryItem,
+  sanitizeVerificationEntry,
+  writeFileAtomic,
+  writeJsonAtomic,
+} from '../utils/persistence-utils';
 
 describe('Persistence hardening', () => {
   let tempDir: string;
+  const originalDataDir = process.env.SMART_THINKING_DATA_DIR;
 
   beforeEach(async () => {
     tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'smart-thinking-tests-'));
+    delete process.env.SMART_THINKING_DATA_DIR;
     jest.spyOn(PathUtils, 'getDataDirectory').mockReturnValue(tempDir);
     jest.spyOn(PathUtils, 'getTempDirectory').mockReturnValue(tempDir);
   });
@@ -32,9 +31,74 @@ describe('Persistence hardening', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     VerificationMemory.resetInstance();
+    if (originalDataDir === undefined) {
+      delete process.env.SMART_THINKING_DATA_DIR;
+    } else {
+      process.env.SMART_THINKING_DATA_DIR = originalDataDir;
+    }
     if (tempDir && fs.existsSync(tempDir)) {
       await fsp.rm(tempDir, { recursive: true, force: true });
     }
+  });
+
+  test('assertSafeSessionId accepts safe ids and rejects traversal attempts', () => {
+    expect(assertSafeSessionId('session-1.v2_x')).toBe('session-1.v2_x');
+    expect(assertSafeSessionId('  spaced  ')).toBe('spaced');
+    expect(assertSafeSessionId(undefined)).toBe('default');
+    expect(assertSafeSessionId('')).toBe('default');
+    expect(assertSafeSessionId(null, 'fallback')).toBe('fallback');
+
+    expect(() => assertSafeSessionId('../evil')).toThrow(ValidationError);
+    expect(() => assertSafeSessionId('..')).toThrow(ValidationError);
+    expect(() => assertSafeSessionId('.')).toThrow(ValidationError);
+    expect(() => assertSafeSessionId('a/b')).toThrow(ValidationError);
+    expect(() => assertSafeSessionId('a\\b')).toThrow(ValidationError);
+    expect(() => assertSafeSessionId('a'.repeat(129))).toThrow(ValidationError);
+    expect(() => assertSafeSessionId(42)).toThrow(ValidationError);
+  });
+
+  test('atomic write helpers replace files without leaving temp artefacts', async () => {
+    const filePath = path.join(tempDir, 'atomic.json');
+
+    await writeFileAtomic(filePath, '{"first":true}');
+    expect(await fsp.readFile(filePath, 'utf8')).toBe('{"first":true}');
+
+    await writeJsonAtomic(filePath, { second: true });
+    expect(JSON.parse(await fsp.readFile(filePath, 'utf8'))).toEqual({ second: true });
+
+    const leftovers = (await fsp.readdir(tempDir)).filter(file => file.includes('.tmp-'));
+    expect(leftovers).toEqual([]);
+
+    await expect(writeFileAtomic(path.join(tempDir, 'missing', 'x.txt'), 'data')).rejects.toThrow();
+  });
+
+  test('sanitizers reject invalid verification timestamps and clamp memory dates', () => {
+    const options = { defaultSessionId: 'default', defaultTtlMs: 1000 };
+
+    expect(sanitizeVerificationEntry({ id: 'a', text: 't', timestamp: 'not-a-date' }, options)).toBeNull();
+
+    const withTimestamp = sanitizeVerificationEntry(
+      { id: 'b', text: 't', timestamp: '2024-01-01T00:00:00.000Z' },
+      options
+    );
+    expect(withTimestamp?.expiresAt.toISOString()).toBe('2024-01-01T00:00:01.000Z');
+
+    const withBadExpiry = sanitizeVerificationEntry(
+      { id: 'c', text: 't', timestamp: '2024-01-01T00:00:00.000Z', expiresAt: 'nope' },
+      options
+    );
+    expect(withBadExpiry?.expiresAt.toISOString()).toBe('2024-01-01T00:00:01.000Z');
+
+    const future = sanitizeMemoryItem({
+      id: 'm1',
+      content: 'x',
+      timestamp: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+    expect(future).not.toBeNull();
+    expect(future!.timestamp.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+
+    const past = sanitizeMemoryItem({ id: 'm2', content: 'x', timestamp: '2020-05-05T00:00:00.000Z' });
+    expect(past?.timestamp.toISOString()).toBe('2020-05-05T00:00:00.000Z');
   });
 
   test('MemoryManager sanitizes legacy payloads and persists clean data', async () => {
@@ -53,9 +117,9 @@ describe('Persistence hardening', () => {
         metadata: {
           sessionId: 'default',
           openaiTokens: 42,
-          notes: 'préserver cette note'
-        }
-      }
+          notes: 'préserver cette note',
+        },
+      },
     ];
 
     const legacyKnowledgePayload = {
@@ -64,35 +128,33 @@ describe('Persistence hardening', () => {
         cohereVector: [0.1, 0.2],
         nested: {
           openaiPrompt: 'should vanish',
-          hint: 'keep me'
-        }
-      }
+          hint: 'keep me',
+        },
+      },
     };
 
     await fsp.writeFile(legacyMemoryPath, JSON.stringify(legacyMemoryPayload, null, 2), 'utf8');
     await fsp.writeFile(legacyKnowledgePath, JSON.stringify(legacyKnowledgePayload, null, 2), 'utf8');
 
     const manager = new MemoryManager();
-
-    await waitUntil(() => Boolean(manager.getMemory('legacy-1')));
+    await manager.flush();
 
     const loadedLegacy = manager.getMemory('legacy-1');
     expect(loadedLegacy).toBeDefined();
     expect(loadedLegacy?.metadata).toEqual({ sessionId: 'default', notes: 'préserver cette note' });
-    expect((loadedLegacy as Record<string, unknown>).embedding).toBeUndefined();
+    expect((loadedLegacy as unknown as Record<string, unknown>).embedding).toBeUndefined();
 
     manager.setKnowledge('legacy-entry', {
       openaiPrompt: 'retiré',
       description: 'actualisé',
       nested: {
         cohereScore: 0.99,
-        insight: 'préserver'
-      }
+        insight: 'préserver',
+      },
     });
 
     const newId = manager.addMemory('Nouvelle mémoire', ['analyse']);
-
-    await (manager as unknown as { saveToStorage: () => Promise<void> }).saveToStorage();
+    await manager.flush();
 
     const storedMemoriesRaw = await fsp.readFile(legacyMemoryPath, 'utf8');
     const storedMemories = JSON.parse(storedMemoriesRaw) as Array<Record<string, unknown>>;
@@ -115,107 +177,113 @@ describe('Persistence hardening', () => {
     expect(storedKnowledge['legacy-entry']).toEqual({ description: 'actualisé', nested: { insight: 'préserver' } });
   });
 
-  test('MemoryManager falls back to embedded samples when no persisted data exists', async () => {
+  test('a fresh MemoryManager starts empty without demo data', async () => {
     const manager = new MemoryManager();
+    await manager.flush();
 
-    await waitUntil(() => manager.getRecentMemories().length > 0);
-
-    const fallbackMemories = manager.getRecentMemories(10);
-    expect(fallbackMemories.length).toBeGreaterThan(0);
-    fallbackMemories.forEach(memory => {
-      expect(memory).not.toHaveProperty('embedding');
-      expect(memory.content.length).toBeGreaterThan(0);
-    });
-
-    const knowledgeKeys = ['raisonnement-efficace', 'biais-cognitifs'];
-    knowledgeKeys.forEach(key => {
-      const knowledge = manager.getKnowledge(key);
-      expect(knowledge).toBeDefined();
-    });
+    expect(manager.getRecentMemories(10)).toEqual([]);
+    expect(manager.getKnowledge('raisonnement-efficace')).toBeUndefined();
+    expect(manager.getKnowledge('biais-cognitifs')).toBeUndefined();
   });
 
-  test('MemoryManager handles directory creation fallback gracefully', async () => {
-    const tempFallback = path.join(os.tmpdir(), 'smart-thinking-temp-fallback');
-    jest.spyOn(PathUtils, 'getTempDirectory').mockReturnValue(tempFallback);
-    const ensureSpy = jest
-      .spyOn(PathUtils, 'ensureDirectoryExists')
-      .mockImplementationOnce(async () => {
-        throw new Error('permission denied');
-      })
-      .mockImplementation(async () => undefined);
-
+  test('MemoryManager rejects unsafe session ids and persists graph state', async () => {
     const manager = new MemoryManager();
-    await waitUntil(() => manager.getRecentMemories().length > 0);
-    await (manager as unknown as { ensureDirectoriesExist: () => Promise<void> }).ensureDirectoriesExist();
 
-    expect(manager['dataDir']).toContain('smart-thinking-temp-fallback');
-    ensureSpy.mockRestore();
-    await fsp.rm(tempFallback, { recursive: true, force: true });
+    await expect(manager.saveGraphState('../escape', '{}')).rejects.toThrow(ValidationError);
+    await expect(manager.loadGraphState('a/b')).rejects.toThrow(ValidationError);
+    await expect(manager.clear('a/b')).rejects.toThrow(ValidationError);
+    expect(() => manager.addMemory('contenu', [], '../boom')).toThrow(ValidationError);
+
+    await manager.saveGraphState('session-a', JSON.stringify({ nodes: 3 }));
+    expect(await manager.loadGraphState('session-a')).toBe(JSON.stringify({ nodes: 3 }));
+    expect(await manager.loadGraphState('session-missing')).toBeNull();
   });
 
-  test('MemoryManager retrieval helpers leverage similarity engine and graph persistence', async () => {
-    const managerWithoutEngine = new MemoryManager();
-    const fallbackId = managerWithoutEngine.addMemory('Analyse contextuelle avancée', ['analysis', 'context']);
+  test('getRelevantMemories ranks across sessions by default and respects session filters', async () => {
+    const manager = new MemoryManager(new SimilarityEngine());
+    const graphId = manager.addMemory('Graphe orienté pondéré pour analyse', ['graph'], 'session-a');
+    const heuristicId = manager.addMemory('Optimisation heuristique locale', ['heuristic'], 'session-a');
+    const archiveId = manager.addMemory('Archive graphe pondéré ancien', ['archive'], 'session-b');
 
-    const fallbackMatches = await managerWithoutEngine.getRelevantMemories('analyse contextuelle');
-    expect(fallbackMatches[0].id).toBe(fallbackId);
+    const globalMatches = await manager.getRelevantMemories('graphe pondéré analyse', 5);
+    const globalIds = globalMatches.map(match => match.id);
+    expect(globalIds).toContain(graphId);
+    expect(globalIds).toContain(archiveId);
+    expect(globalIds).not.toContain(heuristicId);
+    expect(globalMatches.every(match => (match.relevanceScore ?? 0) > 0)).toBe(true);
+    expect(globalMatches.length).toBeLessThanOrEqual(5);
 
-    await (managerWithoutEngine as unknown as { saveToStorage: () => Promise<void> }).saveToStorage();
+    const sessionMatches = await manager.getRelevantMemories('graphe pondéré analyse', 5, 'session-a');
+    expect(sessionMatches.map(match => match.id)).toContain(graphId);
+    expect(sessionMatches.map(match => match.id)).not.toContain(archiveId);
 
-    expect(await managerWithoutEngine.loadGraphState('inconnue')).toBeNull();
+    expect(await manager.getRelevantMemories('zorglub quux plop', 5)).toEqual([]);
+  });
 
-    const engine = new SimilarityEngine();
-    const withEngine = new MemoryManager(engine);
-    const nodeId = withEngine.addMemory('Graphe orienté pondéré', ['graph', 'analysis'], 'session-a');
-    const heuristicId = withEngine.addMemory('Optimisation heuristique locale', ['heuristic', 'analysis'], 'session-a');
-    withEngine.addMemory('Mémoire d\'archive', ['archive'], 'session-b');
-    const defaultId = withEngine.addMemory('Mise à jour globale', ['analysis']);
-
-    const sessionARecent = withEngine.getRecentMemories(5, 'session-a');
-    expect(sessionARecent.map(item => item.id).sort()).toEqual([heuristicId, nodeId].sort());
-
-    const defaultRecent = withEngine.getRecentMemories(2);
-    expect(defaultRecent.map(item => item.id)).toContain(defaultId);
-
-    const analysisMatches = withEngine.getMemoriesByTag('analysis', 10, 'session-a');
-    expect(analysisMatches.map(item => item.id).sort()).toEqual([heuristicId, nodeId].sort());
-
-    const engineMatches = await withEngine.getRelevantMemories('optimisation heuristique du graphe', 2, 'session-a');
-    expect(engineMatches.length).toBeGreaterThan(0);
-    expect(engineMatches.some(match => match.id === heuristicId || match.id === nodeId)).toBe(true);
-
-    await withEngine.saveGraphState('session-a', JSON.stringify({ nodes: 3 }));
-    const graphState = await withEngine.loadGraphState('session-a');
-    expect(graphState).toBe(JSON.stringify({ nodes: 3 }));
-
-    withEngine.clear();
-    expect(withEngine.getRecentMemories().length).toBe(0);
-
-    withEngine.addMemory('Session B mémoire', ['archive'], 'session-b');
-    expect(withEngine.getRecentMemories(5, 'session-b').length).toBe(1);
-
-    await (withEngine as unknown as { saveToStorage: () => Promise<void> }).saveToStorage();
-
-    expect(await withEngine.loadGraphState('session-missing')).toBeNull();
-
-    class EmptySimilarityEngine extends SimilarityEngine {
-      async findSimilarTexts(): Promise<Array<{ text: string; score: number }>> {
+  test('MemoryManager falls back to keyword ranking when the engine yields nothing', async () => {
+    class SilentSimilarityEngine extends SimilarityEngine {
+      async generateVectors(): Promise<TermVector[]> {
         return [];
       }
     }
 
-    const fallbackEngine = new MemoryManager(new EmptySimilarityEngine());
-    fallbackEngine.addMemory('Analyse locale ciblée', ['analyse', 'locale'], 'session-c');
-    const fallbackEngineMatches = await fallbackEngine.getRelevantMemories('analyse locale approfondie', 2, 'session-c');
-    expect(fallbackEngineMatches.length).toBeGreaterThan(0);
-    await (fallbackEngine as unknown as { saveToStorage: () => Promise<void> }).saveToStorage();
+    const manager = new MemoryManager(new SilentSimilarityEngine());
+    const memoryId = manager.addMemory('Analyse locale ciblée', ['analyse', 'locale'], 'session-c');
+    const matches = await manager.getRelevantMemories('analyse locale approfondie', 2, 'session-c');
+
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0].id).toBe(memoryId);
   });
 
-  test('VerificationMemory migrates legacy entries and keeps persistence consistent', async () => {
+  test('MemoryManager evicts the oldest memory beyond the per-session limit', async () => {
+    const manager = new MemoryManager();
+    const oldestId = manager.addMemory('mémoire ancienne', ['test'], 'limit-session');
+
+    for (let i = 0; i < LIMITS.MAX_MEMORY_ITEMS_PER_SESSION; i++) {
+      manager.addMemory(`mémoire ${i}`, ['test'], 'limit-session');
+    }
+
+    const memories = manager.getRecentMemories(LIMITS.MAX_MEMORY_ITEMS_PER_SESSION + 10, 'limit-session');
+    expect(memories).toHaveLength(LIMITS.MAX_MEMORY_ITEMS_PER_SESSION);
+    expect(manager.getMemory(oldestId)).toBeUndefined();
+  });
+
+  test('clear removes persisted session and graph files while preserving knowledge', async () => {
+    const manager = new MemoryManager();
+    const firstId = manager.addMemory('alpha', ['x'], 'session-one');
+    manager.addMemory('beta', ['x'], 'session-two');
+    manager.setKnowledge('kept', { value: 1 });
+    await manager.flush();
+    await manager.saveGraphState('session-one', '{"nodes":1}');
+
+    const memoriesDir = path.join(tempDir, 'memories');
+    const oneFile = path.join(memoriesDir, 'session-one.json');
+    const twoFile = path.join(memoriesDir, 'session-two.json');
+    const graphFile = path.join(tempDir, 'graph_state_session-one.json');
+    const knowledgeFile = path.join(tempDir, 'knowledge.json');
+
+    expect(fs.existsSync(oneFile)).toBe(true);
+    expect(fs.existsSync(twoFile)).toBe(true);
+    expect(fs.existsSync(graphFile)).toBe(true);
+
+    await manager.clear('session-one');
+    expect(manager.getMemory(firstId)).toBeUndefined();
+    expect(fs.existsSync(oneFile)).toBe(false);
+    expect(fs.existsSync(graphFile)).toBe(false);
+    expect(fs.existsSync(twoFile)).toBe(true);
+    expect(fs.existsSync(knowledgeFile)).toBe(true);
+
+    await manager.clear();
+    expect(fs.existsSync(twoFile)).toBe(false);
+    expect(fs.existsSync(knowledgeFile)).toBe(true);
+    expect(manager.getKnowledge('kept')).toEqual({ value: 1 });
+  });
+
+  test('VerificationMemory migrates v1 entries, updates duplicates and persists v2', async () => {
     const verificationsPath = path.join(tempDir, 'verifications.json');
 
     const legacyVerificationPayload = {
-      version: 0,
+      version: 1,
       verifications: [
         {
           id: 'verification-1',
@@ -225,24 +293,21 @@ describe('Persistence hardening', () => {
           sources: ['https://legacy.example'],
           timestamp: '2024-01-01T00:00:00.000Z',
           sessionId: 'legacy-session',
-          expiresAt: '2024-02-01T00:00:00.000Z',
+          expiresAt: '2099-02-01T00:00:00.000Z',
           embedding: [0.11, 0.22],
-          openaiTrace: { tokens: 12 }
-        }
-      ]
+          openaiTrace: { tokens: 12 },
+        },
+      ],
     };
 
     await fsp.writeFile(verificationsPath, JSON.stringify(legacyVerificationPayload, null, 2), 'utf8');
 
     const verificationMemory = VerificationMemory.getInstance();
+    await verificationMemory.flush();
 
     const legacyResult = await verificationMemory.findVerification('Legacy verification', 'legacy-session');
     expect(legacyResult).not.toBeNull();
     expect(legacyResult?.confidence).toBeCloseTo(0.95, 5);
-
-    const sessionEntries = verificationMemory.getSessionVerifications('legacy-session');
-    expect(sessionEntries).toHaveLength(1);
-    expect(sessionEntries[0].confidence).toBeCloseTo(0.95, 5);
 
     const duplicateId = await verificationMemory.addVerification(
       'Legacy verification',
@@ -254,7 +319,7 @@ describe('Persistence hardening', () => {
     );
     expect(duplicateId).toBe('verification-1');
 
-    const freshId = await verificationMemory.addVerification(
+    await verificationMemory.addVerification(
       'Fresh fact',
       'verified',
       0.82,
@@ -262,28 +327,119 @@ describe('Persistence hardening', () => {
       'legacy-session',
       3600
     );
-    expect(freshId).toBeDefined();
+    await verificationMemory.flush();
 
-    await (verificationMemory as unknown as { persistToStorage: () => Promise<void> }).persistToStorage();
+    const persisted = JSON.parse(await fsp.readFile(verificationsPath, 'utf8'));
+    expect(persisted.version).toBe(2);
 
     VerificationMemory.resetInstance();
     const reloadedMemory = VerificationMemory.getInstance();
-    reloadedMemory.stopCleanupTasks();
+    await reloadedMemory.flush();
 
-    await waitUntil(
-      () => reloadedMemory.getSessionVerifications('legacy-session').length === 2,
-      1500
-    );
     const reloadedEntries = reloadedMemory.getSessionVerifications('legacy-session');
-    reloadedEntries.forEach(entry => {
-      expect(entry).not.toHaveProperty('embedding');
-    });
-    const updatedLegacy = reloadedEntries.find(item => item.id === 'verification-1');
-    expect(updatedLegacy).toBeDefined();
-    expect(updatedLegacy?.status).toBe('contradicted');
+    expect(reloadedEntries).toHaveLength(2);
+    expect(reloadedEntries.every(entry => !Object.prototype.hasOwnProperty.call(entry, 'embedding'))).toBe(true);
+    expect(reloadedEntries.find(entry => entry.id === 'verification-1')?.status).toBe('contradicted');
   });
 
-  test('VerificationMemory similarity cache and session management', async () => {
+  test('VerificationMemory restores v1 evidence/checks and drops malformed items', async () => {
+    const verificationsPath = path.join(tempDir, 'verifications.json');
+    const now = new Date().toISOString();
+
+    const v1Payload = {
+      version: 1,
+      verifications: [
+        {
+          id: 'verification-evidence',
+          text: 'Calcul vérifié',
+          status: 'verified',
+          confidence: 0.9,
+          sources: ['https://evidence.example'],
+          timestamp: now,
+          sessionId: 'evidence-session',
+          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          evidence: [
+            {
+              id: 'ev-1',
+              quote: 'citation',
+              sourceType: 'web',
+              source: 'https://evidence.example',
+              stance: 'supports',
+              confidence: 0.8,
+              retrievedAt: now,
+            },
+            { id: 'broken' },
+          ],
+          checks: [
+            { name: 'web', outcome: 'passed', summary: 'ok' },
+            { name: 'nope', outcome: 'passed', summary: 'bad' },
+          ],
+        },
+      ],
+    };
+
+    await fsp.writeFile(verificationsPath, JSON.stringify(v1Payload, null, 2), 'utf8');
+
+    const verificationMemory = VerificationMemory.getInstance();
+    await verificationMemory.flush();
+
+    const internal = verificationMemory as unknown as {
+      verifications: Map<string, { evidence?: Array<{ id: string }>; checks?: Array<{ name: string }> }>;
+    };
+    const entry = internal.verifications.get('verification-evidence');
+    expect(entry?.evidence).toHaveLength(1);
+    expect(entry?.evidence?.[0].id).toBe('ev-1');
+    expect(entry?.checks).toHaveLength(1);
+
+    await verificationMemory.flush();
+    const persisted = JSON.parse(await fsp.readFile(verificationsPath, 'utf8'));
+    expect(persisted.version).toBe(2);
+    expect(persisted.verifications[0].evidence).toHaveLength(1);
+    expect(persisted.verifications[0].checks).toHaveLength(1);
+  });
+
+  test('VerificationMemory drops expired entries when loading from storage', async () => {
+    const verificationsPath = path.join(tempDir, 'verifications.json');
+    const now = Date.now();
+
+    await fsp.writeFile(
+      verificationsPath,
+      JSON.stringify({
+        version: 2,
+        verifications: [
+          {
+            id: 'expired',
+            text: 'Expirée',
+            status: 'verified',
+            confidence: 0.9,
+            sources: [],
+            timestamp: new Date(now - 7_200_000).toISOString(),
+            sessionId: 'expired-session',
+            expiresAt: new Date(now - 3_600_000).toISOString(),
+          },
+          {
+            id: 'valid',
+            text: 'Valide',
+            status: 'verified',
+            confidence: 0.9,
+            sources: [],
+            timestamp: now,
+            sessionId: 'expired-session',
+            expiresAt: new Date(now + 3_600_000).toISOString(),
+          },
+        ],
+      }),
+      'utf8'
+    );
+
+    const verificationMemory = VerificationMemory.getInstance();
+    await verificationMemory.flush();
+
+    const entries = verificationMemory.getSessionVerifications('expired-session');
+    expect(entries.map(entry => entry.id)).toEqual(['valid']);
+  });
+
+  test('VerificationMemory similarity search, stats and session clearing', async () => {
     VerificationMemory.resetInstance();
     const verificationMemory = VerificationMemory.getInstance();
     verificationMemory.stopCleanupTasks();
@@ -315,19 +471,18 @@ describe('Persistence hardening', () => {
     const similarityResults = await verificationMemory.searchSimilarVerifications('Analyse prédictive avancée', 'session-y', 5, 0.1);
     expect(similarityResults.some(result => result.id === baseId)).toBe(true);
 
-    const statsWithCache = verificationMemory.getStats();
-    expect(statsWithCache.cacheSize).toBeGreaterThanOrEqual(0);
-
-    (verificationMemory as unknown as { cleanSimilarityCache: () => void }).cleanSimilarityCache();
-    const statsWithoutCache = verificationMemory.getStats();
-    expect(statsWithoutCache.cacheSize).toBe(0);
+    const stats = verificationMemory.getStats();
+    expect(stats.totalEntries).toBe(2);
+    expect(stats.sessionCount).toBe(1);
+    expect(stats.entriesByStatus.verified).toBe(1);
+    expect(stats.entriesByStatus.partially_verified).toBe(1);
 
     const paginated = verificationMemory.getSessionVerifications('session-y', 1, 1, 'partially_verified');
     expect(paginated.length).toBe(0);
 
     verificationMemory.clearSession('session-y');
     verificationMemory.clearSession('session-inexistante');
-    await (verificationMemory as unknown as { persistToStorage: () => Promise<void> }).persistToStorage();
+    await verificationMemory.flush();
     expect(verificationMemory.getSessionVerifications('session-y').length).toBe(0);
   });
 
@@ -366,55 +521,29 @@ describe('Persistence hardening', () => {
     );
     expect(duplicateId).toBeDefined();
 
-    const withoutEngine = await verificationMemory.searchSimilarVerifications('Texte original détaillé', 'session-text');
-    expect(withoutEngine).toEqual([]);
+    expect(await verificationMemory.searchSimilarVerifications('Texte original détaillé', 'session-text')).toEqual([]);
 
     const paged = verificationMemory.getSessionVerifications('session-text', 0, 1);
     expect(paged.length).toBe(1);
 
-    await (verificationMemory as unknown as { persistToStorage: () => Promise<void> }).persistToStorage();
-
+    await verificationMemory.flush();
     verificationMemory.clearSession('session-text');
     expect(verificationMemory.getSessionVerifications('session-text').length).toBe(0);
   });
 
   test('VerificationMemory statistics and cleanup cover expiration workflow', async () => {
     VerificationMemory.resetInstance();
-    const verificationsPath = path.join(tempDir, 'verifications.json');
-    await fsp.rm(verificationsPath, { force: true });
-
     const verificationMemory = VerificationMemory.getInstance();
     verificationMemory.stopCleanupTasks();
     verificationMemory.setSimilarityEngine(new SimilarityEngine());
 
-    await verificationMemory.addVerification(
-      'Analyse des données',
-      'verified',
-      0.9,
-      ['https://data.example'],
-      'session-z',
-      100
-    );
-    await verificationMemory.addVerification(
-      'Résultats partiels',
-      'partially_verified',
-      0.6,
-      ['https://partial.example'],
-      'session-z',
-      100
-    );
-    await verificationMemory.addVerification(
-      'Entrée expirante',
-      'unverified',
-      0.3,
-      [],
-      'session-z',
-      1
-    );
+    await verificationMemory.addVerification('Analyse des données', 'verified', 0.9, ['https://data.example'], 'session-z', 100);
+    await verificationMemory.addVerification('Résultats partiels', 'partially_verified', 0.6, ['https://partial.example'], 'session-z', 100);
+    await verificationMemory.addVerification('Entrée expirante', 'unverified', 0.3, [], 'session-z', 1);
 
-    await (verificationMemory as unknown as { persistToStorage: () => Promise<void> }).persistToStorage();
+    await verificationMemory.flush();
+    await new Promise(resolve => setTimeout(resolve, 5));
 
-    await sleep(5);
     const beforeCleanup = verificationMemory.getSessionVerifications('session-z').length;
     (verificationMemory as unknown as { cleanExpiredEntries: () => void }).cleanExpiredEntries();
     const afterCleanup = verificationMemory.getSessionVerifications('session-z').length;
@@ -422,19 +551,12 @@ describe('Persistence hardening', () => {
 
     const stats = verificationMemory.getStats();
     expect(stats.totalEntries).toBeGreaterThanOrEqual(2);
-    expect(stats.entriesByStatus['partially_verified']).toBeGreaterThanOrEqual(1);
+    expect(stats.entriesByStatus.partially_verified).toBeGreaterThanOrEqual(1);
 
     const similar = await verificationMemory.searchSimilarVerifications('Analyse des données', 'session-z');
     expect(similar.length).toBeGreaterThanOrEqual(1);
 
-    const duplicate = await verificationMemory.addVerification(
-      'Analyse des données',
-      'contradicted',
-      0.2,
-      [],
-      'session-z',
-      50
-    );
+    const duplicate = await verificationMemory.addVerification('Analyse des données', 'contradicted', 0.2, [], 'session-z', 50);
     expect(duplicate).toBeDefined();
 
     const updated = verificationMemory.getSessionVerifications('session-z');
@@ -442,5 +564,47 @@ describe('Persistence hardening', () => {
 
     verificationMemory.clearAll();
     expect(verificationMemory.getStats().totalEntries).toBe(0);
+  });
+
+  test('VerificationMemory rejects unsafe session ids', async () => {
+    const verificationMemory = VerificationMemory.getInstance();
+
+    await expect(verificationMemory.addVerification('x', 'verified', 0.5, [], '../evil')).rejects.toThrow(ValidationError);
+    await expect(verificationMemory.findVerification('x', 'a/b')).rejects.toThrow(ValidationError);
+    await expect(verificationMemory.searchSimilarVerifications('x', '..')).rejects.toThrow(ValidationError);
+    expect(() => verificationMemory.clearSession('a\\b')).toThrow(ValidationError);
+    expect(() => verificationMemory.getSessionVerifications('.')).toThrow(ValidationError);
+  });
+
+  test('VerificationMemory normalizeText keeps math expressions intact', () => {
+    const verificationMemory = VerificationMemory.getInstance();
+    const normalize = (verificationMemory as unknown as { normalizeText: (text: string) => string }).normalizeText.bind(
+      verificationMemory
+    );
+
+    expect(normalize('Calcul 2+2 = 4')).toBe('calcul 2+2 NUM');
+    expect(normalize('Calcul 10 * 5 puis 3 - 1')).toBe('calcul 10*5 puis 3-1');
+    expect(normalize('Version 42')).toBe('version NUM');
+    expect(normalize('Total 7 + 3 = 10')).toBe('total 7+3 NUM');
+  });
+
+  test('VerificationMemory evicts the oldest entry beyond the per-session limit', async () => {
+    VerificationMemory.resetInstance();
+    const verificationMemory = VerificationMemory.getInstance();
+    verificationMemory.stopCleanupTasks();
+
+    const oldestId = await verificationMemory.addVerification('entrée ancienne', 'unverified', 0.1, [], 'limit-verif', 3_600_000);
+
+    for (let i = 0; i < LIMITS.MAX_VERIFICATION_ENTRIES_PER_SESSION; i++) {
+      await verificationMemory.addVerification(`entrée ${i}`, 'unverified', 0.1, [], 'limit-verif', 3_600_000);
+    }
+
+    const entries = verificationMemory.getSessionVerifications(
+      'limit-verif',
+      0,
+      LIMITS.MAX_VERIFICATION_ENTRIES_PER_SESSION + 10
+    );
+    expect(entries).toHaveLength(LIMITS.MAX_VERIFICATION_ENTRIES_PER_SESSION);
+    expect(entries.some(entry => entry.id === oldestId)).toBe(false);
   });
 });

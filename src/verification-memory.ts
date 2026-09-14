@@ -1,34 +1,38 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { VerificationStatus } from './types';
+import type { EvidenceItem, VerificationCheck, VerificationStatus } from './types';
 import { SimilarityEngine } from './similarity-engine';
-import { VerificationConfig, SystemConfig } from './config';
+import { CACHE_TTL_MS, LIMITS, SIMILARITY_THRESHOLDS } from './constants';
 import { PathUtils } from './utils/path-utils';
 import {
-  PersistedVerificationEntry,
+  assertSafeSessionId,
   prepareVerificationForStorage,
   sanitizeVerificationEntry,
+  writeJsonAtomic,
 } from './utils/persistence-utils';
 
 const isTestEnvironment = process.env.NODE_ENV === 'test';
+const STORAGE_VERSION = 2;
 
-/**
- * Interface pour les entrées de vérification
- */
 interface VerificationEntry {
-  id: string;               // Identifiant unique
-  text: string;             // Texte de l'information vérifiée
-  status: VerificationStatus; // Statut de vérification
-  confidence: number;       // Niveau de confiance
-  sources: string[];        // Sources utilisées
-  timestamp: Date;          // Horodatage
-  sessionId: string;        // ID de session
-  expiresAt: Date;          // Date d'expiration
+  id: string;
+  text: string;
+  status: VerificationStatus;
+  confidence: number;
+  sources: string[];
+  timestamp: Date;
+  sessionId: string;
+  expiresAt: Date;
+  evidence?: EvidenceItem[];
+  checks?: VerificationCheck[];
 }
 
-/**
- * Résultat d'une recherche de vérification
- */
+export interface VerificationMemoryAddOptions {
+  ttl?: number;
+  evidence?: EvidenceItem[];
+  checks?: VerificationCheck[];
+}
+
 export interface VerificationSearchResult {
   id: string;
   status: VerificationStatus;
@@ -37,25 +41,20 @@ export interface VerificationSearchResult {
   timestamp: Date;
   similarity: number;
   text: string;
+  evidence?: EvidenceItem[];
+  checks?: VerificationCheck[];
 }
 
-/**
- * Classe qui gère la mémoire des vérifications avec recherche vectorielle efficace
- * pour assurer leur persistance à travers les différentes étapes du raisonnement
- * AMÉLIORÉ: Meilleure gestion des similarités et persistance des vérifications
- */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export class VerificationMemory {
   private static instance: VerificationMemory | null = null;
   private similarityEngine?: SimilarityEngine;
-  
-  // Structure pour stocker les vérifications avec index pour recherche efficace
+
   private verifications: Map<string, VerificationEntry> = new Map();
-  
-  // Index par session pour accès rapide
   private sessionIndex: Map<string, Set<string>> = new Map();
-  
-  // NOUVEAU: Cache de similarité pour éviter de recalculer les similitudes entre les mêmes textes
-  private similarityCache: Map<string, Map<string, number>> = new Map();
 
   private cleanupTimers: NodeJS.Timeout[] = [];
   private dataDir: string;
@@ -64,22 +63,20 @@ export class VerificationMemory {
   private initialized = false;
   private persistenceQueue: Promise<void> = Promise.resolve();
   private persistenceDisabled = false;
-  
+
   private emit(level: 'log' | 'warn' | 'error', ...args: unknown[]): void {
     if (isTestEnvironment) {
       return;
     }
     (console[level] as (...messages: unknown[]) => void)(...args);
   }
-  
-  /**
-   * Méthode statique pour implémenter le singleton
-   * 
-   * @returns L'instance unique de VerificationMemory
-   */
-  public static getInstance(): VerificationMemory {
+
+  public static getInstance(options?: { dataDir?: string; persistenceDisabled?: boolean }): VerificationMemory {
     if (!VerificationMemory.instance) {
-      VerificationMemory.instance = new VerificationMemory();
+      VerificationMemory.instance = new VerificationMemory(options);
+    } else if (options?.dataDir && VerificationMemory.instance.dataDir !== options.dataDir) {
+      VerificationMemory.instance.stopCleanupTasks();
+      VerificationMemory.instance = new VerificationMemory(options);
     }
     return VerificationMemory.instance;
   }
@@ -91,12 +88,10 @@ export class VerificationMemory {
       VerificationMemory.instance = null;
     }
   }
-  
-  /**
-   * Constructeur privé pour empêcher l'instanciation directe
-   */
-  private constructor() {
-    this.dataDir = PathUtils.getDataDirectory();
+
+  private constructor(options: { dataDir?: string; persistenceDisabled?: boolean } = {}) {
+    this.dataDir = options.dataDir ?? PathUtils.getDataDirectory();
+    this.persistenceDisabled = options.persistenceDisabled ?? false;
     this.storageFilePath = path.join(this.dataDir, 'verifications.json');
     this.initialization = this.loadFromStorage()
       .catch((error) => {
@@ -107,13 +102,11 @@ export class VerificationMemory {
       });
 
     if (!isTestEnvironment) {
-      // Configurer le nettoyage périodique des entrées expirées uniquement hors tests pour éviter les handles ouverts
-      this.cleanupTimers.push(setInterval(() => this.cleanExpiredEntries(), VerificationConfig.MEMORY.CACHE_EXPIRATION / 2));
-      
-      // Nettoyer également le cache de similarité périodiquement pour éviter les fuites de mémoire
-      this.cleanupTimers.push(setInterval(() => this.cleanSimilarityCache(), VerificationConfig.MEMORY.CACHE_EXPIRATION));
+      const cleanupTimer = setInterval(() => this.cleanExpiredEntries(), CACHE_TTL_MS.SIMILARITY / 2);
+      cleanupTimer.unref?.();
+      this.cleanupTimers.push(cleanupTimer);
     }
-    
+
     this.emit('log', 'VerificationMemory: Système de mémoire de vérification initialisé');
   }
 
@@ -142,44 +135,61 @@ export class VerificationMemory {
     }
   }
 
+  private indexEntry(entry: VerificationEntry): void {
+    const ids = this.sessionIndex.get(entry.sessionId) ?? new Set<string>();
+    ids.add(entry.id);
+    this.sessionIndex.set(entry.sessionId, ids);
+  }
+
+  private toEntry(sanitized: NonNullable<ReturnType<typeof sanitizeVerificationEntry>>, sessionId: string): VerificationEntry {
+    return {
+      id: sanitized.id,
+      text: sanitized.text,
+      status: sanitized.status,
+      confidence: sanitized.confidence,
+      sources: sanitized.sources,
+      timestamp: sanitized.timestamp,
+      sessionId,
+      expiresAt: sanitized.expiresAt,
+      ...(sanitized.evidence ? { evidence: sanitized.evidence } : {}),
+      ...(sanitized.checks ? { checks: sanitized.checks } : {}),
+    };
+  }
+
   private async loadFromStorage(): Promise<void> {
     await PathUtils.ensureDirectoryExists(this.dataDir);
 
-    const exists = await fs.stat(this.storageFilePath)
-      .then(() => true)
-      .catch(() => false);
+    const exists = await fs.stat(this.storageFilePath).then(() => true).catch(() => false);
 
     if (!exists) {
       return;
     }
 
     const content = await fs.readFile(this.storageFilePath, 'utf8');
-    const parsed = JSON.parse(content) as { verifications?: unknown } | unknown[];
+    const parsed: unknown = JSON.parse(content);
     const entries = Array.isArray(parsed)
       ? parsed
-      : Array.isArray((parsed as { verifications?: unknown }).verifications)
-        ? ((parsed as { verifications: unknown[] }).verifications)
+      : isRecord(parsed) && Array.isArray(parsed.verifications)
+        ? parsed.verifications
         : [];
 
     this.verifications.clear();
     this.sessionIndex.clear();
 
+    const now = Date.now();
     for (const rawEntry of entries) {
       const sanitized = sanitizeVerificationEntry(rawEntry, {
-        defaultSessionId: SystemConfig.DEFAULT_SESSION_ID,
-        defaultTtlMs: VerificationConfig.MEMORY.DEFAULT_SESSION_TTL,
+        defaultSessionId: LIMITS.DEFAULT_SESSION_ID,
+        defaultTtlMs: CACHE_TTL_MS.SESSION,
       });
 
-      if (!sanitized) {
+      if (!sanitized || sanitized.expiresAt.getTime() <= now) {
         continue;
       }
 
-      this.verifications.set(sanitized.id, sanitized);
-
-      if (!this.sessionIndex.has(sanitized.sessionId)) {
-        this.sessionIndex.set(sanitized.sessionId, new Set());
-      }
-      this.sessionIndex.get(sanitized.sessionId)!.add(sanitized.id);
+      const entry = this.toEntry(sanitized, sanitized.sessionId);
+      this.verifications.set(entry.id, entry);
+      this.indexEntry(entry);
     }
 
     if (this.verifications.size > 0) {
@@ -188,8 +198,8 @@ export class VerificationMemory {
   }
 
   private async persistToStorageInternal(): Promise<void> {
-    const payload: { version: number; updatedAt: string; verifications: PersistedVerificationEntry[] } = {
-      version: 1,
+    const payload = {
+      version: STORAGE_VERSION,
       updatedAt: new Date().toISOString(),
       verifications: Array.from(this.verifications.values()).map((entry) =>
         prepareVerificationForStorage(entry)
@@ -197,15 +207,7 @@ export class VerificationMemory {
     };
 
     await PathUtils.ensureDirectoryExists(this.dataDir);
-    const tmpPath = `${this.storageFilePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    try {
-      await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
-      await fs.rename(tmpPath, this.storageFilePath);
-    } catch (error) {
-      await fs.unlink(tmpPath).catch(() => undefined);
-      throw error;
-    }
+    await writeJsonAtomic(this.storageFilePath, payload);
   }
 
   private enqueuePersist(): Promise<void> {
@@ -213,16 +215,15 @@ export class VerificationMemory {
       .catch(() => undefined)
       .then(async () => {
         await this.initialization.catch(() => undefined);
-        if (this.persistenceDisabled) {
-          return;
+        if (!this.persistenceDisabled) {
+          await this.persistToStorageInternal();
         }
-        await this.persistToStorageInternal();
       });
 
     return this.persistenceQueue;
   }
 
-  private async persistToStorage(): Promise<void> {
+  public async flush(): Promise<void> {
     await this.enqueuePersist();
   }
 
@@ -230,70 +231,48 @@ export class VerificationMemory {
     if (isTestEnvironment) {
       return;
     }
-    this.enqueuePersist()
-      .catch((error) => {
-        this.emit('error', 'VerificationMemory: Erreur lors de la sauvegarde du stockage persistant', error);
-      });
+    this.enqueuePersist().catch((error) => {
+      this.emit('error', 'VerificationMemory: Erreur lors de la sauvegarde du stockage persistant', error);
+    });
   }
-  
-  /**
-   * Définit le moteur de similarité à utiliser pour la recherche sémantique
-   * 
-   * @param similarityEngine Moteur de similarité local
-   */
+
   public setSimilarityEngine(similarityEngine: SimilarityEngine): void {
     this.similarityEngine = similarityEngine;
     this.emit('log', 'VerificationMemory: SimilarityEngine configuré');
   }
-  
-  /**
-   * Ajoute une nouvelle vérification à la mémoire
-   * AMÉLIORÉ: Meilleure détection des duplicatas avec cache de similarité
-   * 
-   * @param text Texte de l'information vérifiée
-   * @param status Statut de vérification
-   * @param confidence Niveau de confiance
-   * @param sources Sources utilisées pour la vérification
-   * @param sessionId Identifiant de la session
-   * @param ttl Durée de vie en millisecondes (optionnel)
-   * @returns Identifiant de la vérification ajoutée
-   */
+
   public async addVerification(
     text: string,
     status: VerificationStatus,
     confidence: number,
     sources: string[] = [],
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    ttl: number = VerificationConfig.MEMORY.DEFAULT_SESSION_TTL
+    sessionId: string = LIMITS.DEFAULT_SESSION_ID,
+    ttlOrOptions: number | VerificationMemoryAddOptions = {}
   ): Promise<string> {
     await this.ensureInitialized();
-    this.emit('error', `VerificationMemory: Ajout d'une vérification avec statut ${status}, confiance ${confidence.toFixed(2)}`);
-    
-    // Vérifier si une entrée très similaire existe déjà dans cette session
-    const existingEntry = await this.findExactDuplicate(text, sessionId);
+
+    const options = typeof ttlOrOptions === 'number' ? { ttl: ttlOrOptions } : ttlOrOptions;
+    const safeSessionId = assertSafeSessionId(sessionId);
+    const ttl = options.ttl ?? CACHE_TTL_MS.SESSION;
+    const { evidence, checks } = options;
+
+    const existingEntry = await this.findExactDuplicate(text, safeSessionId);
     if (existingEntry) {
-      this.emit('error', `VerificationMemory: Entrée similaire trouvée, mise à jour plutôt que création`);
-      
-      // Mettre à jour l'entrée existante au lieu d'en créer une nouvelle
       this.verifications.set(existingEntry.id, {
         ...existingEntry,
         status,
         confidence,
         sources,
         timestamp: new Date(),
-        expiresAt: new Date(Date.now() + ttl)
+        expiresAt: new Date(Date.now() + ttl),
+        ...(evidence !== undefined ? { evidence } : {}),
+        ...(checks !== undefined ? { checks } : {}),
       });
       this.requestPersist();
       return existingEntry.id;
     }
-    
-    // Générer un identifiant unique
+
     const id = `verification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    
-    // Calculer la date d'expiration
-    const expiresAt = new Date(Date.now() + ttl);
-    
-    // Créer l'entrée
     const entry: VerificationEntry = {
       id,
       text,
@@ -301,321 +280,210 @@ export class VerificationMemory {
       confidence,
       sources,
       timestamp: new Date(),
-      sessionId,
-      expiresAt
+      sessionId: safeSessionId,
+      expiresAt: new Date(Date.now() + ttl),
+      ...(evidence !== undefined ? { evidence } : {}),
+      ...(checks !== undefined ? { checks } : {}),
     };
-    
-    // Ajouter à la mémoire des vérifications
+
     this.verifications.set(id, entry);
-    
-    // Mettre à jour l'index par session
-    if (!this.sessionIndex.has(sessionId)) {
-      this.sessionIndex.set(sessionId, new Set());
-    }
-    this.sessionIndex.get(sessionId)!.add(id);
-    
-    this.emit('error', `VerificationMemory: Vérification ajoutée avec succès, ID: ${id}`);
+    this.indexEntry(entry);
+    this.enforceSessionLimit(safeSessionId);
     this.requestPersist();
-    
+
     return id;
   }
-  
-  /**
-   * Recherche une vérification existante identique pour éviter les doublons
-   * AMÉLIORÉ: Utilisation du cache de similarité pour des recherches plus rapides
-   * 
-   * @param text Texte à rechercher
-   * @param sessionId ID de session
-   * @returns L'entrée existante si trouvée, null sinon
-   */
-  private async findExactDuplicate(
-    text: string,
-    sessionId: string
-  ): Promise<VerificationEntry | null> {
+
+  private enforceSessionLimit(sessionId: string): void {
+    const ids = this.sessionIndex.get(sessionId);
+    if (!ids) {
+      return;
+    }
+
+    while (ids.size > LIMITS.MAX_VERIFICATION_ENTRIES_PER_SESSION) {
+      let oldestId: string | null = null;
+      let oldestTime = Number.POSITIVE_INFINITY;
+
+      for (const id of ids) {
+        const entry = this.verifications.get(id);
+        if (entry && entry.timestamp.getTime() < oldestTime) {
+          oldestTime = entry.timestamp.getTime();
+          oldestId = id;
+        }
+      }
+
+      if (!oldestId) {
+        break;
+      }
+
+      ids.delete(oldestId);
+      this.verifications.delete(oldestId);
+    }
+
+    if (ids.size === 0) {
+      this.sessionIndex.delete(sessionId);
+    }
+  }
+
+  private async findExactDuplicate(text: string, sessionId: string): Promise<VerificationEntry | null> {
     await this.ensureInitialized();
-    this.emit('error', `VerificationMemory: Recherche de duplicata pour "${text.substring(0, 30)}..."`);
     const sessionEntries = this.getSessionEntriesArray(sessionId);
 
     if (sessionEntries.length === 0) {
-      this.emit('error', 'VerificationMemory: Aucun duplicata trouvé');
       return null;
     }
 
     const exactMatch = sessionEntries.find(entry => entry.text === text);
     if (exactMatch) {
-      this.emit('error', 'VerificationMemory: Duplicata exact trouvé');
       return exactMatch;
     }
 
     if (!this.similarityEngine) {
-      this.emit('error', 'VerificationMemory: SimilarityEngine indisponible, impossible de comparer sémantiquement');
       return null;
     }
 
     try {
       const candidateTexts = sessionEntries.map(entry => entry.text);
-      const results = await this.similarityEngine.findSimilarTexts(
-        text,
-        candidateTexts,
-        1,
-        VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY
-      );
+      const results = await this.similarityEngine.findSimilarTexts(text, candidateTexts, 1, SIMILARITY_THRESHOLDS.HIGH);
 
       if (results.length > 0) {
         const bestMatch = sessionEntries.find(entry => entry.text === results[0].text);
         if (bestMatch) {
-          this.setCachedSimilarity(`${text.substring(0, 50)}_${bestMatch.id}`, results[0].score);
-          this.emit('error', `VerificationMemory: Duplicata trouvé avec similarité ${results[0].score.toFixed(3)}`);
           return bestMatch;
         }
       }
     } catch (error) {
-      this.emit('error', 'VerificationMemory: Erreur lors de la recherche de duplicata via SimilarityEngine:', error);
+      this.emit('error', 'VerificationMemory: Erreur lors de la recherche de duplicata:', error);
     }
 
-    this.emit('error', 'VerificationMemory: Aucun duplicata trouvé');
     return null;
   }
-  
-  /**
-   * NOUVEAU: Obtient une similarité mise en cache
-   * 
-   * @param key Clé du cache
-   * @returns Similarité mise en cache ou undefined si non trouvée
-   */
-  private getCachedSimilarity(key: string): number | undefined {
-    for (const [prefix, similarities] of this.similarityCache.entries()) {
-      if (key.startsWith(prefix)) {
-        return similarities.get(key);
-      }
-    }
-    return undefined;
-  }
-  
-  /**
-   * NOUVEAU: Définit une similarité dans le cache
-   * 
-   * @param key Clé du cache
-   * @param similarity Valeur de similarité à mettre en cache
-   */
-  private setCachedSimilarity(key: string, similarity: number): void {
-    const prefix = key.split('_')[0];
-    
-    if (!this.similarityCache.has(prefix)) {
-      this.similarityCache.set(prefix, new Map());
-    }
-    
-    this.similarityCache.get(prefix)!.set(key, similarity);
-  }
-  
-  /**
-   * Recherche une vérification existante similaire à l'information fournie
-   * AMÉLIORÉ: Recherche plus efficace avec seuils de similarité ajustés
-   * 
-   * @param text Texte de l'information à rechercher
-   * @param sessionId Identifiant de la session
-   * @param similarityThreshold Seuil de similarité
-   * @returns La vérification trouvée, ou null si aucune correspondance
-   */
+
   public async findVerification(
     text: string,
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
-    similarityThreshold: number = VerificationConfig.SIMILARITY.LOW_SIMILARITY * 0.9 // Réduction supplémentaire de 10%
+    sessionId: string = LIMITS.DEFAULT_SESSION_ID,
+    similarityThreshold: number = SIMILARITY_THRESHOLDS.LOW * 0.9
   ): Promise<VerificationSearchResult | null> {
     await this.ensureInitialized();
-    this.emit('error', `VerificationMemory: Recherche de vérification pour "${text.substring(0, 30)}..." (seuil: ${similarityThreshold})`);
-    
-    // Obtenir les ID des vérifications pour cette session
-    const sessionIds = this.sessionIndex.get(sessionId);
-    
+    const safeSessionId = assertSafeSessionId(sessionId);
+
+    const sessionIds = this.sessionIndex.get(safeSessionId);
     if (!sessionIds || sessionIds.size === 0) {
-      this.emit('error', `VerificationMemory: Aucune vérification pour la session ${sessionId}`);
       return null;
     }
-    
-    this.emit('error', `VerificationMemory: ${sessionIds.size} vérifications disponibles pour cette session`);
-    const sessionEntries = this.getSessionEntriesArray(sessionId);
 
+    const sessionEntries = this.getSessionEntriesArray(safeSessionId);
     if (!this.similarityEngine) {
-      this.emit('error', 'VerificationMemory: SimilarityEngine indisponible, utilisation de la recherche textuelle');
-      return this.fallbackToTextSearch(text, sessionId);
+      return this.fallbackToTextSearch(text, sessionEntries);
     }
 
     try {
       const candidateTexts = sessionEntries.map(entry => entry.text);
-      const results = await this.similarityEngine.findSimilarTexts(
-        text,
-        candidateTexts,
-        candidateTexts.length,
-        similarityThreshold
-      );
+      const results = await this.similarityEngine.findSimilarTexts(text, candidateTexts, candidateTexts.length, similarityThreshold);
 
       if (results.length === 0) {
-        this.emit('error', 'VerificationMemory: Aucune correspondance dépassant le seuil via SimilarityEngine');
-        return this.fallbackToTextSearch(text, sessionId);
+        return this.fallbackToTextSearch(text, sessionEntries);
       }
 
-      const bestMatchText = results[0].text;
-      const bestEntry = sessionEntries.find(entry => entry.text === bestMatchText);
-
+      const bestEntry = sessionEntries.find(entry => entry.text === results[0].text);
       if (bestEntry) {
-        this.setCachedSimilarity(`${text.substring(0, 50)}_${bestEntry.id}`, results[0].score);
-        this.emit('error', `VerificationMemory: Vérification trouvée avec similarité ${results[0].score.toFixed(3)}`);
-        return {
-          id: bestEntry.id,
-          status: bestEntry.status,
-          confidence: bestEntry.confidence,
-          sources: bestEntry.sources,
-          timestamp: bestEntry.timestamp,
-          similarity: results[0].score,
-          text: bestEntry.text
-        };
+        return this.toSearchResult(bestEntry, results[0].score);
       }
     } catch (error) {
       this.emit('error', 'VerificationMemory: Erreur lors de la recherche via SimilarityEngine:', error);
-      return this.fallbackToTextSearch(text, sessionId);
+      return this.fallbackToTextSearch(text, sessionEntries);
     }
 
-    this.emit('error', 'VerificationMemory: Aucune vérification trouvée');
     return null;
   }
-  
-  /**
-   * Méthode de secours pour la recherche basée sur le texte
-   * AMÉLIORÉ: Recherche textuelle plus flexible
-   * 
-   * @param text Texte à rechercher
-   * @param sessionId ID de session
-   * @returns Résultat de recherche ou null
-   */
-  private fallbackToTextSearch(
-    text: string,
-    sessionId: string
-  ): VerificationSearchResult | null {
-    this.emit('error', 'VerificationMemory: Utilisation de la recherche textuelle');
-    
-    // Obtenir les entrées pour cette session
-    const sessionEntries = this.getSessionEntriesArray(sessionId);
-    
-    // Recherche exacte par texte
+
+  private toSearchResult(entry: VerificationEntry, similarity: number): VerificationSearchResult {
+    return {
+      id: entry.id,
+      status: entry.status,
+      confidence: entry.confidence,
+      sources: entry.sources,
+      timestamp: entry.timestamp,
+      similarity,
+      text: entry.text,
+      evidence: entry.evidence,
+      checks: entry.checks,
+    };
+  }
+
+  private fallbackToTextSearch(text: string, sessionEntries: VerificationEntry[]): VerificationSearchResult | null {
     const exactMatch = sessionEntries.find(entry => entry.text === text);
     if (exactMatch) {
-      this.emit('error', 'VerificationMemory: Correspondance exacte trouvée');
-      return {
-        id: exactMatch.id,
-        status: exactMatch.status,
-        confidence: exactMatch.confidence,
-        sources: exactMatch.sources,
-        timestamp: exactMatch.timestamp,
-        similarity: 1.0,
-        text: exactMatch.text
-      };
+      return this.toSearchResult(exactMatch, 1.0);
     }
-    
-    // AMÉLIORÉ: Normaliser les textes pour une meilleure correspondance
+
     const normalizedText = this.normalizeText(text);
-    
-    // AMÉLIORÉ: Recherche par inclusion de mots-clés significatifs
-    const keywordsMatches = sessionEntries.map(entry => {
-      const normalizedEntry = this.normalizeText(entry.text);
-      
-      // Extraire les mots significatifs (plus de 3 caractères)
-      const textWords = new Set(normalizedText.split(/\s+/).filter(w => w.length > 3));
-      const entryWords = new Set(normalizedEntry.split(/\s+/).filter(w => w.length > 3));
-      
-      // Compter les mots en commun et les mots uniques
-      const commonWords = Array.from(textWords).filter(word => entryWords.has(word)).length;
-      const totalUniqueWords = new Set([...textWords, ...entryWords]).size;
-      
-      // Calculer similitude Jaccard (intersection/union)
-      const similarity = totalUniqueWords > 0 ? commonWords / totalUniqueWords : 0;
-      
-      // NOUVEAU: Bonus pour séquences communes
-      let sequenceBonus = 0;
-      // Chercher des séquences de 3+ mots consécutifs identiques
-      const textChunks = normalizedText.split(/[.!?;]/).filter(s => s.trim().length > 0);
-      const entryChunks = normalizedEntry.split(/[.!?;]/).filter(s => s.trim().length > 0);
-      
-      for (const chunk of textChunks) {
-        if (entryChunks.some(ec => ec.includes(chunk) && chunk.split(/\s+/).length >= 3)) {
-          sequenceBonus = 0.2; // Bonus pour séquences communes significatives
-          break;
+    const textWords = new Set(normalizedText.split(/\s+/).filter(word => word.length > 3));
+
+    const matches = sessionEntries
+      .map(entry => {
+        const normalizedEntry = this.normalizeText(entry.text);
+        const entryWords = new Set(normalizedEntry.split(/\s+/).filter(word => word.length > 3));
+        const commonWords = Array.from(textWords).filter(word => entryWords.has(word)).length;
+        const totalUniqueWords = new Set([...textWords, ...entryWords]).size;
+        const jaccard = totalUniqueWords > 0 ? commonWords / totalUniqueWords : 0;
+
+        let sequenceBonus = 0;
+        const textChunks = normalizedText.split(/[.!?;]/).filter(chunk => chunk.trim().length > 0);
+        const entryChunks = normalizedEntry.split(/[.!?;]/).filter(chunk => chunk.trim().length > 0);
+        for (const chunk of textChunks) {
+          if (entryChunks.some(entryChunk => entryChunk.includes(chunk) && chunk.split(/\s+/).length >= 3)) {
+            sequenceBonus = 0.2;
+            break;
+          }
         }
-      }
-      
-      return {
-        entry,
-        similarity: Math.min(similarity + sequenceBonus, 0.95) // Plafond à 0.95
-      };
-    });
-    
-    // Trier par similarité décroissante
-    keywordsMatches.sort((a, b) => b.similarity - a.similarity);
-    
-    // AMÉLIORÉ: Seuil de similarité pour les correspondances textuelles
-    const textSimilarityThreshold = VerificationConfig.SIMILARITY.TEXT_MATCH * 0.9; // Seuil légèrement réduit
-    
-    if (keywordsMatches.length > 0 && keywordsMatches[0].similarity >= textSimilarityThreshold) {
-      const bestMatch = keywordsMatches[0].entry;
-      this.emit('error', `VerificationMemory: Correspondance textuelle trouvée avec similarité ${keywordsMatches[0].similarity.toFixed(3)}`);
-      
-      return {
-        id: bestMatch.id,
-        status: bestMatch.status,
-        confidence: bestMatch.confidence,
-        sources: bestMatch.sources,
-        timestamp: bestMatch.timestamp,
-        similarity: keywordsMatches[0].similarity,
-        text: bestMatch.text
-      };
+
+        return { entry, similarity: Math.min(jaccard + sequenceBonus, 0.95) };
+      })
+      .sort((a, b) => b.similarity - a.similarity);
+
+    const threshold = SIMILARITY_THRESHOLDS.MEDIUM * 0.9;
+    if (matches.length > 0 && matches[0].similarity >= threshold) {
+      return this.toSearchResult(matches[0].entry, matches[0].similarity);
     }
-    
-    this.emit('error', 'VerificationMemory: Aucune correspondance textuelle trouvée');
+
     return null;
   }
-  
+
   /**
-   * NOUVEAU: Normalise un texte pour la recherche textuelle
-   * 
-   * @param text Texte à normaliser
-   * @returns Texte normalisé
+   * Masks math expressions as whole tokens so punctuation/number normalization cannot split them.
    */
   private normalizeText(text: string): string {
-    // Préserver les expressions mathématiques en les remplaçant par des tokens
-    const mathExpressions: string[] = [];
-    const tokenizedText = text.replace(/(\d+(?:[.,]\d+)?(?:\s*[\+\-\*\/\^]\s*\d+(?:[.,]\d+)?)+)/g, (match) => {
-      mathExpressions.push(match);
-      return `__MATH_${mathExpressions.length - 1}__`;
-    });
-    
-    const normalized = tokenizedText
-      .toLowerCase()
-      .replace(/[^\w\s]|_/g, ' ')  // Remplacer ponctuation et underscore par espaces
-      .replace(/\s+/g, ' ')        // Normaliser les espaces
-      .replace(/\d+/g, 'NUM')      // Normaliser les nombres
-      .trim();
-    
-    // Réintégrer les expressions mathématiques
-    return mathExpressions.reduce((text, expr, idx) => {
-      return text.replace(`__math_${idx}__`, expr);
-    }, normalized);
+    const mathPattern = /(\d+(?:[.,]\d+)?(?:\s*[+\-*/^]\s*\d+(?:[.,]\d+)?)+)/g;
+    const parts: string[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = mathPattern.exec(text)) !== null) {
+      parts.push(this.normalizeSegment(text.slice(lastIndex, match.index)));
+      parts.push(match[1].toLowerCase().replace(/\s+/g, ''));
+      lastIndex = match.index + match[1].length;
+    }
+    parts.push(this.normalizeSegment(text.slice(lastIndex)));
+
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
   }
-  
-  /**
-   * Récupère les entrées pour une session donnée
-   * 
-   * @param sessionId ID de session
-   * @returns Tableau des entrées pour cette session
-   */
+
+  private normalizeSegment(segment: string): string {
+    return segment
+      .toLowerCase()
+      .replace(/[^\w\s]|_/g, ' ')
+      .replace(/\d+/g, 'NUM')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private getSessionEntriesArray(sessionId: string): VerificationEntry[] {
-    this.emit('error', `VerificationMemory: Récupération des entrées pour la session ${sessionId}`);
-    
     const sessionIds = this.sessionIndex.get(sessionId);
     if (!sessionIds) {
-      this.emit('error', `VerificationMemory: Aucune entrée pour cette session`);
       return [];
     }
-    
+
     const entries: VerificationEntry[] = [];
     for (const id of sessionIds) {
       const entry = this.verifications.get(id);
@@ -623,23 +491,11 @@ export class VerificationMemory {
         entries.push(entry);
       }
     }
-    
-    this.emit('error', `VerificationMemory: ${entries.length} entrées récupérées`);
     return entries;
   }
-  
-  /**
-   * Récupère toutes les vérifications pour une session donnée
-   * avec pagination et filtrage
-   * 
-   * @param sessionId Identifiant de la session
-   * @param offset Position de départ (pour pagination)
-   * @param limit Nombre maximum de résultats
-   * @param statusFilter Filtre sur le statut (optionnel)
-   * @returns Tableau des vérifications pour cette session
-   */
+
   public getSessionVerifications(
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
+    sessionId: string = LIMITS.DEFAULT_SESSION_ID,
     offset: number = 0,
     limit: number = 100,
     statusFilter?: VerificationStatus
@@ -651,19 +507,15 @@ export class VerificationMemory {
     timestamp: Date;
     id: string;
   }[] {
-    // Obtenir les entrées pour cette session
-    let sessionEntries = this.getSessionEntriesArray(sessionId);
-    
-    // Appliquer le filtre de statut si fourni
+    const safeSessionId = assertSafeSessionId(sessionId);
+    let sessionEntries = this.getSessionEntriesArray(safeSessionId);
+
     if (statusFilter) {
       sessionEntries = sessionEntries.filter(entry => entry.status === statusFilter);
     }
-    
-    // Trier par date (plus récent d'abord)
-    sessionEntries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    
-    // Appliquer pagination
+
     return sessionEntries
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(offset, offset + limit)
       .map(entry => ({
         id: entry.id,
@@ -671,190 +523,117 @@ export class VerificationMemory {
         status: entry.status,
         confidence: entry.confidence,
         sources: entry.sources,
-        timestamp: entry.timestamp
+        timestamp: entry.timestamp,
       }));
   }
-  
-  /**
-   * Recherche des vérifications par similarité vectorielle
-   * 
-   * @param text Texte de référence
-   * @param sessionId ID de session
-   * @param limit Nombre maximum de résultats
-   * @param minSimilarity Seuil minimal de similarité
-   * @returns Liste de résultats triés par similarité
-   */
+
   public async searchSimilarVerifications(
     text: string,
-    sessionId: string = SystemConfig.DEFAULT_SESSION_ID,
+    sessionId: string = LIMITS.DEFAULT_SESSION_ID,
     limit: number = 5,
-    minSimilarity: number = VerificationConfig.SIMILARITY.MEDIUM_SIMILARITY
+    minSimilarity: number = SIMILARITY_THRESHOLDS.MEDIUM
   ): Promise<VerificationSearchResult[]> {
     await this.ensureInitialized();
+    const safeSessionId = assertSafeSessionId(sessionId);
+
     if (!this.similarityEngine) {
       return [];
     }
 
     try {
-      const sessionEntries = this.getSessionEntriesArray(sessionId);
+      const sessionEntries = this.getSessionEntriesArray(safeSessionId);
       if (sessionEntries.length === 0) {
         return [];
       }
 
       const candidateTexts = sessionEntries.map(entry => entry.text);
-      const results = await this.similarityEngine.findSimilarTexts(
-        text,
-        candidateTexts,
-        candidateTexts.length,
-        minSimilarity
-      );
+      const results = await this.similarityEngine.findSimilarTexts(text, candidateTexts, candidateTexts.length, minSimilarity);
 
       return results
         .map(result => {
           const entry = sessionEntries.find(item => item.text === result.text);
-          if (!entry) return null;
-          return {
-            id: entry.id,
-            status: entry.status,
-            confidence: entry.confidence,
-            sources: entry.sources,
-            timestamp: entry.timestamp,
-            similarity: result.score,
-            text: entry.text
-          } as VerificationSearchResult;
+          return entry ? this.toSearchResult(entry, result.score) : null;
         })
         .filter((item): item is VerificationSearchResult => item !== null)
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
     } catch (error) {
-      this.emit('error', 'Erreur lors de la recherche de vérifications similaires via SimilarityEngine:', error);
+      this.emit('error', 'Erreur lors de la recherche de vérifications similaires:', error);
       return [];
     }
   }
-  
-  /**
-   * Nettoie les vérifications d'une session spécifique
-   * 
-   * @param sessionId Identifiant de la session à nettoyer
-   */
+
   public clearSession(sessionId: string): void {
-    const sessionIds = this.sessionIndex.get(sessionId);
-    if (!sessionIds) return;
-    
-    // Supprimer chaque entrée
+    const safeSessionId = assertSafeSessionId(sessionId);
+    const sessionIds = this.sessionIndex.get(safeSessionId);
+    if (!sessionIds) {
+      return;
+    }
+
     for (const id of sessionIds) {
       this.verifications.delete(id);
     }
-    
-    // Supprimer l'index de session
-    this.sessionIndex.delete(sessionId);
-    
-    this.emit('error', `VerificationMemory: Session ${sessionId} nettoyée`);
+    this.sessionIndex.delete(safeSessionId);
     this.requestPersist();
   }
-  
-  /**
-   * Nettoie les entrées expirées
-   */
+
   private cleanExpiredEntries(): void {
     const now = new Date();
     const expiredIds = new Set<string>();
-    
-    // Identifier les entrées expirées
+
     for (const [id, entry] of this.verifications.entries()) {
       if (entry.expiresAt < now) {
         expiredIds.add(id);
       }
     }
-    
-    if (expiredIds.size === 0) return;
-    
-    // Supprimer les entrées expirées
+
+    if (expiredIds.size === 0) {
+      return;
+    }
+
     for (const id of expiredIds) {
       const entry = this.verifications.get(id);
-      if (entry) {
-        // Mettre à jour l'index de session
-        const sessionIds = this.sessionIndex.get(entry.sessionId);
-        if (sessionIds) {
-          sessionIds.delete(id);
-          // Si la session est vide, supprimer son index
-          if (sessionIds.size === 0) {
-            this.sessionIndex.delete(entry.sessionId);
-          }
-        }
-        
-        // Supprimer l'entrée
-        this.verifications.delete(id);
+      if (!entry) {
+        continue;
       }
+      const sessionIds = this.sessionIndex.get(entry.sessionId);
+      if (sessionIds) {
+        sessionIds.delete(id);
+        if (sessionIds.size === 0) {
+          this.sessionIndex.delete(entry.sessionId);
+        }
+      }
+      this.verifications.delete(id);
     }
-    
-    this.emit('error', `VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
+
+    this.emit('log', `VerificationMemory: ${expiredIds.size} entrées expirées supprimées`);
     this.requestPersist();
   }
-  
-  /**
-   * NOUVEAU: Nettoie le cache de similarité
-   */
-  private cleanSimilarityCache(): void {
-    const cacheSize = Array.from(this.similarityCache.values())
-      .reduce((total, map) => total + map.size, 0);
-    
-    if (cacheSize === 0) return;
-    
-    // Vider le cache
-    this.similarityCache.clear();
-    
-    this.emit('error', `VerificationMemory: Cache de similarité nettoyé (${cacheSize} entrées)`);
-  }
-  
-  /**
-   * Nettoie toutes les vérifications (utilisé pour les tests)
-   */
+
   public clearAll(): void {
     this.verifications.clear();
     this.sessionIndex.clear();
-    this.similarityCache.clear();
-    this.emit('error', 'VerificationMemory: Mémoire de vérification entièrement nettoyée');
     this.requestPersist();
   }
-  
-  /**
-   * Obtient des statistiques sur la mémoire de vérification
-   */
-  public getStats(): {
-    totalEntries: number;
-    sessionCount: number;
-    cacheSize: number;
-    entriesByStatus: Record<VerificationStatus, number>;
-  } {
-    // Initialiser le compteur avec tous les statuts possibles
-    const entriesByStatus = {} as Record<VerificationStatus, number>;
-    
-    // Définir tous les types de statut possibles avec une valeur initiale de 0
+
+  public getStats(): { totalEntries: number; sessionCount: number; entriesByStatus: Record<VerificationStatus, number> } {
     const allStatuses: VerificationStatus[] = [
-      'verified', 'partially_verified', 'unverified', 'contradicted', 
-      'inconclusive', 'absence_of_information', 'uncertain', 'contradictory'
+      'verified', 'partially_verified', 'unverified', 'contradicted',
+      'inconclusive', 'absence_of_information', 'uncertain', 'contradictory',
     ];
-    
-    // Initialiser tous les compteurs à 0
-    allStatuses.forEach(status => {
+    const entriesByStatus = {} as Record<VerificationStatus, number>;
+    for (const status of allStatuses) {
       entriesByStatus[status] = 0;
-    });
-    
-    // Compter les entrées par statut
+    }
+
     for (const entry of this.verifications.values()) {
       entriesByStatus[entry.status]++;
     }
-    
-    // Calculer la taille du cache
-    const cacheSize = Array.from(this.similarityCache.values())
-      .reduce((total, map) => total + map.size, 0);
-    
+
     return {
       totalEntries: this.verifications.size,
       sessionCount: this.sessionIndex.size,
-      cacheSize,
-      entriesByStatus
+      entriesByStatus,
     };
   }
 }

@@ -1,0 +1,885 @@
+{
+  "label": "ds-v41f-hard",
+  "provider": "openai:deepseek-flash",
+  "mode": "live",
+  "seed": 1337,
+  "generatedAt": "2026-09-14T06:58:23.432Z",
+  "tasks": 8,
+  "conditions": [
+    "baseline",
+    "tool"
+  ],
+  "delta": {
+    "absolutePp": 0,
+    "relativePct": 0,
+    "wins": 0,
+    "losses": 0,
+    "ties": 8,
+    "signTestPValue": 1
+  },
+  "stats": [
+    {
+      "condition": "baseline",
+      "tasks": 8,
+      "runs": 8,
+      "accuracy": 1,
+      "exactMatchRate": 1,
+      "meanLatencyMs": 1795,
+      "p50LatencyMs": 1534,
+      "p95LatencyMs": 3733,
+      "inputTokens": 1029,
+      "outputTokens": 1477,
+      "wins": 0,
+      "losses": 0,
+      "ties": 8,
+      "hallucinations": 0,
+      "contradictions": 0
+    },
+    {
+      "condition": "tool",
+      "tasks": 8,
+      "runs": 8,
+      "accuracy": 1,
+      "exactMatchRate": 1,
+      "meanLatencyMs": 2980.88,
+      "p50LatencyMs": 2866,
+      "p95LatencyMs": 5259,
+      "inputTokens": 26017,
+      "outputTokens": 2266,
+      "wins": 0,
+      "losses": 0,
+      "ties": 8,
+      "hallucinations": 0,
+      "contradictions": 1
+    }
+  ],
+  "results": [
+    {
+      "taskId": "hard-compound-discount",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Remise de 20 % : 250 × 0,80 = 200 €.  \nTaxe de 10 % : 200 × 1,10 = 220 €.\n\n**Prix final : 220 €.**",
+      "latencyMs": 1479,
+      "inputTokens": 112,
+      "outputTokens": 97,
+      "seed": 2326448169
+    },
+    {
+      "taskId": "hard-speed-average",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "315 ÷ 2,5 = 126 km/h.\n\n**Réponse finale : 126 km/h.**",
+      "latencyMs": 1316,
+      "inputTokens": 92,
+      "outputTokens": 67,
+      "seed": 980655791
+    },
+    {
+      "taskId": "hard-weighted-average",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Moyenne pondérée = (12×2 + 15×3 + 9×1) / (2+3+1) = 78/6 = 13.\n\n**Réponse finale : 13/20.**",
+      "latencyMs": 1534,
+      "inputTokens": 107,
+      "outputTokens": 129,
+      "seed": 113178447
+    },
+    {
+      "taskId": "hard-compound-interest",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Valeur finale = 1 000 × (1,05)^2 = 1 102,50 €.\n\n**Réponse finale : 1 102,50 €**",
+      "latencyMs": 1535,
+      "inputTokens": 112,
+      "outputTokens": 80,
+      "seed": 25311064
+    },
+    {
+      "taskId": "hard-scheduling-rooms",
+      "category": "logic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "D, A, B, C",
+      "latencyMs": 1297,
+      "inputTokens": 135,
+      "outputTokens": 74,
+      "seed": 2049946867
+    },
+    {
+      "taskId": "hard-contradiction-detect",
+      "category": "logic",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "OUI. Un redémarrage à 14 h implique une interruption, ce qui contredit « sans interruption toute la journée ».  \nRéponse finale : OUI.",
+      "latencyMs": 1773,
+      "inputTokens": 134,
+      "outputTokens": 166,
+      "seed": 4240966627
+    },
+    {
+      "taskId": "hard-planning-release",
+      "category": "planning",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "Ordre valide :\n\nÉcrire le code → Relire le code → Écrire les tests → Exécuter les tests → Déployer en staging → Déployer en production.\n\nRéponse finale : **Écrire le code, Relire le code, Écrire les tests, Exécuter les tests, Déployer en staging, Déployer en production.**",
+      "latencyMs": 3733,
+      "inputTokens": 214,
+      "outputTokens": 721,
+      "seed": 1438561617
+    },
+    {
+      "taskId": "hard-synthesis-budget",
+      "category": "synthesis",
+      "condition": "baseline",
+      "provider": "openai:deepseek-flash",
+      "answer": "La phase 1 coûte 5 400 €.  \nIl reste 6 600 €.  \nLa phase 2 coûte 1 980 €.  \nIl reste donc 6 600 − 1 980 = 4 620 €.\n\n**Réponse finale : 4 620 €**",
+      "latencyMs": 1693,
+      "inputTokens": 123,
+      "outputTokens": 143,
+      "seed": 2227000404
+    },
+    {
+      "taskId": "hard-compound-discount",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Calcul : 250 × 0,8 = 200 € (prix remisé), puis 200 × 1,1 = 220 €.\n\n**Réponse finale : le prix final est de 220 €.**",
+      "latencyMs": 2866,
+      "inputTokens": 3272,
+      "outputTokens": 127,
+      "toolCalls": 1,
+      "seed": 1521989086,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un produit coûte 250 €. On applique d'abord une remise de 20 %, puis une taxe de 10 % sur le prix remisé. Quel est le prix final en euros ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_8hKP3Km6LWdlYULZKCmy1391",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "250*0.8*1.1"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"250*0.8*1.1\",\"value\":220.00000000000003}",
+            "toolCallId": "call_00_8hKP3Km6LWdlYULZKCmy1391"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-speed-average",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Calcul :** 2 h 30 min = 2,5 h. Vitesse moyenne = distance / temps = 315 ÷ 2,5 = 126.\n\n**Réponse finale : la vitesse moyenne du train est de 126 km/h.**",
+      "latencyMs": 2247,
+      "inputTokens": 3204,
+      "outputTokens": 110,
+      "toolCalls": 1,
+      "seed": 2749757976,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un train parcourt 315 km en 2 h 30 min. Quelle est sa vitesse moyenne en km/h ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_mOXAnSWpRI2vWSpNwOdN1816",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "315 / 2.5"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"315/2.5\",\"value\":126}",
+            "toolCallId": "call_00_mOXAnSWpRI2vWSpNwOdN1816"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-weighted-average",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Calcul :**\n\n- Somme pondérée : 12×2 + 15×3 + 9×1 = 24 + 45 + 9 = 78\n- Somme des coefficients : 2 + 3 + 1 = 6\n- Moyenne : 78 ÷ 6 = **13/20**\n\n**Réponse finale : sa moyenne pondérée est de 13/20.**",
+      "latencyMs": 3029,
+      "inputTokens": 3297,
+      "outputTokens": 192,
+      "toolCalls": 1,
+      "seed": 2345897272,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un élève obtient 12/20 coefficient 2, 15/20 coefficient 3 et 9/20 coefficient 1. Quelle est sa moyenne pondérée sur 20 ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_cVaeVED5KQ7v9FosT5rw1555",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "(12*2 + 15*3 + 9*1)/(2+3+1)"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"(12*2+15*3+9*1)/(2+3+1)\",\"value\":13}",
+            "toolCallId": "call_00_cVaeVED5KQ7v9FosT5rw1555"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-compound-interest",
+      "category": "arithmetic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Calcul :** 1 000 × 1,05² = 1 000 × 1,1025 = 1 102,50 €\n(année 1 : 1 050 € ; année 2 : 1 050 × 1,05 = 1 102,50 €)\n\n**Réponse finale : 1 102,50 €**",
+      "latencyMs": 2496,
+      "inputTokens": 3266,
+      "outputTokens": 154,
+      "toolCalls": 1,
+      "seed": 485806471,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un capital de 1 000 € est placé à 5 % par an avec intérêts composés pendant 2 ans. Quelle est la valeur finale en euros (arrondi au centime) ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_bqcFJHeDTkUYEFeJLKor4358",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "1000*1.05**2"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"1000*1.05**2\",\"value\":1102.5}",
+            "toolCallId": "call_00_bqcFJHeDTkUYEFeJLKor4358"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-scheduling-rooms",
+      "category": "logic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Les trois contraintes s'enchaînent linéairement :\n\n- D < A (D doit précéder A)\n- A < B (A doit précéder B)\n- B < C (C doit suivre B)\n\nEn les combinant : D < A < B < C. Aucun conflit, et l'ordre est unique (chaque réunion occupe une heure distincte).\n\n**Réponse finale : D, A, B, C**",
+      "latencyMs": 3481,
+      "inputTokens": 3565,
+      "outputTokens": 301,
+      "toolCalls": 1,
+      "seed": 1221078124,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Quatre réunions A, B, C, D doivent être planifiées à des heures distinctes. A doit avoir lieu avant B. C doit avoir lieu après B. D doit avoir lieu avant A. Quel est l'ordre chronologique complet ? Réponds sous la forme D, A, B, C.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_VwFNyzSBQJhFWkEvAKDI4693",
+                "name": "solve_logic",
+                "arguments": {
+                  "problem": "Quatre réunions A, B, C, D à des heures distinctes. A avant B. C après B. D avant A. Donner l'ordre chronologique complet.",
+                  "entities": [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                  ],
+                  "relations": [
+                    {
+                      "before": "D",
+                      "after": "A"
+                    },
+                    {
+                      "before": "A",
+                      "after": "B"
+                    },
+                    {
+                      "before": "B",
+                      "after": "C"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"entities\":[\"A\",\"B\",\"C\",\"D\"],\"constraints\":[{\"before\":\"D\",\"after\":\"A\",\"raw\":\"D < A\"},{\"before\":\"A\",\"after\":\"B\",\"raw\":\"A < B\"},{\"before\":\"B\",\"after\":\"C\",\"raw\":\"B < C\"},{\"before\":\"A\",\"after\":\"B\",\"raw\":\"A avant B\"},{\"before\":\"B\",\"after\":\"C\",\"raw\":\"C après B\"},{\"before\":\"D\",\"after\":\"A\",\"raw\":\"D avant A\"}],\"order\":[\"D\",\"A\",\"B\",\"C\"],\"unique\":true,\"contradictions\":[],\"explanation\":\"Ordre unique : D < A < B < C.\"}",
+            "toolCallId": "call_00_VwFNyzSBQJhFWkEvAKDI4693"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-contradiction-detect",
+      "category": "logic",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Les deux affirmations sont directement incompatibles : une interruption (redémarrage à 14 h) contredit le fait d'avoir fonctionné sans interruption toute la journée.\n\n**Réponse finale : OUI.**",
+      "latencyMs": 1397,
+      "inputTokens": 1604,
+      "outputTokens": 95,
+      "toolCalls": 0,
+      "seed": 2979409820,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Deux rapports se contredisent-ils ? Rapport 1 : « Le serveur a fonctionné sans interruption toute la journée. » Rapport 2 : « Le serveur a redémarré à 14 h suite à une panne. » Réponds OUI ou NON et justifie en une phrase.\nRéponds de façon concise et termine par la réponse finale explicite."
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-planning-release",
+      "category": "planning",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "Un seul outil d'ordonnancement a suffi ; voici l'analyse.\n\n**Contraintes extraites :**\n1. Écrire le code < Relire le code\n2. Écrire le code < Écrire les tests\n3. Écrire les tests < Exécuter les tests\n4. Relire le code < Déployer en staging\n5. Exécuter les tests < Déployer en staging\n6. Déployer en staging < Déployer en production\n\n**Déduction :** Écrire le code est le point de départ (il doit précéder Relire le code et Écrire les tests). Déployer en production est le point final (rien ne vient après). Entre les deux, le bloc « tests » (Écrire les tests → Exécuter les tests) doit finir avant le staging, et les deux branches (relecture / tests) doivent être terminées avant le staging.\n\nLe solveur confirme un ordre partiel cohérent, sans contradiction. Combat : « Relire le code » et « Écrire les tests » étant interchangeables, il existe **deux ordres linéaires valides** :\n\n- **A** : Écrire le code → Relire le code → Écrire les tests → Exécuter les tests → Déployer en staging → Déployer en production\n- **B** : Écrire le code → Écrire les tests → Relire le code → Exécuter les tests → Déployer en staging → Déployer en production\n\n(Remarque : dans B, Écrire les tests peut précéder ou suivre Relire le code, mais Exécuter les tests doit rester avant le staging.)\n\n**Réponse finale :**\nÉcrire le code → Relire le code → Écrire les tests → Exécuter les tests → Déployer en staging → Déployer en production\n(ordre valide, tout comme : Écrire le code → Écrire les tests → Relire le code → Exécuter les tests → Déployer en staging → Déployer en production).",
+      "latencyMs": 5259,
+      "inputTokens": 4402,
+      "outputTokens": 1021,
+      "toolCalls": 1,
+      "seed": 1841970438,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": true,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Ordonne ces six étapes de release : Écrire le code, Relire le code, Écrire les tests, Exécuter les tests, Déployer en staging, Déployer en production. Contraintes : Écrire le code avant de le relire ; Écrire le code avant d'écrire les tests ; Écrire les tests avant d'exécuter les tests ; Relire le code avant de déployer en staging ; Exécuter les tests avant de déployer en staging ; Déployer en staging avant de déployer en production. Attention : relire le code et écrire les tests peuvent être dans n'importe quel ordre.\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_ZuAyUc6abRcE1ASKZhek7853",
+                "name": "solve_logic",
+                "arguments": {
+                  "problem": "Ordonne six étapes: Écrire le code, Relire le code, Écrire les tests, Exécuter les tests, Déployer en staging, Déployer en production. Contraintes: Écrire le code avant Relire le code; Écrire le code avant Écrire les tests; Écrire les tests avant Exécuter les tests; Relire le code avant Déployer en staging; Exécuter les tests avant Déployer en staging; Déployer en staging avant Déployer en production. Relire le code et Écrire les tests peuvent être dans n'importe quel ordre.",
+                  "entities": [
+                    "Écrire le code",
+                    "Relire le code",
+                    "Écrire les tests",
+                    "Exécuter les tests",
+                    "Déployer en staging",
+                    "Déployer en production"
+                  ],
+                  "relations": [
+                    {
+                      "before": "Écrire le code",
+                      "after": "Relire le code"
+                    },
+                    {
+                      "before": "Écrire le code",
+                      "after": "Écrire les tests"
+                    },
+                    {
+                      "before": "Écrire les tests",
+                      "after": "Exécuter les tests"
+                    },
+                    {
+                      "before": "Relire le code",
+                      "after": "Déployer en staging"
+                    },
+                    {
+                      "before": "Exécuter les tests",
+                      "after": "Déployer en staging"
+                    },
+                    {
+                      "before": "Déployer en staging",
+                      "after": "Déployer en production"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"entities\":[\"Écrire le code\",\"Relire le code\",\"Écrire les tests\",\"Exécuter les tests\",\"Déployer en staging\",\"Déployer en production\"],\"constraints\":[{\"before\":\"Écrire le code\",\"after\":\"Relire le code\",\"raw\":\"Écrire le code < Relire le code\"},{\"before\":\"Écrire le code\",\"after\":\"Écrire les tests\",\"raw\":\"Écrire le code < Écrire les tests\"},{\"before\":\"Écrire les tests\",\"after\":\"Exécuter les tests\",\"raw\":\"Écrire les tests < Exécuter les tests\"},{\"before\":\"Relire le code\",\"after\":\"Déployer en staging\",\"raw\":\"Relire le code < Déployer en staging\"},{\"before\":\"Exécuter les tests\",\"after\":\"Déployer en staging\",\"raw\":\"Exécuter les tests < Déployer en staging\"},{\"before\":\"Déployer en staging\",\"after\":\"Déployer en production\",\"raw\":\"Déployer en staging < Déployer en production\"},{\"before\":\"Écrire le code\",\"after\":\"Relire le code\",\"raw\":\"Contraintes: Écrire le code avant Relire le code\"},{\"before\":\"Écrire le code\",\"after\":\"Écrire les tests\",\"raw\":\"Écrire le code avant Écrire les tests\"},{\"before\":\"Écrire les tests\",\"after\":\"Exécuter les tests\",\"raw\":\"Écrire les tests avant Exécuter les tests\"},{\"before\":\"Relire le code\",\"after\":\"Déployer en staging\",\"raw\":\"Relire le code avant Déployer en staging\"},{\"before\":\"Exécuter les tests\",\"after\":\"Déployer en staging\",\"raw\":\"Exécuter les tests avant Déployer en staging\"},{\"before\":\"Déployer en staging\",\"after\":\"Déployer en production\",\"raw\":\"Déployer en staging avant Déployer en production\"}],\"order\":[\"Écrire le code\",\"Relire le code\",\"Écrire les tests\",\"Exécuter les tests\",\"Déployer en staging\",\"Déployer en production\"],\"unique\":false,\"possibleNext\":[\"Écrire le code\",\"Relire le code\",\"Écrire les tests\",\"Exécuter les tests\",\"Déployer en staging\",\"Déployer en production\"],\"contradictions\":[],\"explanation\":\"Ordre partiel : Écrire le code < Relire le code < Écrire les tests < Exécuter les tests < Déployer en staging < Déployer en production… (plusieurs ordres valides possibles).\"}",
+            "toolCallId": "call_00_ZuAyUc6abRcE1ASKZhek7853"
+          }
+        ]
+      }
+    },
+    {
+      "taskId": "hard-synthesis-budget",
+      "category": "synthesis",
+      "condition": "tool",
+      "provider": "openai:deepseek-flash",
+      "answer": "**Calcul :**\n- Phase 1 : 45 % de 12 000 € = 5 400 € → reste 6 600 €\n- Phase 2 : 30 % de 6 600 € = 1 980 € → reste 6 600 − 1 980 = 4 620 €\n\n(Soit directement : 12 000 × 0,55 × 0,70 = 4 620 €)\n\n**Réponse finale : il reste 4 620 € après les deux phases.**",
+      "latencyMs": 3072,
+      "inputTokens": 3407,
+      "outputTokens": 266,
+      "toolCalls": 2,
+      "seed": 2940710995,
+      "raw": {
+        "finishReason": "stop",
+        "hadReasoning": false,
+        "transcript": [
+          {
+            "role": "user",
+            "content": "Question : Un projet a un budget de 12 000 €. La phase 1 coûte 45 % du budget, la phase 2 coûte 30 % du reste après la phase 1. Combien reste-t-il en euros après les deux phases ?\nRéponds de façon concise et termine par la réponse finale explicite."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "call_00_BXhmpoOjmOricjXChaOO3411",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "12000*0.55*0.7"
+                }
+              },
+              {
+                "id": "call_01_PDh5w32rQUY9Oe6yn8mS7691",
+                "name": "calculate",
+                "arguments": {
+                  "expression": "12000-12000*0.45-(12000-12000*0.45)*0.3"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"12000*0.55*0.7\",\"value\":4620}",
+            "toolCallId": "call_00_BXhmpoOjmOricjXChaOO3411"
+          },
+          {
+            "role": "tool",
+            "content": "{\"expression\":\"12000-12000*0.45-(12000-12000*0.45)*0.3\",\"value\":4620}",
+            "toolCallId": "call_01_PDh5w32rQUY9Oe6yn8mS7691"
+          }
+        ]
+      }
+    }
+  ],
+  "scores": [
+    {
+      "taskId": "hard-compound-discount",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        20,
+        250,
+        0.8,
+        200,
+        10,
+        200,
+        1.1,
+        220,
+        220
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 220 ✓ 220"
+    },
+    {
+      "taskId": "hard-speed-average",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        315,
+        2.5,
+        126,
+        126
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 126 ✓ 126"
+    },
+    {
+      "taskId": "hard-weighted-average",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        12,
+        2,
+        15,
+        3,
+        9,
+        1,
+        2,
+        3,
+        1,
+        78,
+        6,
+        13,
+        13,
+        20
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 20 ✓ 13"
+    },
+    {
+      "taskId": "hard-compound-interest",
+      "category": "arithmetic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1000,
+        1.05,
+        2,
+        1102.5,
+        1102.5
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 1102.5 ✓ 1102.5"
+    },
+    {
+      "taskId": "hard-scheduling-rooms",
+      "category": "logic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "d",
+        "a",
+        "b",
+        "c"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "ordre correct"
+    },
+    {
+      "taskId": "hard-contradiction-detect",
+      "category": "logic",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        14
+      ],
+      "coveredKeyFacts": [
+        "oui"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hard-planning-release",
+      "category": "planning",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "ecrire le code",
+        "relire le code",
+        "ecrire les tests",
+        "executer les tests",
+        "deployer en staging",
+        "deployer en production"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "ordre correct"
+    },
+    {
+      "taskId": "hard-synthesis-budget",
+      "category": "synthesis",
+      "condition": "baseline",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1,
+        5400,
+        6600,
+        2,
+        1980,
+        6600,
+        1980,
+        4620,
+        4620
+      ],
+      "coveredKeyFacts": [
+        "4620"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hard-compound-discount",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        250,
+        0.8,
+        200,
+        200,
+        1.1,
+        220,
+        220
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 220 ✓ 220"
+    },
+    {
+      "taskId": "hard-speed-average",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        2,
+        30,
+        2.5,
+        315,
+        2.5,
+        126,
+        126
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 126 ✓ 126"
+    },
+    {
+      "taskId": "hard-weighted-average",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        12,
+        2,
+        15,
+        3,
+        9,
+        1,
+        24,
+        45,
+        9,
+        78,
+        2,
+        3,
+        1,
+        6,
+        78,
+        6,
+        13,
+        20,
+        13,
+        20
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 20 ✓ 13"
+    },
+    {
+      "taskId": "hard-compound-interest",
+      "category": "arithmetic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1000,
+        1.05,
+        1000,
+        1.1025,
+        1102.5,
+        1,
+        1050,
+        2,
+        1050,
+        1.05,
+        1102.5,
+        1102.5
+      ],
+      "coveredKeyFacts": [],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "dernier nombre 1102.5 ✓ 1102.5"
+    },
+    {
+      "taskId": "hard-scheduling-rooms",
+      "category": "logic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [],
+      "coveredKeyFacts": [
+        "d",
+        "a",
+        "b",
+        "c"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "ordre correct"
+    },
+    {
+      "taskId": "hard-contradiction-detect",
+      "category": "logic",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        14
+      ],
+      "coveredKeyFacts": [
+        "oui"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    },
+    {
+      "taskId": "hard-planning-release",
+      "category": "planning",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "coveredKeyFacts": [
+        "ecrire le code",
+        "relire le code",
+        "ecrire les tests",
+        "executer les tests",
+        "deployer en staging",
+        "deployer en production"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": true,
+      "rationale": "ordre correct"
+    },
+    {
+      "taskId": "hard-synthesis-budget",
+      "category": "synthesis",
+      "condition": "tool",
+      "score": 1,
+      "exactMatch": true,
+      "extractedNumbers": [
+        1,
+        45,
+        12000,
+        5400,
+        6600,
+        2,
+        30,
+        6600,
+        1980,
+        6600,
+        1980,
+        4620,
+        12000,
+        0.55,
+        0.7,
+        4620,
+        4620
+      ],
+      "coveredKeyFacts": [
+        "4620"
+      ],
+      "missedKeyFacts": [],
+      "hallucinationFlags": [],
+      "containsContradiction": false,
+      "rationale": "faits 1/1"
+    }
+  ],
+  "notes": [
+    "TAVILY_API_KEY détecté: les outils web_search/fetch peuvent accéder au réseau.",
+    "Provider réel: openai (résultats non déterministes). Agent opencode isolé: aucun outil de code, aucun accès au dépôt."
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "12.0.1",
-  "description": "Un serveur MCP avancé pour le raisonnement multi-dimensionnel, adaptatif et collaboratif",
+  "version": "13.0.0",
+  "description": "MCP reasoning server: graph-based multi-step reasoning, honest verification, persistent sessions and per-user web search (Tavily or native delegation).",
   "main": "build/index.js",
   "module": "./src/index.ts",
   "bin": {
@@ -21,11 +21,15 @@
     "start:sse": "node build/cli.js --transport=sse",
     "lint": "eslint --max-warnings=0 --ext .ts src",
     "test": "jest --runInBand",
-    "test:coverage": "jest --coverage",
-    "demo:session": "npm run build --silent && node build/examples/demo-session.js",
+    "test:coverage": "jest --coverage --runInBand",
+    "bench": "npm run build --silent && node build/bench/run.js",
+    "bench:sim": "npm run build --silent && node build/bench/run.js --provider=simulate",
+    "bench:ab": "npm run build --silent && node build/bench/run.js --provider=openai --conditions=baseline,tool",
+    "proof": "node scripts/run-proofs.js",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build",
-    "postinstall": "node scripts/make-executable.js"
+    "prepublishOnly": "npm run build && npm test",
+    "postinstall": "node scripts/make-executable.js",
+    "challenge": "npm run build --silent && node build/challenge/runner.js"
   },
   "keywords": [
     "mcp",
@@ -34,16 +38,15 @@
     "reasoning",
     "thinking",
     "sequential-thinking",
-    "smart-thinking"
+    "smart-thinking",
+    "tavily",
+    "web-search"
   ],
   "author": "Smart-Thinking Team",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "@types/uuid": "^10.0.0",
     "express": "^5.2.1",
-    "mkdirp": "^3.0.1",
-    "uuid": "^11.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

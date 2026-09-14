@@ -1,99 +1,199 @@
-import { createSmartThinkingServer } from '../server/smart-thinking-server';
+import { promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
 
-function registryKeys(registry: unknown): string[] {
-  if (registry instanceof Map) {
-    return Array.from(registry.keys()).map(String);
-  }
-  if (registry && typeof registry === 'object') {
-    return Object.keys(registry as Record<string, unknown>);
-  }
-  return [];
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import {
+  createEnvironment,
+  resetSmartThinkingEnvironment,
+  type SmartThinkingEnvironment,
+} from '../server/environment';
+import {
+  createSmartThinkingServer,
+  type SmartThinkingServerOptions,
+} from '../server/smart-thinking-server';
+
+const originalFetch = global.fetch;
+
+interface StructuredResult {
+  structuredContent?: Record<string, unknown>;
+  content: Array<{ type: string; text?: string }>;
+  isError?: boolean;
 }
 
-function resolveToolHandler(tool: Record<string, any>): ((args: Record<string, any>) => Promise<any>) {
-  const handler = tool.callback ?? tool.handler;
-  if (typeof handler !== 'function') {
-    throw new Error('Tool handler not found');
+function payloadOf(result: StructuredResult): Record<string, unknown> {
+  if (result.structuredContent) {
+    return result.structuredContent;
   }
-  return handler;
+  const textBlock = result.content.find(block => block.type === 'text');
+  return JSON.parse(textBlock?.text ?? '{}') as Record<string, unknown>;
 }
 
-describe('Smart-Thinking MCP server tools', () => {
-  it('exposes search and fetch tools with expected behaviour', async () => {
-    const { server, env } = createSmartThinkingServer();
-    const tools = (server as any)._registeredTools as Record<string, any>;
+describe('Smart-Thinking MCP server (in-memory E2E)', () => {
+  let tempDir: string;
+  let env: SmartThinkingEnvironment;
+  let clients: Client[];
+  let servers: McpServer[];
 
-    expect(tools).toHaveProperty('search');
-    expect(tools).toHaveProperty('fetch');
-
-    const memoryId = env.memoryManager.addMemory('Analyse multi-dimensionnelle des systèmes complexes', ['analysis'], 'session-test');
-
-    const searchResult = await resolveToolHandler(tools.search)({ query: 'analyse', limit: 3, sessionId: 'session-test' });
-    const searchStructured = searchResult.structuredContent as any;
-
-    expect(Array.isArray(searchStructured?.results)).toBe(true);
-    expect(searchStructured.results[0]?.id).toBe(memoryId);
-
-    const fetchResult = await resolveToolHandler(tools.fetch)({ id: memoryId, sessionId: 'session-test' });
-    const fetchStructured = fetchResult.structuredContent as any;
-
-    expect(fetchStructured?.id).toBe(memoryId);
-    expect(fetchStructured?.text).toContain('Analyse multi-dimensionnelle');
-  });
-
-  it('returns an error payload when fetch misses', async () => {
-    const { server } = createSmartThinkingServer();
-    const tools = (server as any)._registeredTools as Record<string, any>;
-
-    const result = await resolveToolHandler(tools.fetch)({ id: 'missing' });
-    expect(result.isError).toBe(true);
-    expect(result.content?.[0]?.type).toBe('text');
-  });
-
-  it('can expose a minimal toolset for connector compatibility', () => {
-    const { server } = createSmartThinkingServer(undefined, { includeSmartThinkingTool: false });
-    const tools = (server as any)._registeredTools as Record<string, any>;
-
-    expect(tools).not.toHaveProperty('smartthinking');
-    expect(tools).toHaveProperty('search');
-    expect(tools).toHaveProperty('fetch');
-  });
-
-  it('registers prompts/resources and rich tool metadata', () => {
-    const { server } = createSmartThinkingServer();
-    const internalServer = (server as any).server as Record<string, any>;
-    const tools = (server as any)._registeredTools as Record<string, any>;
-
-    const promptNames = registryKeys((server as any)._registeredPrompts);
-    const resourceNames = registryKeys((server as any)._registeredResources);
-    const resourceTemplateNames = registryKeys((server as any)._registeredResourceTemplates);
-
-    expect(promptNames).toEqual(expect.arrayContaining([
-      'smartthinking-reasoning-plan',
-      'smartthinking-verify-claim',
-    ]));
-
-    expect(resourceNames).toEqual(expect.arrayContaining([
-      'smart-thinking://docs/about',
-      'smart-thinking://runtime/status',
-    ]));
-
-    expect(resourceTemplateNames).toEqual(expect.arrayContaining([
-      'smartthinking-session-recent',
-      'smartthinking-memory-by-id',
-    ]));
-
-    expect(tools.search.description).toContain('Use this when');
-    expect(tools.fetch.description).toContain('Use this when');
-    expect(tools.search.annotations?.readOnlyHint).toBe(true);
-    expect(tools.fetch.annotations?.idempotentHint).toBe(true);
-
-    expect(internalServer._capabilities).toMatchObject({
-      tools: { listChanged: true },
-      prompts: { listChanged: true },
-      resources: { listChanged: true, subscribe: false },
-      completions: {},
-      logging: {},
+  beforeEach(async () => {
+    tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'smart-thinking-server-'));
+    global.fetch = jest.fn() as unknown as typeof fetch;
+    env = createEnvironment({
+      dataDir: tempDir,
+      persistenceDisabled: true,
+      search: { provider: 'off', tavilyApiKey: undefined },
     });
+    clients = [];
+    servers = [];
+  });
+
+  afterEach(async () => {
+    for (const client of clients) {
+      await client.close().catch(() => undefined);
+    }
+    for (const server of servers) {
+      await server.close().catch(() => undefined);
+    }
+    resetSmartThinkingEnvironment();
+    global.fetch = originalFetch;
+    await fsp.rm(tempDir, { recursive: true, force: true });
+  });
+
+  async function connect(options?: SmartThinkingServerOptions): Promise<Client> {
+    const { server } = createSmartThinkingServer(env, options);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'smart-thinking-tests', version: '1.0.0' });
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    servers.push(server);
+    clients.push(client);
+    return client;
+  }
+
+  test('exposes exactly nineteen tools in full mode', async () => {
+    const client = await connect();
+
+    const { tools } = await client.listTools();
+    expect(tools.map(tool => tool.name).sort()).toEqual([
+      'audit',
+      'calculate',
+      'cas',
+      'claim',
+      'compute',
+      'critique',
+      'fetch',
+      'math_knowledge',
+      'plan',
+      'protocol',
+      'research',
+      'search',
+      'session',
+      'smartthinking',
+      'solve_logic',
+      'solve_math',
+      'verify',
+      'web_crawl',
+      'web_search',
+    ]);
+  });
+
+  test('web_crawl asks the client to act when Tavily is not configured', async () => {
+    const client = await connect();
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    const result = payloadOf(
+      (await client.callTool({
+        name: 'web_crawl',
+        arguments: { url: 'https://example.com/docs', mode: 'map' },
+      })) as unknown as StructuredResult,
+    );
+
+    expect(result.provider).toBe('native');
+    expect(result.requiresClientAction).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  test('calculate evaluates expressions deterministically', async () => {
+    const client = await connect();
+
+    const direct = payloadOf(
+      (await client.callTool({ name: 'calculate', arguments: { expression: '(120*0.45)' } })) as unknown as StructuredResult,
+    );
+    expect(direct.value).toBeCloseTo(54, 10);
+
+    const checked = payloadOf(
+      (await client.callTool({ name: 'calculate', arguments: { expression: '12*4+6 = 54' } })) as unknown as StructuredResult,
+    );
+    expect(checked.matchesClaim).toBe(true);
+    expect(checked.verdict).toBe('confirmed');
+
+    const wrong = payloadOf(
+      (await client.callTool({ name: 'calculate', arguments: { expression: '95/5 = 18' } })) as unknown as StructuredResult,
+    );
+    expect(wrong.matchesClaim).toBe(false);
+    expect(wrong.verdict).toBe('contradicted');
+  });
+
+  test('runs the plan -> smartthinking -> session flow over the wire', async () => {
+    const client = await connect();
+    const sessionId = 'e2e-session';
+
+    const planResult = (await client.callTool({
+      name: 'plan',
+      arguments: { goal: 'Calculer le coût total du projet', sessionId },
+    })) as unknown as StructuredResult;
+    expect(planResult.isError).not.toBe(true);
+    const planPayload = payloadOf(planResult);
+    const plan = planPayload.plan as { steps: unknown[] } | undefined;
+    expect(plan?.steps.length).toBeGreaterThanOrEqual(2);
+
+    const thoughtResult = (await client.callTool({
+      name: 'smartthinking',
+      arguments: {
+        thought: "La méthode itérative améliore la qualité de l'analyse.",
+        sessionId,
+      },
+    })) as unknown as StructuredResult;
+    expect(thoughtResult.isError).not.toBe(true);
+    const thoughtPayload = payloadOf(thoughtResult);
+    expect(thoughtPayload.sessionId).toBe(sessionId);
+    expect(thoughtPayload.thoughtId).toEqual(expect.any(String));
+    const metrics = thoughtPayload.qualityMetrics as { confidence: number; relevance: number; quality: number };
+    expect(metrics.confidence).toBeGreaterThanOrEqual(0);
+    expect(metrics.confidence).toBeLessThanOrEqual(1);
+
+    const sessionResult = (await client.callTool({
+      name: 'session',
+      arguments: { action: 'status', sessionId },
+    })) as unknown as StructuredResult;
+    expect(sessionResult.isError).not.toBe(true);
+    const sessionPayload = payloadOf(sessionResult);
+    expect(sessionPayload.thoughts).toBeGreaterThanOrEqual(1);
+    expect(sessionPayload.planSteps).toBeGreaterThanOrEqual(2);
+  });
+
+  test('answers web_search with provider none when search is off and never hits the network', async () => {
+    const client = await connect();
+
+    const result = (await client.callTool({
+      name: 'web_search',
+      arguments: { query: 'actualité', provider: 'off', sessionId: 'e2e-session' },
+    })) as unknown as StructuredResult;
+    expect(result.isError).not.toBe(true);
+    const payload = payloadOf(result);
+    expect(payload.provider).toBe('none');
+    expect(payload.results).toEqual([]);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('exposes only search and fetch in connector mode', async () => {
+    const client = await connect({ includeSmartThinkingTool: false, includeWebTools: false });
+
+    const { tools } = await client.listTools();
+    expect(tools.map(tool => tool.name).sort()).toEqual(['fetch', 'search']);
   });
 });

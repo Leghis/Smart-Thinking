@@ -1,300 +1,285 @@
-import { MetricsCalculator } from '../metrics-calculator';
+import { promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
+
+import { SearchService } from '../search/search-service';
 import { VerificationService } from '../services/verification-service';
 import { SimilarityEngine } from '../similarity-engine';
-import { ToolIntegrator } from '../tool-integrator';
-import type { SuggestedTool, ThoughtMetrics, ThoughtNode, VerificationStatus } from '../types';
 import { VerificationMemory } from '../verification-memory';
+import type { ThoughtNode } from '../types';
 
-class ConfigurableToolIntegrator extends ToolIntegrator {
-  private suggestions: SuggestedTool[] = [];
-  private resultByToolName: Record<string, any> = {};
+const originalFetch = global.fetch;
 
-  setSuggestions(suggestions: SuggestedTool[]): void {
-    this.suggestions = suggestions;
-  }
-
-  setResult(toolName: string, result: any): void {
-    this.resultByToolName[toolName] = result;
-  }
-
-  async suggestVerificationTools(): Promise<SuggestedTool[]> {
-    return this.suggestions;
-  }
-
-  async executeVerificationTool(toolName: string, content: string): Promise<any> {
-    const resolved = this.resultByToolName[toolName];
-    if (resolved instanceof Error) {
-      throw resolved;
-    }
-    if (typeof resolved === 'function') {
-      return resolved(content);
-    }
-    return resolved ?? null;
-  }
+function jsonResponse(payload: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: {
+      get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
+    },
+    json: async () => payload,
+    text: async () => JSON.stringify(payload),
+  } as unknown as Response;
 }
 
-const createThought = (id: string, content: string, type: ThoughtNode['type'] = 'regular'): ThoughtNode => ({
-  id,
-  content,
-  type,
-  timestamp: new Date(),
-  connections: [],
-  metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 } as ThoughtMetrics,
-  metadata: {},
-});
+function webResult(id: number, title: string, content: string) {
+  return {
+    title,
+    url: `https://example.com/source-${id}`,
+    content,
+    score: 0.9,
+  };
+}
+
+const SUPPORT_CONTENT =
+  'Selon les mesures officielles, la tour Eiffel mesure 330 mètres de hauteur.';
+const CONTRADICT_CONTENT =
+  'La tour Eiffel ne mesure pas 330 mètres, cette affirmation est fausse.';
+
+function makeThought(id: string, content: string): ThoughtNode {
+  return {
+    id,
+    content,
+    type: 'regular',
+    timestamp: new Date(),
+    connections: [],
+    metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 },
+    metadata: {},
+  };
+}
 
 describe('VerificationService', () => {
-  let service: VerificationService;
-  let verificationMemory: VerificationMemory;
-  let toolIntegrator: ConfigurableToolIntegrator;
+  let tempDir: string;
+  let fetchMock: jest.Mock;
+  let memory: VerificationMemory;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'smart-thinking-verification-'));
     VerificationMemory.resetInstance();
-    verificationMemory = VerificationMemory.getInstance();
-    verificationMemory.setSimilarityEngine(new SimilarityEngine());
-
-    toolIntegrator = new ConfigurableToolIntegrator();
-    const metricsCalculator = new MetricsCalculator();
-    service = new VerificationService(toolIntegrator, metricsCalculator, verificationMemory);
+    memory = VerificationMemory.getInstance({ dataDir: tempDir, persistenceDisabled: true });
+    memory.stopCleanupTasks();
+    memory.setSimilarityEngine(new SimilarityEngine());
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
-  afterEach(() => {
-    verificationMemory.stopCleanupTasks();
+  afterEach(async () => {
     VerificationMemory.resetInstance();
+    global.fetch = originalFetch;
+    await fsp.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('retourne une pré-vérification vide quand aucune détection de calcul n’est requise', async () => {
-    const result = await service.performPreliminaryVerification('Texte descriptif simple.', false);
-    expect(result.initialVerification).toBe(false);
-    expect(result.verifiedCalculations).toBeUndefined();
-    expect(result.preverifiedThought).toBe('Texte descriptif simple.');
+  function createService(searchService?: SearchService): VerificationService {
+    return new VerificationService({
+      verificationMemory: memory,
+      searchService,
+      enableWebVerification: Boolean(searchService),
+      offline: true,
+    });
+  }
+
+  function createWebBackedService(): { service: VerificationService; searchService: SearchService } {
+    const searchService = new SearchService({
+      envApiKey: 'tavily-test-key',
+      defaultProvider: 'tavily',
+      timeoutMs: 500,
+    });
+    return { service: createService(searchService), searchService };
+  }
+
+  test('passes the calculation check for a correct math claim', async () => {
+    const service = createService();
+
+    const result = await service.verifyClaim({
+      claim: 'Le résultat de 2 + 2 = 4 est exact.',
+      checkConsistency: false,
+      checkWeb: false,
+    });
+
+    const calculation = result.checks?.find(check => check.name === 'calculation');
+    expect(calculation?.outcome).toBe('passed');
+    expect(result.status).toBe('partially_verified');
+    expect(result.verifiedCalculations?.[0]?.isCorrect).toBe(true);
   });
 
-  it('utilise les résultats externes de calcul quand disponibles', async () => {
-    toolIntegrator.setSuggestions([
-      { name: 'executePython', confidence: 0.9, reason: 'Calcul', priority: 1 },
-    ]);
-    toolIntegrator.setResult('executePython', {
-      verifiedCalculations: [
-        {
-          original: '2 + 2 = 4',
-          verified: '2 + 2 = 4',
-          isCorrect: true,
-          confidence: 0.99,
-        },
+  test('fails the calculation check and never marks a wrong claim as verified', async () => {
+    const service = createService();
+
+    const result = await service.verifyClaim({
+      claim: 'Le calcul 3 + 3 = 9 est faux.',
+      checkConsistency: false,
+      checkWeb: false,
+    });
+
+    const calculation = result.checks?.find(check => check.name === 'calculation');
+    expect(calculation?.outcome).toBe('failed');
+    expect(result.status).toBe('contradicted');
+    expect(result.status).not.toBe('verified');
+    expect(result.contradictions?.length).toBeGreaterThan(0);
+  });
+
+  test('keeps a categorical claim without evidence unverified', async () => {
+    const service = createService();
+
+    const result = await service.verifyClaim({
+      claim: 'Les chats sont des mammifères terrestres.',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: false,
+    });
+
+    expect(result.status).toBe('unverified');
+    expect(result.status).not.toBe('verified');
+  });
+
+  test('flags consistency conflicts with a connected thought containing a negation', async () => {
+    const service = createService();
+
+    const result = await service.verifyClaim({
+      claim: 'La méthode Alpha réduit le coût total de 30 pour cent.',
+      checkCalculation: false,
+      checkConsistency: true,
+      checkWeb: false,
+      connectedThoughts: [
+        makeThought('thought-1', 'La méthode Alpha donne un résultat faux pour le coût total.'),
       ],
     });
 
-    const result = await service.performPreliminaryVerification('Vérifions: 2 + 2 = 4', true);
-
-    expect(result.initialVerification).toBe(true);
-    expect(result.verifiedCalculations?.length).toBe(1);
-    expect(result.preverifiedThought).toContain('[✓ Vérifié]');
+    expect(result.status).toBe('contradictory');
+    expect(result.contradictions?.length).toBeGreaterThan(0);
+    expect(result.checks?.find(check => check.name === 'consistency')?.outcome).toBe('failed');
   });
 
-  it('récupère une vérification précédente depuis la mémoire et propage les statuts conclusion/revision', async () => {
-    const sessionId = 'session-prev';
-    const text = 'Le système refroidit de 5°C en 10 minutes.';
-
-    await verificationMemory.addVerification(text, 'verified', 0.92, ['source fiable'], sessionId);
-    const previous = await service.checkPreviousVerification(text, sessionId, 'regular', []);
-
-    expect(previous.previousVerification).not.toBeNull();
-    expect(previous.isVerified).toBe(true);
-    expect(previous.verificationStatus).toBe('verified');
-
-    const propagated = await service.checkPreviousVerification(
-      'Conclusion intermédiaire liée à des faits validés',
-      'session-propagation',
-      'conclusion',
-      ['a', 'b']
+  test('marks a claim verified with two independent supporting web sources', async () => {
+    const { service } = createWebBackedService();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        results: [
+          webResult(1, 'La tour Eiffel culmine à 330 mètres', SUPPORT_CONTENT),
+          webResult(2, 'Hauteur officielle de la tour Eiffel', SUPPORT_CONTENT),
+        ],
+      }),
     );
 
-    expect(propagated.isVerified).toBe(true);
-    expect(propagated.verificationStatus).toBe('partially_verified');
+    const result = await service.verifyClaim({
+      claim: 'La tour Eiffel mesure 330 mètres de hauteur.',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: true,
+    });
+
+    expect(result.status).toBe('verified');
+    expect(result.checks?.find(check => check.name === 'web')?.outcome).toBe('passed');
+    expect(result.evidence).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('met en cache et réutilise la vérification approfondie', async () => {
-    toolIntegrator.setSuggestions([
-      { name: 'tool_a', confidence: 0.9, reason: 'Source A', priority: 1 },
-      { name: 'tool_b', confidence: 0.9, reason: 'Source B', priority: 2 },
-    ]);
-    toolIntegrator.setResult('tool_a', { isValid: true, source: 'A', details: 'ok' });
-    toolIntegrator.setResult('tool_b', { isValid: true, source: 'B', details: 'ok' });
+  test('marks a claim partially verified with a single supporting web source', async () => {
+    const { service } = createWebBackedService();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        results: [webResult(1, 'La tour Eiffel culmine à 330 mètres', SUPPORT_CONTENT)],
+      }),
+    );
 
-    const content = 'Donnée factuelle: 15% de baisse observée.';
+    const result = await service.verifyClaim({
+      claim: 'La tour Eiffel mesure 330 mètres de hauteur.',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: true,
+    });
 
-    const firstThought = createThought('cache-1', content);
-    const first = await service.deepVerify(firstThought, false, true, 'cache-session');
-    expect(['verified', 'partially_verified']).toContain(first.status);
-
-    const secondThought = createThought('cache-2', content);
-    const second = await service.deepVerify(secondThought, false, false, 'cache-session');
-
-    expect(second.status).toBe(first.status);
-    expect(secondThought.metadata.verificationSource).toBe('cache');
+    expect(result.status).toBe('partially_verified');
   });
 
-  it('détecte les contradictions quand les résultats ne convergent pas', async () => {
-    const thought = createThought(
-      'contradiction',
-      'Il est certainement vrai et faux à la fois que ce chiffre est valide.'
+  test('marks a claim contradicted when the web source opposes it', async () => {
+    const { service } = createWebBackedService();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        results: [webResult(1, 'La tour Eiffel dément', CONTRADICT_CONTENT)],
+      }),
     );
 
-    const result = await (service as any).analyzeAndAggregateResults(
-      thought,
-      [
-        { toolName: 'tool_true', result: { isValid: true, source: 'Source positive', details: 'confirmé' }, confidence: 0.9, stage: 'primary' },
-        { toolName: 'tool_false', result: { isValid: false, source: 'Source négative', details: 'contredit' }, confidence: 0.85, stage: 'primary' },
-      ],
-      undefined,
-      'contradiction-session'
-    );
+    const result = await service.verifyClaim({
+      claim: 'La tour Eiffel mesure 330 mètres de hauteur.',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: true,
+    });
 
     expect(result.status).toBe('contradicted');
-    expect((result.contradictions ?? []).length).toBeGreaterThan(0);
-    expect(result.notes).toContain('contredit');
+    expect(result.contradictions?.length).toBeGreaterThan(0);
   });
 
-  it('vérifie les calculs en interne puis annote correctement les résultats', async () => {
-    const calcText = 'On calcule 3 + 3 = 9 et 2 + 2 = 4.';
-    const calcResults = await service.detectAndVerifyCalculations(calcText);
+  test('reports the native web method as unavailable without any network call', async () => {
+    const { service } = createWebBackedService();
 
-    expect(calcResults.length).toBeGreaterThan(0);
+    const result = await service.verifyClaim({
+      claim: 'La tour Eiffel mesure 330 mètres de hauteur.',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: true,
+      searchProvider: 'native',
+    });
 
-    const annotated = service.annotateThoughtWithVerifications(calcText, [
-      {
-        original: '3 + 3 = 9',
-        verified: '3 + 3 = 6',
-        isCorrect: false,
-        confidence: 0.99,
-      },
-      {
-        original: '2 + 2 = 4',
-        verified: '2 + 2 = 4',
-        isCorrect: true,
-        confidence: 0.99,
-      },
-      {
-        original: 'x(f)=f(x)',
-        verified: 'Notation de fonction',
-        isCorrect: true,
-        confidence: 0.5,
-      },
-    ]);
-
-    expect(annotated).toContain('[✗ Incorrect');
-    expect(annotated).toContain('[✓ Vérifié]');
-    expect(annotated).not.toContain('Notation de fonction [');
+    expect(result.methodsUnavailable).toContain('web-native');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('stocke les vérifications et expose les statuts associés', async () => {
-    const id = await service.storeVerification(
-      'Texte stocké',
-      'partially_verified',
-      0.66,
-      ['source de test'],
-      'store-session'
+  test('keeps the verification cache scoped to a single session', async () => {
+    const { service } = createWebBackedService();
+    const claim = 'La tour Eiffel mesure 330 mètres de hauteur.';
+
+    const first = await service.verifyClaim({
+      claim,
+      sessionId: 'cache-session-a',
+      checkConsistency: false,
+      checkWeb: false,
+    });
+    expect(first.status).toBe('unverified');
+
+    const cached = await service.verifyClaim({
+      claim,
+      sessionId: 'cache-session-a',
+      checkConsistency: false,
+      checkWeb: false,
+    });
+    expect(cached).toBe(first);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        results: [
+          webResult(1, 'La tour Eiffel culmine à 330 mètres', SUPPORT_CONTENT),
+          webResult(2, 'Hauteur officielle de la tour Eiffel', SUPPORT_CONTENT),
+        ],
+      }),
     );
 
-    expect(id).toContain('verification-');
+    const otherSession = await service.verifyClaim({
+      claim,
+      sessionId: 'cache-session-b',
+      checkConsistency: false,
+      checkWeb: true,
+    });
 
-    const statuses = await (service as any).getConnectedThoughtsVerificationStatus(['id-1', 'id-2']);
-    expect(statuses).toEqual(['partially_verified', 'partially_verified']);
+    expect(otherSession.status).toBe('verified');
+    expect(otherSession).not.toBe(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('couvre les helpers internes de timeout et de hash', async () => {
-    const resolved = await (service as any).executeWithTimeout(Promise.resolve('ok'), 50);
-    expect(resolved).toBe('ok');
+  test('annotates incorrect calculations with the failure marker', async () => {
+    const service = createService();
 
-    const rejected = await (service as any).executeWithTimeout(Promise.reject(new Error('boom')), 50);
-    expect(rejected).toBeNull();
+    const calculations = await service.detectAndVerifyCalculations('Le calcul 3 + 3 = 9 est faux.');
+    expect(calculations).toHaveLength(1);
+    expect(calculations[0].isCorrect).toBe(false);
 
-    const hashA = (service as any).hashString('abc');
-    const hashB = (service as any).hashString('abc');
-    const hashC = (service as any).hashString('abcd');
+    const annotated = service.annotateThoughtWithVerifications('Le calcul 3 + 3 = 9 est faux.', calculations);
+    expect(annotated).toContain('[✗');
+    expect(annotated).not.toContain('[✓');
 
-    expect(hashA).toBe(hashB);
-    expect(hashA).not.toBe(hashC);
-  });
-
-  it('analyse les caractéristiques de contenu et produit des notes de vérification', () => {
-    const characteristics = (service as any).analyzeContentCharacteristics(
-      "Ce rapport est une étude statistique de 2025: 42% des cas montrent que 3 + 2 = 5."
-    );
-
-    expect(characteristics.hasFactualClaims).toBe(true);
-    expect(characteristics.hasStatistics).toBe(true);
-    expect(characteristics.hasCalculations).toBe(true);
-
-    const notes = (service as any).generateVerificationNotes(
-      [
-        { toolName: 'alpha', result: { isValid: true } },
-        { toolName: 'beta', result: { isValid: false } },
-        { toolName: 'gamma', result: { isValid: undefined } },
-      ],
-      [{ original: '1+1', verified: '2', isCorrect: true, confidence: 1 }]
-    );
-
-    expect(notes).toContain('alpha');
-    expect(notes).toContain('contredit');
-    expect(notes).toContain('calcul');
-  });
-
-  it('détermine correctement les statuts et confiances internes', () => {
-    const thought = createThought('status', 'Texte');
-
-    const contradicted = (service as any).determineVerificationStatusAndConfidence(
-      [{ confidence: 0.8, result: { isValid: false } }],
-      thought
-    );
-    expect(contradicted.status).toBe('contradicted');
-
-    const verified = (service as any).determineVerificationStatusAndConfidence(
-      [
-        { confidence: 0.9, result: { isValid: true } },
-        { confidence: 0.91, result: { isValid: true } },
-      ],
-      thought
-    );
-    expect(verified.status).toBe('verified');
-
-    const partial = (service as any).determineVerificationStatusAndConfidence(
-      [{ confidence: 0.6, result: { isValid: true } }],
-      thought
-    );
-    expect(partial.status).toBe('partially_verified');
-
-    const absence = (service as any).determineVerificationStatusAndConfidence(
-      [{ confidence: 0.7, result: { isValid: 'absence_of_information' } }],
-      thought
-    );
-    expect(absence.status).toBe('absence_of_information');
-
-    const uncertain = (service as any).determineVerificationStatusAndConfidence(
-      [{ confidence: 0.7, result: { isValid: undefined } }],
-      thought
-    );
-    expect(uncertain.status).toBe('uncertain');
-
-    const avg = (service as any).calculateAverageConfidence([
-      { confidence: 0.6 },
-      { confidence: 0.8 },
-      { confidence: 1 },
-    ]);
-    expect(avg).toBeCloseTo(0.8, 5);
-  });
-
-  it('renvoie les statuts attendus dans la vérification précédente via cache interne', async () => {
-    const session = 'cache-prev-session';
-    const content = 'Texte unique pour cache précédent';
-
-    await service.storeVerification(content, 'verified' as VerificationStatus, 0.9, ['cache-source'], session);
-    const first = await service.checkPreviousVerification(content, session, 'regular', []);
-    expect(first.previousVerification).not.toBeNull();
-
-    const second = await service.checkPreviousVerification(content, session, 'regular', []);
-    expect(second.previousVerification?.similarity).toBe(1);
-    expect(second.certaintySummary).toContain('mise en cache');
+    const correct = await service.detectAndVerifyCalculations('2 + 2 = 4');
+    expect(service.annotateThoughtWithVerifications('2 + 2 = 4', correct)).toContain('[✓');
   });
 });

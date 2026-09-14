@@ -1,123 +1,161 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/leghis-smart-thinking-badge.png)](https://mseep.ai/app/leghis-smart-thinking)
-
 # Smart-Thinking
 
 [![npm version](https://img.shields.io/npm/v/smart-thinking-mcp.svg)](https://www.npmjs.com/package/smart-thinking-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.1.6-blue)](https://www.typescriptlang.org/)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-blue)](https://github.com/Leghis/smart-thinking-mcp)
-[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-blue)](https://github.com/Leghis/smart-thinking-mcp)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue)](https://github.com/Leghis/smart-thinking-mcp)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-blue)](https://github.com/Leghis/Smart-Thinking)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-blue)](https://github.com/Leghis/Smart-Thinking)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue)](https://github.com/Leghis/Smart-Thinking)
 
-Smart-Thinking is a Model Context Protocol (MCP) server that delivers graph-based, multi-step reasoning without relying on external AI APIs. Everything happens locally: similarity search, heuristic-based scoring, verification tracking, memory, and visualization all run in a deterministic pipeline designed for transparency and reproducibility.
+**v13 — un serveur MCP qui rend les LLM dramatiquement meilleurs sur les problèmes complexes.**
 
-## Core Capabilities
-- Graph-first reasoning that connects thoughts with rich relationships (supports, contradicts, refines, contextual links, and more).
-- Local TF-IDF + cosine similarity engine powering memory lookups and graph expansion without third-party embedding services.
-- Heuristic quality evaluation that scores confidence, relevance, and quality using transparent rules instead of LLM calls.
-- Verification workflow with detailed statuses and calculation tracing to surface facts, guardrails, and uncertainties.
-- Persistent sessions that can be resumed across runs, keeping both the reasoning graph and verification ledger in sync.
+Un LLM seul improvise. Branché sur Smart-Thinking, il planifie, structure, vérifie, cite ses sources et reprend son raisonnement entre les sessions. L'objectif est simple : donner à n'importe quel modèle — y compris de taille moyenne — les outils qui le font passer d'une réponse plausible à une réponse fiable.
 
-## Reasoning Flow
-1. **Session bootstrap** – `ReasoningOrchestrator` initializes a session, restores any saved graph state, and prepares feature flags.
-2. **Pre-verification** – deterministic guards inspect the incoming thought, perform light-weight calculation checks, and annotate the payload.
-3. **Graph integration** – the thought is inserted into `ThoughtGraph`, linking to context, prior thoughts, and relevant memories.
-4. **Heuristic evaluation** – `QualityEvaluator` and `MetricsCalculator` compute weighted scores and traces that explain the decision path.
-5. **Verification feedback** – statuses from `VerificationService` and heuristic traces are attached to the node and propagated across connections.
-6. **Persistence & response** – updates are written to `MemoryManager`/`VerificationMemory`, and a structured MCP response is returned with a timeline of reasoning steps.
+## Pourquoi Smart-Thinking
 
-Each step is logged with structured metadata so you can visualize the reasoning fabric, audit decisions, and replay sessions deterministically.
+| Sans Smart-Thinking | Avec Smart-Thinking |
+| --- | --- |
+| Réponse en un seul jet, non vérifiable | Plan explicite en étapes testables (`plan`) |
+| Calculs à l'œil, erreurs silencieuses | Solveurs exacts (`calculate`, `solve_math`, `solve_logic`) + `verify` |
+| Faits hallucinés | Sources web réelles et citées (`web_search`) |
+| Oublie tout d'un tour à l'autre | Graphe de pensées + mémoire persistante (`smartthinking`) |
+| Ne distingue pas fait et hypothèse | Statut de vérification et confiance explicites |
+| Recherche web absente ou opaque | Tavily par utilisateur, ou délégation au moteur natif du client |
+
+Les preuves mesurées (tests, couverture, benchmark avec/sans l'outil) sont dans [`proofs/PROOFS.md`](proofs/PROOFS.md).
+
+## Outils MCP
+
+| Outil | Rôle |
+| --- | --- |
+| `protocol` | Protocole scientifique standard : classer le domaine, plan, calcul exact, certificats, pièges, format de réponse. |
+| `compute` | Sandbox Python exact (sympy/numpy/scipy/mpmath) pour produire des certificats (CRT, LP, corps finis, valeurs propres, énumérations). |
+| `claim` / `audit` | Registre de certificats : aucun résultat sans méthode ni preuve ; audit avant la réponse finale. |
+| `calculate` | Calcul déterministe d'expressions (`(120*0.45)`, `Math.sqrt(144)`, `12*4+6 = 54`). |
+| `solve_logic` | Solveur exact d'ordre/classement (avant/après, plus rapide/lent, >/<) : ordre unique ou contradiction. |
+| `solve_math` | Solveur exact d'équations linéaires, systèmes et quadratiques. |
+| `cas` | Calcul symbolique exact (SymPy) : identités, factorisation, polynôme minimal, congruences, fonctions elliptiques. |
+| `math_knowledge` | Base de connaissances mathématiques classiques (Weierstrass, duplication, réseau carré, Gauss/Eisenstein, méthodes de preuve). |
+| `research` | Recherche web multi-hop : sous-questions, enchaînement Tavily, réponses candidates sourcées. |
+| `critique` | Revue adversariale d'un brouillon (erreurs, faits non prouvés, étapes manquantes) via modèle assistant. |
+| `smartthinking` | Cœur du système : ajoute une pensée au graphe (métriques, vérification, plan, hypothèses, prochaines étapes). |
+| `plan` | Décompose un objectif en 2–20 étapes ordonnées avec critères de succès. |
+| `verify` | Vérifie une affirmation : calculs, cohérence de session, sources web. Ne marque jamais « vérifié » sans preuve. |
+| `web_search` | Recherche web via Tavily, ou délégation native si aucun moteur serveur n'est configuré. |
+| `search` | Recherche unifiée mémoires + web (compatible connecteurs OpenAI/ChatGPT). |
+| `fetch` | Récupère une mémoire par id **ou** le contenu texte d'une URL. |
+| `session` | État, export, reset, configuration de la clé Tavily, mise à jour du plan. |
+
+Prompts MCP fournis : `smartthinking-deep-reasoning`, `smartthinking-reasoning-plan`, `smartthinking-verify-claim`.
+
+## Recherche web : Tavily ou natif
+
+Smart-Thinking ne force aucune clé API. Trois modes :
+
+1. **Natif (défaut)** — si le client LLM possède sa propre recherche (ChatGPT, Claude avec web, Gemini…), `web_search` renvoie une demande d'action structurée et le modèle exécute sa recherche lui-même.
+2. **Tavily par utilisateur** — sans moteur natif, chaque utilisateur connecte sa clé :
+   - globalement : `export TAVILY_API_KEY=tvly-...`
+   - ou par session, sans écrire la clé sur disque :
+     ```
+     session(action="configure_search", provider="tavily", tavilyApiKey="tvly-...", sessionId="...")
+     ```
+3. **Désactivé** — `provider="off"` pour un mode 100 % local.
+
+Dans tous les cas, `verify` précise ce qui a réellement été vérifié et ce qui ne l'a pas été (`methodsUnavailable`).
 
 ## Installation
-Smart-Thinking ships as an npm package compatible with Windows, macOS, and Linux.
 
-### Global install (recommended)
 ```bash
-npm install -g smart-thinking-mcp
+npm install -g smart-thinking-mcp      # global
+npx -y smart-thinking-mcp              # sans installation
 ```
 
-### Run with npx
-```bash
-npx -y smart-thinking-mcp
+### Claude Desktop / Claude Code (stdio)
+
+```json
+{
+  "mcpServers": {
+    "smart-thinking": {
+      "command": "npx",
+      "args": ["-y", "smart-thinking-mcp"]
+    }
+  }
+}
 ```
 
-### From source
+### HTTP / SSE (clients distants, ChatGPT connectors)
+
 ```bash
-git clone https://github.com/Leghis/Smart-Thinking.git
-cd Smart-Thinking
-npm install
-npm run build
-npm link
+SMART_THINKING_MODE=connector node build/index.js --transport=http --host 0.0.0.0 --port 8000
+# SSE : http://<host>:8000/sse   |   Streamable HTTP : http://<host>:8000/mcp
 ```
 
-> Need platform-specific configuration details? See `GUIDE_INSTALLATION.md` for step-by-step instructions covering Windows, macOS, Linux, and Claude Desktop integration.
+Le mode connector expose uniquement `search` et `fetch`, dont `search` peut interroger le web via Tavily.
 
-## Quick Tour
-- `smart-thinking-mcp` — start the MCP server (globally installed package).
-- `npx -y smart-thinking-mcp` — launch without a global install.
-- `npm run start` — execute the built server from source.
-- `npm run demo:session` — run the built-in CLI walkthrough that feeds sample thoughts through the reasoning pipeline and prints the resulting timeline.
+## Configuration
 
-The demo script showcases how the orchestrator adds nodes, evaluates heuristics, and records verification feedback step by step.
-
-## MCP Client Compatibility
-Smart-Thinking is validated across the most popular MCP clients and operating systems. Use the new connector mode (`--mode=connector` or `SMART_THINKING_MODE=connector`) when a client only accepts the `search` and `fetch` tools required by ChatGPT connectors.[^openai-mcp]
-
-| Client | Transport | Notes |
+| Variable | Effet | Défaut |
 | --- | --- | --- |
-| **ChatGPT Connectors & Deep Research** | HTTP + SSE | Deploy with `SMART_THINKING_MODE=connector node build/index.js --transport=http --host 0.0.0.0 --port 8000`. Point ChatGPT to `https://<host>/sse` and keep only `search`/`fetch` enabled, aligning with OpenAI’s remote MCP guidance.[^openai-mcp] |
-| **OpenAI Codex CLI & Agents SDK** | Streamable HTTP / SSE | Configure the Codex agent with `http://localhost:3000/mcp` or `http://localhost:3000/sse` and set `SMART_THINKING_MODE=connector` when only knowledge retrieval is needed.[^openai-agents] |
-| **Claude Desktop / Claude Code** | stdio | Add `"command": "smart-thinking-mcp"` (or an `npx` command) to `claude_desktop_config.json`. Full toolset is available.[^mcp-clients] |
-| **Cursor IDE** | stdio / SSE / Streamable HTTP | Add the server to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`. Cursor supports prompts, roots, elicitation, and streaming.[^cursor-mcp] |
-| **Cline (VS Code)** | stdio | Place the command in `~/Documents/Cline/MCP/smart-thinking.json` or use the in-app marketplace to register the toolset.[^mcp-clients] |
-| **Kilo Code** | stdio | Register via the MCP marketplace and run the server locally; Smart-Thinking exposes deterministic tooling for autonomous edits.[^mcp-clients] |
+| `TAVILY_API_KEY` | Active la recherche web serveur | — |
+| `SMART_THINKING_SEARCH_PROVIDER` | `auto` \| `tavily` \| `native` \| `off` | `auto` |
+| `SMART_THINKING_SEARCH_DEPTH` | `basic` \| `advanced` | `basic` |
+| `SMART_THINKING_MODE` | `full` \| `connector` | `full` |
+| `SMART_THINKING_LOG_LEVEL` | `silent` \| `error` \| `warn` \| `info` \| `debug` | `info` |
+| `SMART_THINKING_DATA_DIR` | Répertoire de données | plateforme |
+| `SMART_THINKING_DISABLE_PERSISTENCE` | `true` pour désactiver l'écriture disque | `false` |
 
-> Need a minimal deployment footprint? Combine `--transport=http --mode=connector` with a reverse proxy (ngrok, fly.io, render, etc.) so remote clients can consume the server without exposing the full toolset.
-
-For registry scanners and fallback metadata extraction, Smart-Thinking also exposes:
-
-- `GET /.well-known/mcp/server-card.json`
-
-## Configuration & Feature Flags
-- `feature-flags.ts` toggles advanced behaviours such as external integrations (disabled by default) and verbose tracing.
-- `config.ts` aligns platform-specific paths and verification thresholds.
-- `memory-manager.ts` and `verification-memory.ts` store session graphs, metrics, and calculation results using deterministic JSON snapshots.
-
-## Zero-API-Key Mode (Default)
-- Smart-Thinking runs fully in local deterministic mode without any API key.
-- External verification/search connectors are disabled by default in `ToolIntegrator`.
-- To explicitly enable external connectors, set:
+## Développement
 
 ```bash
-export SMART_THINKING_ENABLE_EXTERNAL_TOOLS=true
+npm run build          # compilation TypeScript
+npm run lint           # ESLint strict
+npm test               # 171 tests (unitaires, intégration, E2E MCP)
+npm run test:coverage  # couverture
+npm run bench:sim      # benchmark hors-ligne déterministe
+npm run bench:ab       # A/B avec un vrai LLM (OpenAI-compatible / DeepSeek)
+npm run proof          # tests + couverture + benchmark → proofs/PROOFS.md
+npm run challenge      # harnais de cas (session LLM neuve + MCP, modes bare/autonomous/guided)
 ```
 
-- If external connectors are disabled (default), verification suggestions stay local (`executePython`, `executeJavaScript`) and external tool calls return a local fallback result.
-- `FeatureFlags.externalLlmEnabled` and `FeatureFlags.externalEmbeddingEnabled` remain disabled by default, so no remote LLM/embedding provider is required.
+## Architecture
 
-## Development Workflow
-```bash
-npm run build           # Compile TypeScript sources
-npm run lint            # ESLint across src/
-npm run test            # Jest test suite
-npm run test:coverage   # Jest coverage report
-npm run watch           # Incremental TypeScript compilation
+```
+src/
+  reasoning-orchestrator.ts   pipeline (contexte → graphe → métriques → vérification → réponse)
+  planner.ts / hypotheses.ts  planification et suivi d'hypothèses
+  thought-graph.ts            graphe de pensées (façade passive)
+  connection-inference.ts     inférence de relations
+  step-suggester.ts           suggestions d'étapes suivantes
+  metrics-calculator.ts       heuristiques de confiance/pertinence/qualité
+  verification-needs.ts       besoins de vérification, biais, résumés de certitude
+  services/verification-service.ts  vérification réelle (calculs, cohérence, web)
+  search/                     Tavily, fetch URL sécurisé, délégation native
+  session-store.ts            plan, hypothèses, preuves, config de session
+  memory-manager.ts           mémoires locales par session
+  verification-memory.ts      index persistant des vérifications
+  server/                     serveur MCP, contrats, outils, prompts, ressources
+  bench/                      harness A/B (simulation hors-ligne + LLM réel)
 ```
 
-See `docs/modernisation-smart-thinking-v12-plan.md` for the modernization checklist and rollout tracking.
+Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Quality & Support
-- Deterministic heuristics and verification eliminate dependency on remote LLMs.
-- Latest validation (February 6, 2026): `80.47%` statements, `81.59%` lines, `84.34%` functions, `63.48%` branches.
-- CI recommendations: run `npm run lint` and `npm run test:coverage` before each release candidate.
+## Qualité & preuves
 
-## Contributing
-Contributions are welcome. Please open an issue or pull request describing the change, and run the quality checks above before submitting.
+- 195 tests passent (25 suites), dont un E2E MCP complet via `InMemoryTransport`.
+- Couverture : 82,0 % lignes / 81,1 % statements / 64,8 % branches (base de code élargie : CAS, solveurs, recherche multi-hop).
+- Benchmark reproductible avec et sans Smart-Thinking : `npm run proof`.
+- Vérification honnête : aucun résultat simulé ne peut être présenté comme vérifié ; les modules de vérification ne fabriquent jamais de sources.
+- Calculateur déterministe (`calculate`) : les LLM ne font plus de calcul mental faillible.
 
-## License
-[MIT](./LICENSE)
+Résultats mesurés (détail complet : [`proofs/RAPPORT-TESTS.md`](proofs/RAPPORT-TESTS.md)) :
+- Harnais de cas : `npm run challenge -- --dir=<dossier> --concurrency=10`; un dossier contient `enonces.jsonl` (+ `corrections.jsonl`, `certificats.json` optionnels). Modes `bare` (sans outils), `autonomous` (outils) et `guided` (protocole standard). Rapports dans `proofs/case-run-*.json|md`.
 
-[^openai-mcp]: OpenAI, “Building MCP servers for ChatGPT and API integrations,” highlights that connectors require `search` and `fetch` tools for remote use. (https://platform.openai.com/docs/mcp)
-[^openai-agents]: OpenAI Agents SDK documentation on MCP transports (stdio, SSE, streamable HTTP). (https://openai.github.io/openai-agents-python/mcp/)
-[^mcp-clients]: Model Context Protocol client catalogue listing Claude, Cline, Kilo Code, and other MCP-compatible applications. (https://modelcontextprotocol.io/clients)
-[^cursor-mcp]: Cursor documentation for configuring MCP servers via stdio/SSE/HTTP transports. (https://cursor.com/docs/context/mcp)
+| Campagne (deepseek-v4.1-flash) | Sans outil | Avec outil | Delta |
+| --- | ---: | ---: | ---: |
+| Benchmark global, 67 tâches réelles | 90,3 % | **91,8 %** | **+1,5 pts** |
+| HotpotQA multi-hop (web) | 73,3 % | **80,0 %** | **+6,7 pts** |
+| Suite « levier outil » | 78,6 % | **92,9 %** | **+14,3 pts** |
+| Défi Violet (fonctions elliptiques, guidé) | 52,5 % | **89,7 %** | **+37,2 pts** (juge 9/10) |
+
+GSM8K : 96 % → 92 % (une seule tâche perdue, erreur de compréhension d'énoncé). BBH logique et
+tâches dures : 100 % dans les deux conditions (plafond).

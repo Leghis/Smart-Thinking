@@ -2,67 +2,110 @@ import { MemoryItem } from './types';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { SimilarityEngine } from './similarity-engine';
+import { LIMITS } from './constants';
 import { PathUtils } from './utils/path-utils';
 import {
+  assertSafeSessionId,
   prepareMemoryForStorage,
   sanitizeKnowledgeBase,
   sanitizeMemoryItem,
+  writeFileAtomic,
+  writeJsonAtomic,
 } from './utils/persistence-utils';
 
-// Constante pour contrôler l'affichage des logs de débogage
-const DEBUG_MODE = false;
 const isTestEnvironment = process.env.NODE_ENV === 'test';
+const SAVE_DEBOUNCE_MS = 50;
+const KEYWORD_TOKEN_MIN_LENGTH = 3;
+const MEMORY_RELEVANCE_THRESHOLD = 0.3;
 
-/**
- * Classe qui gère la mémoire persistante des sessions précédentes
- */
+export interface MemoryManagerOptions {
+  dataDir?: string;
+  persistenceDisabled?: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export class MemoryManager {
   private memories: Map<string, MemoryItem> = new Map();
-  private knowledgeBase: Map<string, any> = new Map();
-  private similarityEngine?: SimilarityEngine;
-  
-  // Chemins pour les fichiers de persistance
-  private dataDir: string;
-  private memoriesDir: string;
-  private knowledgeFilePath: string;
-  private initialization: Promise<void>;
+  private knowledgeBase: Map<string, unknown> = new Map();
+  private sessionMemoryIds: Map<string, string[]> = new Map();
+
+  private readonly similarityEngine?: SimilarityEngine;
+  private readonly dataDir: string;
+  private readonly memoriesDir: string;
+  private readonly knowledgeFilePath: string;
+  private readonly initialization: Promise<void>;
   private saveQueue: Promise<void> = Promise.resolve();
-  
-  constructor(similarityEngine?: SimilarityEngine) {
+  private saveTimer: NodeJS.Timeout | null = null;
+  private savePending = false;
+  private persistenceEnabled = true;
+
+  constructor(similarityEngine?: SimilarityEngine, options: MemoryManagerOptions = {}) {
     this.similarityEngine = similarityEngine;
-    
-    // Initialiser les chemins de fichiers - utiliser des chemins absolus
-    this.dataDir = PathUtils.getDataDirectory();
+    this.dataDir = PathUtils.resolveDataDirectory(options.dataDir);
     this.memoriesDir = path.join(this.dataDir, 'memories');
     this.knowledgeFilePath = path.join(this.dataDir, 'knowledge.json');
-    
-    // Log uniquement en mode debug
-    this.debugLog(`Chemins de stockage initialisés:
-    - dataDir: ${this.dataDir}
-    - memoriesDir: ${this.memoriesDir}
-    - knowledgeFilePath: ${this.knowledgeFilePath}`);
-    
-    // Charger les mémoires et la base de connaissances depuis le stockage persistant
-    this.initialization = this.loadFromStorage();
+    if (options.persistenceDisabled) {
+      this.persistenceEnabled = false;
+    }
+
+    this.initialization = this.persistenceEnabled ? this.loadFromStorage() : Promise.resolve();
   }
-  
-  /**
-   * Fonction de log pour le débogage uniquement
-   * @param message Message à logger
-   */
-  private debugLog(message: string): void {
-    if (DEBUG_MODE) {
-      console.error(`Smart-Thinking Debug: ${message}`);
+
+  private resolveSessionId(value: unknown): string {
+    try {
+      return assertSafeSessionId(value);
+    } catch {
+      return LIMITS.DEFAULT_SESSION_ID;
+    }
+  }
+
+  private getMemorySessionId(memory: MemoryItem): string {
+    return this.resolveSessionId(memory.metadata?.sessionId);
+  }
+
+  private remember(memory: MemoryItem): void {
+    this.memories.set(memory.id, memory);
+    const sessionId = this.getMemorySessionId(memory);
+    const ids = this.sessionMemoryIds.get(sessionId) ?? [];
+    if (!ids.includes(memory.id)) {
+      ids.push(memory.id);
+    }
+    this.sessionMemoryIds.set(sessionId, ids);
+  }
+
+  private enforceSessionLimit(sessionId: string): void {
+    const ids = this.sessionMemoryIds.get(sessionId);
+    if (!ids) {
+      return;
+    }
+    while (ids.length > LIMITS.MAX_MEMORY_ITEMS_PER_SESSION) {
+      const oldestId = ids.shift();
+      if (oldestId === undefined) {
+        break;
+      }
+      this.memories.delete(oldestId);
+    }
+    if (ids.length === 0) {
+      this.sessionMemoryIds.delete(sessionId);
     }
   }
 
   private requestSave(): void {
-    if (isTestEnvironment) {
+    this.savePending = true;
+    if (isTestEnvironment || this.saveTimer) {
       return;
     }
-    this.enqueueSave().catch(error => {
-      console.error('Smart-Thinking: Échec de la sauvegarde asynchrone:', error);
-    });
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      void this.enqueueSave().catch(error => {
+        console.error('Smart-Thinking: Échec de la sauvegarde asynchrone:', error);
+      });
+    }, SAVE_DEBOUNCE_MS);
+    this.saveTimer.unref?.();
   }
 
   private enqueueSave(): Promise<void> {
@@ -70,538 +113,272 @@ export class MemoryManager {
       .catch(() => undefined)
       .then(async () => {
         await this.initialization.catch(() => undefined);
+        if (!this.savePending || !this.persistenceEnabled) {
+          return;
+        }
+        this.savePending = false;
         await this.saveToStorageInternal();
       });
 
     return this.saveQueue;
   }
 
-  private async writeFileAtomic(filePath: string, content: string): Promise<void> {
-    const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    try {
-      await fs.writeFile(tempPath, content, 'utf8');
-      await fs.rename(tempPath, filePath);
-    } catch (error) {
-      await fs.unlink(tempPath).catch(() => undefined);
-      throw error;
+  public async flush(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
     }
+    await this.enqueueSave();
   }
 
-  private async writeJsonAtomic(filePath: string, payload: unknown): Promise<void> {
-    await this.writeFileAtomic(filePath, JSON.stringify(payload, null, 2));
-  }
-  
-  /**
-   * Génère un identifiant unique
-   */
-  private generateUniqueId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-  }
-  
-  /**
-   * Assure que les répertoires de stockage nécessaires existent
-   */
   private async ensureDirectoriesExist(): Promise<void> {
     try {
-      // Utiliser PathUtils pour créer les répertoires avec des chemins absolus
       await PathUtils.ensureDirectoryExists(this.dataDir);
       await PathUtils.ensureDirectoryExists(this.memoriesDir);
-      
-      this.debugLog(`Répertoires de données créés ou confirmés:
-      - dataDir: ${this.dataDir}
-      - memoriesDir: ${this.memoriesDir}`);
     } catch (error) {
-      // Log d'erreur important - garder
-      console.error('Smart-Thinking: Erreur lors de la création des répertoires:', error);
-      
-      // En cas d'échec, utiliser un répertoire temporaire comme fallback
-      try {
-        const tempDir = PathUtils.getTempDirectory();
-        const tempMemoriesDir = path.join(tempDir, 'memories');
-        
-        // S'assurer que le chemin est absolu
-        await fs.mkdir(tempMemoriesDir, { recursive: true, mode: 0o777 });
-        
-        // Mettre à jour les chemins
-        this.dataDir = tempDir;
-        this.memoriesDir = tempMemoriesDir;
-        this.knowledgeFilePath = path.join(tempDir, 'knowledge.json');
-        
-        this.debugLog(`Utilisation des répertoires temporaires:
-        - dataDir: ${this.dataDir}
-        - memoriesDir: ${this.memoriesDir}
-        - knowledgeFilePath: ${this.knowledgeFilePath}`);
-      } catch (fallbackError) {
-        // Log d'erreur important - garder
-        console.error('Smart-Thinking: Échec de la création des répertoires temporaires:', fallbackError);
-        
-        // Si tout échoue, utiliser des objets en mémoire uniquement
-        this.debugLog('Fonctionnement en mode mémoire uniquement (sans persistance)');
-      }
+      this.persistenceEnabled = false;
+      console.error('Smart-Thinking: Persistance désactivée, création des répertoires impossible:', error);
     }
   }
-  
-  /**
-   * Charge les mémoires et la base de connaissances depuis le stockage persistant
-   */
+
   private async loadFromStorage(): Promise<void> {
     try {
-      // S'assurer que les répertoires existent
       await this.ensureDirectoriesExist();
-      
-      // Essayer de charger les mémoires depuis le répertoire memories
-      const memoriesLoaded = await this.loadMemoriesFromFiles();
-      
-      // Si aucune mémoire n'a été chargée, utiliser les exemples prédéfinis
-      if (!memoriesLoaded) {
-        const savedMemories = this.getSavedMemories();
-        
-        if (savedMemories.length > 0) {
-          for (const memory of savedMemories) {
-            const sanitizedMemory = sanitizeMemoryItem(memory);
-            if (!sanitizedMemory) {
-              continue;
-            }
-
-            this.memories.set(sanitizedMemory.id, sanitizedMemory);
-          }
-        }
+      if (!this.persistenceEnabled) {
+        return;
       }
-      
-      // Essayer de charger la base de connaissances depuis le fichier knowledge.json
-      const knowledgeLoaded = await this.loadKnowledgeFromFile();
-
-      // Si la base de connaissances n'a pas été chargée, utiliser les exemples prédéfinis
-      if (!knowledgeLoaded) {
-        const savedKnowledge = sanitizeKnowledgeBase(this.getSavedKnowledge());
-
-        if (Object.keys(savedKnowledge).length > 0) {
-          for (const [key, value] of Object.entries(savedKnowledge)) {
-            this.knowledgeBase.set(key, value);
-          }
-        }
-      }
-      
-      this.debugLog('Chargement des données terminé');
+      await this.loadMemoriesFromFiles();
+      await this.loadKnowledgeFromFile();
     } catch (error) {
-      // Log d'erreur important - garder
       console.error('Erreur lors du chargement de la mémoire:', error);
-      
-      // En cas d'erreur, utiliser les données prédéfinies
-      const savedMemories = this.getSavedMemories();
-      
-      if (savedMemories.length > 0) {
-        for (const memory of savedMemories) {
-          const sanitizedMemory = sanitizeMemoryItem(memory);
-          if (!sanitizedMemory) {
+    }
+  }
+
+  private async loadMemoriesFromFiles(): Promise<void> {
+    const accessible = await fs.access(this.memoriesDir, fs.constants.R_OK)
+      .then(() => true)
+      .catch(() => false);
+
+    if (!accessible) {
+      return;
+    }
+
+    const files = await fs.readdir(this.memoriesDir).catch(() => [] as string[]);
+    for (const file of files) {
+      if (!file.endsWith('.json')) {
+        continue;
+      }
+
+      const rawSessionId = file.slice(0, -'.json'.length);
+      try {
+        assertSafeSessionId(rawSessionId);
+      } catch {
+        continue;
+      }
+
+      try {
+        const content = await fs.readFile(path.join(this.memoriesDir, file), 'utf8');
+        const parsed: unknown = JSON.parse(content);
+        const items = Array.isArray(parsed)
+          ? parsed
+          : isRecord(parsed) && Array.isArray(parsed.memories)
+            ? parsed.memories
+            : [];
+
+        for (const rawItem of items) {
+          const memory = sanitizeMemoryItem(rawItem);
+          if (!memory) {
             continue;
           }
-
-          this.memories.set(sanitizedMemory.id, sanitizedMemory);
+          memory.metadata = {
+            ...(memory.metadata ?? {}),
+            sessionId: this.resolveSessionId(memory.metadata?.sessionId),
+          };
+          this.remember(memory);
         }
-      }
-
-      const savedKnowledge = sanitizeKnowledgeBase(this.getSavedKnowledge());
-
-      if (Object.keys(savedKnowledge).length > 0) {
-        for (const [key, value] of Object.entries(savedKnowledge)) {
-          this.knowledgeBase.set(key, value);
-        }
+      } catch (error) {
+        console.error(`Erreur lors du chargement du fichier ${file}:`, error);
       }
     }
   }
-  
-  /**
-   * Charge les mémoires depuis les fichiers dans le répertoire memories
-   * @returns true si au moins une mémoire a été chargée, false sinon
-   */
-  private async loadMemoriesFromFiles(): Promise<boolean> {
-    try {
-      this.debugLog(`Tentative de lecture du répertoire de mémoires: ${this.memoriesDir}`);
-      
-      // Vérifie si le répertoire existe
-      try {
-        await fs.access(this.memoriesDir, fs.constants.R_OK);
-      } catch (_accessError) {
-        this.debugLog(`Répertoire de mémoires inaccessible: ${_accessError}`);
-        return false;
-      }
-      
-      // Lire la liste des fichiers dans le répertoire memories
-      const files = await fs.readdir(this.memoriesDir);
-      const jsonFiles = files.filter(file => file.endsWith('.json'));
-      
-      this.debugLog(`${jsonFiles.length} fichiers JSON trouvés dans le répertoire de mémoires`);
-      
-      if (jsonFiles.length === 0) {
-        return false;
-      }
-      
-      let memoryLoaded = false;
-      
-      // Charger chaque fichier JSON
-      for (const file of jsonFiles) {
-        try {
-          const filePath = path.join(this.memoriesDir, file);
-          const content = await fs.readFile(filePath, 'utf8');
-          const parsedContent = JSON.parse(content);
-          const memoryItems = Array.isArray(parsedContent) ? parsedContent : [];
 
-          for (const rawItem of memoryItems) {
-            const sanitizedItem = sanitizeMemoryItem(rawItem);
-            if (!sanitizedItem) {
-              continue;
-            }
-
-            this.memories.set(sanitizedItem.id, sanitizedItem);
-            memoryLoaded = true;
-          }
-        } catch (fileError) {
-          // Log d'erreur important - garder
-          console.error(`Erreur lors du chargement du fichier ${file}:`, fileError);
-          // Continuer avec le fichier suivant
-        }
-      }
-      
-      return memoryLoaded;
-    } catch (error) {
-      // Log d'erreur important - garder
-      console.error('Erreur lors du chargement des mémoires depuis les fichiers:', error);
-      return false;
-    }
-  }
-  
-  /**
-   * Charge la base de connaissances depuis le fichier knowledge.json
-   * @returns true si la base de connaissances a été chargée, false sinon
-   */
-  private async loadKnowledgeFromFile(): Promise<boolean> {
+  private async loadKnowledgeFromFile(): Promise<void> {
     try {
-      // Vérifier si le fichier knowledge.json existe
-      const exists = await fs.stat(this.knowledgeFilePath)
-        .then(() => true)
-        .catch(() => false);
-      
-      if (!exists) {
-        return false;
-      }
-      
-      // Lire le fichier knowledge.json
       const content = await fs.readFile(this.knowledgeFilePath, 'utf8');
       const knowledge = sanitizeKnowledgeBase(JSON.parse(content));
-
-      // Traiter chaque entrée de la base de connaissances
       for (const [key, value] of Object.entries(knowledge)) {
         this.knowledgeBase.set(key, value);
       }
-      
-      return true;
     } catch (error) {
-      // Log d'erreur important - garder
-      console.error('Erreur lors du chargement de la base de connaissances:', error);
-      return false;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('Erreur lors du chargement de la base de connaissances:', error);
+      }
     }
   }
-  
-  /**
-   * Simule la récupération de mémoires sauvegardées
-   * Utilisé comme fallback si aucun fichier n'est disponible
-   */
-  private getSavedMemories(): MemoryItem[] {
-    // Exemple de mémoires préconfigurées pour la démonstration
-    return [
-      {
-        id: 'mem1',
-        content: 'La structure en graphe est plus flexible que la structure linéaire pour représenter des pensées complexes.',
-        tags: ['structure', 'graphe', 'raisonnement'],
-        timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 jours avant
-      },
-      {
-        id: 'mem2',
-        content: 'L\'auto-évaluation régulière du processus de raisonnement améliore sa qualité globale.',
-        tags: ['méta-cognition', 'évaluation', 'qualité'],
-        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 jours avant
-      },
-      {
-        id: 'mem3',
-        content: 'Intégrer des outils de recherche dans le processus de raisonnement permet une vérification factuelle en temps réel.',
-        tags: ['outils', 'recherche', 'vérification', 'faits'],
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 jour avant
-      }
-    ];
-  }
-  
-  /**
-   * Simule la récupération de connaissances sauvegardées
-   * Utilisé comme fallback si aucun fichier n'est disponible
-   */
-  private getSavedKnowledge(): Record<string, any> {
-    // Exemple de connaissances préconfigurées pour la démonstration
-    return {
-      'raisonnement-efficace': {
-        patterns: ['décomposition', 'analyse', 'synthèse', 'méta-cognition'],
-        critères: ['clarté', 'cohérence', 'précision', 'profondeur']
-      },
-      'biais-cognitifs': {
-        communs: ['confirmation', 'ancrage', 'disponibilité', 'halo'],
-        mitigations: ['diversité de perspectives', 'devil\'s advocate', 'données contraires']
-      }
-    };
-  }
-  
-  /**
-   * Sauvegarde l'état actuel dans le stockage persistant
-   */
+
   private async saveToStorageInternal(): Promise<void> {
     try {
-      // S'assurer que les répertoires existent
       await this.ensureDirectoriesExist();
-      
-      // Préparer les mémoires par session pour la sauvegarde
+      if (!this.persistenceEnabled) {
+        return;
+      }
+
       const memoriesBySession = new Map<string, ReturnType<typeof prepareMemoryForStorage>[]>();
-      
-      // Regrouper les mémoires par session
       for (const memory of this.memories.values()) {
-        // Déterminer l'ID de session (utiliser 'default' si non spécifié)
-        const sessionId = memory.metadata?.sessionId || 'default';
-        
-        if (!memoriesBySession.has(sessionId)) {
-          memoriesBySession.set(sessionId, []);
-        }
-
-        memoriesBySession.get(sessionId)!.push(prepareMemoryForStorage(memory));
+        const sessionId = this.getMemorySessionId(memory);
+        const list = memoriesBySession.get(sessionId) ?? [];
+        list.push(prepareMemoryForStorage(memory));
+        memoriesBySession.set(sessionId, list);
       }
-      
-      // Sauvegarder chaque groupe de mémoires dans un fichier par session
+
       for (const [sessionId, memories] of memoriesBySession.entries()) {
-        const filePath = path.join(this.memoriesDir, `${sessionId}.json`);
-
-        await this.writeJsonAtomic(filePath, memories);
+        await writeJsonAtomic(path.join(this.memoriesDir, `${sessionId}.json`), memories);
       }
-      
-      // Sauvegarder la base de connaissances
-      const knowledgePayload = sanitizeKnowledgeBase(Object.fromEntries(this.knowledgeBase));
 
-      await this.writeJsonAtomic(this.knowledgeFilePath, knowledgePayload);
-      
-      this.debugLog('Données sauvegardées avec succès');
+      const knowledgePayload = sanitizeKnowledgeBase(Object.fromEntries(this.knowledgeBase));
+      await writeJsonAtomic(this.knowledgeFilePath, knowledgePayload);
     } catch (error) {
-      // Log d'erreur important - garder
       console.error('Erreur lors de la sauvegarde de la mémoire:', error);
-      
-      // En cas d'erreur, afficher les données qui auraient dû être sauvegardées (pour débogage)
-      this.debugLog('Mémoires qui auraient dû être sauvegardées: ' + this.memories.size + ' éléments');
-      this.debugLog('Base de connaissances qui aurait dû être sauvegardée: ' + this.knowledgeBase.size + ' éléments');
     }
   }
 
-  private async saveToStorage(): Promise<void> {
-    await this.enqueueSave();
+  private generateUniqueId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
   }
-  
-  /**
-   * Ajoute un élément à la mémoire
-   * 
-   * @param content Le contenu de l'élément de mémoire
-   * @param tags Les tags associés
-   * @param sessionId L'identifiant de session facultatif
-   * @returns L'identifiant de l'élément ajouté
-   */
-  addMemory(content: string, tags: string[] = [], sessionId?: string): string {
+
+  public addMemory(content: string, tags: string[] = [], sessionId?: string): string {
+    const safeSessionId = assertSafeSessionId(sessionId);
     const id = this.generateUniqueId();
-    
+
     const memory: MemoryItem = {
       id,
       content,
       tags,
       timestamp: new Date(),
-      metadata: { // Store sessionId in metadata
-        sessionId: sessionId || 'default' // Use 'default' if no session ID provided
-      }
+      metadata: { sessionId: safeSessionId },
     };
-    
-    this.memories.set(id, memory);
+
+    this.remember(memory);
+    this.enforceSessionLimit(safeSessionId);
     this.requestSave();
-    
+
     return id;
   }
-  
-  /**
-   * Récupère un élément de mémoire par son identifiant
-   * 
-   * @param id L'identifiant de l'élément
-   * @returns L'élément de mémoire ou undefined si non trouvé
-   */
-  getMemory(id: string): MemoryItem | undefined {
+
+  public getMemory(id: string): MemoryItem | undefined {
     return this.memories.get(id);
   }
-  
-  /**
-   * Récupère les éléments de mémoire les plus récents
-   * 
-   * @param limit Le nombre maximum d'éléments à récupérer
-   * @param sessionId L'identifiant de session facultatif pour filtrer
-   * @returns Un tableau des éléments les plus récents (filtrés par session)
-   */
-  getRecentMemories(limit: number = 5, sessionId?: string): MemoryItem[] {
-    const allMemories = Array.from(this.memories.values());
-    const filteredMemories = sessionId
-      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
-      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default'); // Include default session if no ID specified
 
-    return filteredMemories
+  private getSessionMemories(sessionId: string): MemoryItem[] {
+    const ids = this.sessionMemoryIds.get(sessionId);
+    if (!ids) {
+      return [];
+    }
+
+    const memories: MemoryItem[] = [];
+    for (const id of ids) {
+      const memory = this.memories.get(id);
+      if (memory) {
+        memories.push(memory);
+      }
+    }
+    return memories;
+  }
+
+  public getRecentMemories(limit: number = 5, sessionId?: string): MemoryItem[] {
+    const targetSession = sessionId === undefined ? LIMITS.DEFAULT_SESSION_ID : assertSafeSessionId(sessionId);
+
+    return this.getSessionMemories(targetSession)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
-  
-  /**
-   * Récupère les éléments de mémoire les plus pertinents pour un contexte donné
-   * AMÉLIORÉ: Fiabilité améliorée et meilleure gestion des erreurs
-   * 
-   * @param context Le contexte pour lequel chercher des éléments pertinents
-   * @param limit Le nombre maximum d'éléments à récupérer
-   * @param sessionId L'identifiant de session facultatif pour filtrer
-   * @returns Un tableau des éléments les plus pertinents (filtrés par session)
-   */
-  async getRelevantMemories(context: string, limit: number = 3, sessionId?: string): Promise<MemoryItem[]> {
-    // Filter memories by session first
-    const allMemories = Array.from(this.memories.values());
-    const sessionMemories = sessionId
-      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
-      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default'); // Include default session if no ID specified
 
-    // Vérifier si nous avons des mémoires à traiter dans cette session
-    if (sessionMemories.length === 0) {
-      this.debugLog('Aucune mémoire disponible pour la recherche de pertinence');
+  /**
+   * Ranks memories by relevance; without a sessionId, all sessions compete globally.
+   */
+  public async getRelevantMemories(context: string, limit: number = 3, sessionId?: string): Promise<MemoryItem[]> {
+    const targetSession = sessionId === undefined ? undefined : assertSafeSessionId(sessionId);
+    const candidates = targetSession ? this.getSessionMemories(targetSession) : Array.from(this.memories.values());
+
+    if (candidates.length === 0 || limit <= 0) {
       return [];
     }
-    // Si nous n'avons pas de SimilarityEngine, utiliser l'algorithme de base sur les mémoires de la session
-    if (!this.similarityEngine) {
-      this.debugLog('SimilarityEngine non disponible, utilisation de l\'algorithme de mots-clés pour la session');
-      return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
+
+    const engine = this.similarityEngine;
+    if (!engine) {
+      return this.getRelevantMemoriesWithKeywords(context, limit, candidates);
     }
 
     try {
-      // Utiliser SimilarityEngine pour trouver les mémoires similaires DANS LA SESSION
-      const memoryTexts = sessionMemories.map(memory => memory.content);
-      
-      this.debugLog(`Recherche de mémoires pertinentes parmi ${memoryTexts.length} éléments avec SimilarityEngine`);
-      
-      // Utiliser un seuil de similarité plus bas pour augmenter les chances de trouver des correspondances
-      const threshold = 0.3; // Seuil de similarité plus bas
-      
-      const similarResults = await this.similarityEngine.findSimilarTexts(context, memoryTexts, limit, threshold);
-      
-      this.debugLog(`${similarResults.length} résultats similaires trouvés avec SimilarityEngine`);
-      if (similarResults.length === 0) {
-        // Aucun résultat via SimilarityEngine dans la session, essayer avec mots-clés pour la session
-        this.debugLog('Aucun résultat trouvé par SimilarityEngine pour la session, utilisation des mots-clés pour la session');
-        return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
+      const vectors = await engine.generateVectors([context, ...candidates.map(memory => memory.content)]);
+      const referenceVector = vectors[0] ?? {};
+
+      if (Object.keys(referenceVector).length === 0) {
+        return this.getRelevantMemoriesWithKeywords(context, limit, candidates);
       }
 
-      // Convertir les résultats en mémoires (en s'assurant qu'ils proviennent de la session)
-      const memoryResults: MemoryItem[] = [];
+      const matches = candidates
+        .map((memory, index) => ({
+          memory,
+          score: engine.calculateCosineSimilarity(referenceVector, vectors[index + 1] ?? {}),
+        }))
+        .filter(item => item.score > 0 && item.score >= MEMORY_RELEVANCE_THRESHOLD)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(item => ({ ...item.memory, relevanceScore: item.score }));
 
-      for (const result of similarResults) {
-        // Find the matching memory within the session memories
-        const matchingMemory = sessionMemories.find(memory => memory.content === result.text);
-        if (matchingMemory) {
-          // Créer une copie avec le score de pertinence
-          memoryResults.push({
-            ...matchingMemory,
-            relevanceScore: result.score
-          });
-          this.debugLog(`Mémoire correspondante trouvée avec score ${result.score.toFixed(2)}`);
-        }
+      if (matches.length === 0) {
+        return this.getRelevantMemoriesWithKeywords(context, limit, candidates);
       }
-      
-      return memoryResults;
+
+      return matches;
     } catch (error) {
-      // Log d'erreur important - garder
-      console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes avec SimilarityEngine:', error);
-      // En cas d'erreur, revenir à l'algorithme basé sur les mots-clés pour la session
-      return this.getRelevantMemoriesWithKeywords(context, limit, sessionId);
+      console.error('Smart-Thinking: Erreur lors de la recherche de mémoires pertinentes:', error);
+      return this.getRelevantMemoriesWithKeywords(context, limit, candidates);
     }
   }
-  
-  /**
-   * Implémentation de secours basée sur les mots-clés
-   * 
-   * @param context Le contexte pour lequel chercher des éléments pertinents
-   * @param limit Le nombre maximum d'éléments à récupérer
-   * @param sessionId L'identifiant de session facultatif pour filtrer
-   * @returns Un tableau des éléments les plus pertinents (filtrés par session)
-   */
-  private getRelevantMemoriesWithKeywords(context: string, limit: number = 3, sessionId?: string): MemoryItem[] {
-    // Filter memories by session first
-    const allMemories = Array.from(this.memories.values());
-    const sessionMemories = sessionId
-      ? allMemories.filter(m => m.metadata?.sessionId === sessionId)
-      : allMemories.filter(m => !m.metadata?.sessionId || m.metadata?.sessionId === 'default');
 
-    if (sessionMemories.length === 0) return [];
+  private extractKeywords(text: string): string[] {
+    return text
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .split(/\W+/)
+      .filter(word => word.length > KEYWORD_TOKEN_MIN_LENGTH);
+  }
 
-    // Une implémentation simple basée sur la correspondance de mots-clés DANS LA SESSION
-    const contextWords = context.toLowerCase().split(/\W+/).filter(word => word.length > 3);
+  private getRelevantMemoriesWithKeywords(context: string, limit: number, candidates: MemoryItem[]): MemoryItem[] {
+    const contextWords = this.extractKeywords(context);
+    if (contextWords.length === 0) {
+      return [];
+    }
 
-    return sessionMemories
+    return candidates
       .map(memory => {
-        const memoryWords = memory.content.toLowerCase().split(/\W+/).filter(word => word.length > 3);
-        const memoryTagWords = memory.tags.join(' ').toLowerCase().split(/\W+/).filter(word => word.length > 3);
-        
-        // Calculer un score basé sur le contenu et les tags
-        const contentMatchingWords = contextWords.filter(word => memoryWords.includes(word));
-        const tagMatchingWords = contextWords.filter(word => memoryTagWords.includes(word));
-        
-        const contentScore = contentMatchingWords.length / Math.max(contextWords.length, 1);
-        const tagScore = tagMatchingWords.length / Math.max(contextWords.length, 1);
-        
-        // Les tags ont un poids plus élevé
-        const score = contentScore * 0.7 + tagScore * 1.3;
-        
-        return {
-          memory,
-          score,
-          relevanceScore: score
-        };
+        const memoryWords = this.extractKeywords(memory.content);
+        const tagWords = this.extractKeywords(memory.tags.join(' '));
+        const contentMatches = contextWords.filter(word => memoryWords.includes(word)).length;
+        const tagMatches = contextWords.filter(word => tagWords.includes(word)).length;
+        const contentScore = contentMatches / Math.max(contextWords.length, 1);
+        const tagScore = tagMatches / Math.max(contextWords.length, 1);
+        return { memory, score: contentScore * 0.7 + tagScore * 1.3 };
       })
+      .filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(item => {
-        return {
-          ...item.memory,
-          relevanceScore: item.relevanceScore
-        };
-      });
+      .map(item => ({ ...item.memory, relevanceScore: item.score }));
   }
-  
-  /**
-   * Récupère les éléments de mémoire par tag
-   * 
-   * @param tag Le tag à rechercher
-   * @param limit Le nombre maximum d'éléments à récupérer
-   * @param sessionId L'identifiant de session facultatif pour filtrer
-   * @returns Un tableau des éléments correspondant au tag (filtrés par session)
-   */
-  getMemoriesByTag(tag: string, limit: number = 10, sessionId?: string): MemoryItem[] {
-    const allMemories = Array.from(this.memories.values());
-    const filteredMemories = sessionId
-      ? allMemories.filter(m => m.metadata?.sessionId === sessionId && m.tags.includes(tag))
-      : allMemories.filter(m => (!m.metadata?.sessionId || m.metadata?.sessionId === 'default') && m.tags.includes(tag));
 
-    return filteredMemories
+  public getMemoriesByTag(tag: string, limit: number = 10, sessionId?: string): MemoryItem[] {
+    const targetSession = sessionId === undefined ? LIMITS.DEFAULT_SESSION_ID : assertSafeSessionId(sessionId);
+
+    return this.getSessionMemories(targetSession)
+      .filter(memory => memory.tags.includes(tag))
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
-  
-  /**
-   * Ajoute ou met à jour un élément dans la base de connaissances
-   * 
-   * @param key La clé de l'élément
-   * @param value La valeur de l'élément
-   */
-  setKnowledge(key: string, value: any): void {
+
+  public setKnowledge(key: string, value: unknown): void {
     const sanitizedRecord = sanitizeKnowledgeBase({ [key]: value });
 
     if (Object.prototype.hasOwnProperty.call(sanitizedRecord, key)) {
@@ -611,67 +388,83 @@ export class MemoryManager {
     }
     this.requestSave();
   }
-  
-  /**
-   * Récupère un élément de la base de connaissances
-   * 
-   * @param key La clé de l'élément
-   * @returns La valeur de l'élément ou undefined si non trouvé
-   */
-  getKnowledge(key: string): any {
+
+  public getKnowledge(key: string): unknown {
     return this.knowledgeBase.get(key);
   }
-  
-  /**
-   * Efface toutes les mémoires et connaissances
-   */
-  clear(): void {
-    this.memories.clear();
-    this.knowledgeBase.clear();
-    this.requestSave();
-  }
 
-  /**
-   * Sauvegarde l'état complet d'un graphe de session dans un fichier dédié.
-   * @param sessionId L'identifiant de la session.
-   * @param graphStateJson La représentation JSON de l'état du graphe.
-   */
-  async saveGraphState(sessionId: string, graphStateJson: string): Promise<void> {
-    try {
-      await this.ensureDirectoriesExist(); // Assure que le répertoire data existe
-      const filePath = path.join(this.dataDir, `graph_state_${sessionId}.json`);
-      await this.writeFileAtomic(filePath, graphStateJson);
-      this.debugLog(`État du graphe pour la session ${sessionId} sauvegardé dans ${filePath}`);
-    } catch (error) {
-      console.error(`Smart-Thinking: Erreur lors de la sauvegarde de l'état du graphe pour la session ${sessionId}:`, error);
-      // Ne pas bloquer l'exécution principale si la sauvegarde échoue, mais logger l'erreur.
+  public async clear(sessionId?: string): Promise<void> {
+    const safeSessionId = sessionId === undefined ? undefined : assertSafeSessionId(sessionId);
+
+    if (safeSessionId) {
+      for (const memory of this.getSessionMemories(safeSessionId)) {
+        this.memories.delete(memory.id);
+      }
+      this.sessionMemoryIds.delete(safeSessionId);
+    } else {
+      this.memories.clear();
+      this.sessionMemoryIds.clear();
+    }
+
+    // Drop pending rewrites before deleting files so nothing can resurrect them.
+    this.savePending = false;
+    await this.flush();
+
+    if (safeSessionId) {
+      await this.deleteSessionFiles(safeSessionId);
+    } else {
+      await this.deleteAllSessionFiles();
     }
   }
 
-  /**
-   * Charge l'état complet d'un graphe de session depuis son fichier dédié.
-   * @param sessionId L'identifiant de la session.
-   * @returns Le JSON de l'état du graphe ou null si non trouvé ou en cas d'erreur.
-   */
-  async loadGraphState(sessionId: string): Promise<string | null> {
-    try {
-      await this.ensureDirectoriesExist(); // Assure que le répertoire data existe
-      const filePath = path.join(this.dataDir, `graph_state_${sessionId}.json`);
-      
-      // Vérifier si le fichier existe avant de tenter de le lire
-      try {
-        await fs.access(filePath, fs.constants.R_OK);
-      } catch {
-        this.debugLog(`Aucun état de graphe sauvegardé trouvé pour la session ${sessionId} à ${filePath}`);
-        return null; // Fichier non trouvé ou inaccessible
-      }
+  private async deleteSessionFiles(sessionId: string): Promise<void> {
+    await fs.rm(path.join(this.memoriesDir, `${sessionId}.json`), { force: true }).catch(() => undefined);
+    await fs.rm(path.join(this.dataDir, `graph_state_${sessionId}.json`), { force: true }).catch(() => undefined);
+  }
 
-      const graphStateJson = await fs.readFile(filePath, 'utf8');
-      this.debugLog(`État du graphe pour la session ${sessionId} chargé depuis ${filePath}`);
-      return graphStateJson;
+  private async deleteAllSessionFiles(): Promise<void> {
+    const memoryFiles = await fs.readdir(this.memoriesDir).catch(() => [] as string[]);
+    for (const file of memoryFiles) {
+      if (!file.endsWith('.json')) {
+        continue;
+      }
+      await fs.rm(path.join(this.memoriesDir, file), { force: true }).catch(() => undefined);
+    }
+
+    const dataFiles = await fs.readdir(this.dataDir).catch(() => [] as string[]);
+    for (const file of dataFiles) {
+      if (!file.startsWith('graph_state_') || !file.endsWith('.json')) {
+        continue;
+      }
+      await fs.rm(path.join(this.dataDir, file), { force: true }).catch(() => undefined);
+    }
+  }
+
+  public async saveGraphState(sessionId: string, graphStateJson: string): Promise<void> {
+    const safeSessionId = assertSafeSessionId(sessionId);
+
+    try {
+      await this.ensureDirectoriesExist();
+      if (!this.persistenceEnabled) {
+        return;
+      }
+      await writeFileAtomic(path.join(this.dataDir, `graph_state_${safeSessionId}.json`), graphStateJson);
     } catch (error) {
-      console.error(`Smart-Thinking: Erreur lors du chargement de l'état du graphe pour la session ${sessionId}:`, error);
-      return null; // Retourner null en cas d'erreur de lecture ou de parsing
+      console.error(`Smart-Thinking: Erreur lors de la sauvegarde de l'état du graphe pour la session ${safeSessionId}:`, error);
+    }
+  }
+
+  public async loadGraphState(sessionId: string): Promise<string | null> {
+    const safeSessionId = assertSafeSessionId(sessionId);
+
+    try {
+      const filePath = path.join(this.dataDir, `graph_state_${safeSessionId}.json`);
+      return await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error(`Smart-Thinking: Erreur lors du chargement de l'état du graphe pour la session ${safeSessionId}:`, error);
+      }
+      return null;
     }
   }
 }

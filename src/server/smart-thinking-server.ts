@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { FetchParamsSchema, SearchParamsSchema } from './contracts';
+import { FetchParamsSchema, SearchParamsSchema, SmartThinkingParamsSchema, WebSearchParamsSchema } from './contracts';
 import { SmartThinkingEnvironment, getSmartThinkingEnvironment } from './environment';
 import {
   buildServerImplementation,
@@ -10,10 +10,11 @@ import { registerCoreTools } from './registrations/tool-registrations';
 import { registerServerPrompts } from './registrations/prompt-registrations';
 import { registerServerResources } from './registrations/resource-registrations';
 
-interface SmartThinkingServerOptions {
+export interface SmartThinkingServerOptions {
   includeSmartThinkingTool?: boolean;
   includePrompts?: boolean;
   includeResources?: boolean;
+  includeWebTools?: boolean;
 }
 
 export function createSmartThinkingServer(
@@ -22,21 +23,19 @@ export function createSmartThinkingServer(
 ): { server: McpServer; env: SmartThinkingEnvironment } {
   const environment = env ?? getSmartThinkingEnvironment();
 
-  const server = new McpServer(
-    buildServerImplementation(environment.version),
-    {
-      capabilities: SMART_THINKING_CAPABILITIES,
-      instructions: SMART_THINKING_INSTRUCTIONS,
-    },
-  );
+  const server = new McpServer(buildServerImplementation(environment.version), {
+    capabilities: SMART_THINKING_CAPABILITIES,
+    instructions: SMART_THINKING_INSTRUCTIONS,
+  });
 
   const {
     includeSmartThinkingTool = true,
     includePrompts = true,
     includeResources = true,
+    includeWebTools = true,
   } = options ?? {};
 
-  registerCoreTools(server, environment, { includeSmartThinkingTool });
+  registerCoreTools(server, environment, { includeSmartThinkingTool, includeWebTools });
 
   if (includePrompts) {
     registerServerPrompts(server);
@@ -51,4 +50,5 @@ export function createSmartThinkingServer(
 
 export const SearchSchema = SearchParamsSchema;
 export const FetchSchema = FetchParamsSchema;
-export type { SmartThinkingServerOptions };
+export const WebSearchSchema = WebSearchParamsSchema;
+export const SmartThinkingSchema = SmartThinkingParamsSchema;
