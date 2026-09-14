@@ -19,6 +19,7 @@ export type ScienceDomain =
 
 export interface ScienceProtocol {
   domain: ScienceDomain;
+  variant: 'standard' | 'reasoning';
   steps: string[];
   checklist: string[];
   toolHints: string[];
@@ -120,6 +121,33 @@ const TOOL_HINTS: Record<ScienceDomain, string[]> = {
   general: ['compute', 'cas', 'plan', 'verify', 'critique'],
 };
 
+/** Cases that explicitly forbid computation or external search call for a reasoning-only protocol. */
+const REASONING_ONLY_MARKERS =
+  /sans (aucun )?calcul|sans recherche externe|recherche externe interdite|dossier documentaire|documentaire|attribution d['’]un incident|enquête|scénario normatif|règles? (?:fournies?|données?)/i;
+
+export function isReasoningOnly(problem: string): boolean {
+  return REASONING_ONLY_MARKERS.test(problem);
+}
+
+const REASONING_STEPS = [
+  '1. Reformuler la mission et lister toutes les questions posées (une par une).',
+  '2. Identifier les règles, pièces, identifiants et définitions de portée exacte fournis ; ne rien importer de l\'extérieur.',
+  '3. Construire la table des faits : pour chaque question, statut établi / réfuté / non déterminé, appuyé par les identifiants exacts.',
+  '4. Tester la cohérence globale : contradictions, dépendances, hypothèses implicites, cas limites et effets d\'une action irréversible.',
+  '5. Vérifier chaque conclusion par une seconde lecture (contre-exemple ou scénario alternatif compatible).',
+  '6. Exhaustivité : traiter chaque question et chaque exigence ; distinguer ce qui est démontré de ce qui est seulement plausible.',
+  '7. Rédiger une réponse structurée question par question, avec justification par identifiants.',
+];
+
+const REASONING_CHECKLIST = [
+  'Ne pas attribuer une action à un acteur sur la seule présence de son identifiant : distinguer règle, route, délégation, auteur et exécutant.',
+  'Ne pas réécrire ou corriger une pièce pour la rendre cohérente : signaler la contradiction.',
+  'Préserver les éléments irremplaçables avant toute action destructive ; annuler ce qui doit l\'être.',
+  'Ne pas confondre permission, ordre, négation et condition.',
+  'Expliquer la portée exacte de chaque pièce et les limites des conclusions.',
+  'Ne rien inventer d\'absent du dossier : marquer explicitement ce qui reste non déterminé.',
+];
+
 export function detectScienceDomain(problem: string): ScienceDomain {
   let best: { domain: ScienceDomain; score: number } = { domain: 'general', score: 0 };
   for (const { domain, keywords } of DOMAIN_KEYWORDS) {
@@ -134,9 +162,11 @@ export function detectScienceDomain(problem: string): ScienceDomain {
 
 export function buildScienceProtocol(problem: string, domainHint?: ScienceDomain): ScienceProtocol {
   const domain = domainHint ?? detectScienceDomain(problem);
+  const reasoning = isReasoningOnly(problem);
   return {
     domain,
-    steps: [
+    variant: reasoning ? 'reasoning' : 'standard',
+    steps: reasoning ? REASONING_STEPS : [
       '1. Reformuler le problème : données, inconnues, unités, contraintes et format de réponse attendu.',
       '2. Classifier le domaine et écrire un plan de résolution testable (outil plan).',
       '3. Modéliser exactement, puis produire les résultats numériques avec compute (script court, sortie JSON, valeurs exactes en fractions/entiers).',
@@ -147,8 +177,8 @@ export function buildScienceProtocol(problem: string, domainHint?: ScienceDomain
       '7. Exhaustivité : reprendre chaque quantité demandée et vérifier qu\'un certificat exact existe pour chacune ; combler les manques avant de conclure.',
       '8. Rédiger la réponse finale : résultats exacts, preuves/certificats, pièges traités, limites et impossibilités.',
     ],
-    checklist: CHECKLISTS[domain],
-    toolHints: TOOL_HINTS[domain],
+    checklist: reasoning ? [...REASONING_CHECKLIST, ...CHECKLISTS[domain]] : CHECKLISTS[domain],
+    toolHints: reasoning ? ['plan', 'smartthinking', 'verify', 'claim', 'audit'] : TOOL_HINTS[domain],
     answerFormat: [
       '## Réponse',
       'Résultats exacts demandés (valeurs, listes, fractions).',

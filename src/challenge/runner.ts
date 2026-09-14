@@ -69,6 +69,16 @@ const SYSTEM_PROMPT = [
   'EXHAUSTIVITÉ: avant la réponse finale, reprends l\'instruction d\'évaluation point par point et vérifie que CHAQUE quantité ou liste demandée possède un claim avec sa valeur exacte; sinon calcule-la avec compute puis enregistre-la avec claim.',
 ].join('\n');
 
+const REASONING_SYSTEM = [
+  'Tu es un analyste rigoureux. Tu résous un dossier de raisonnement pur, sans calcul et sans recherche externe.',
+  'Seules les règles, pièces et données fournies dans l\'énoncé comptent; n\'importe rien de l\'extérieur et n\'invente aucune pièce.',
+  'Pour chaque question: statue établi / réfuté / non déterminé, avec les identifiants exacts à l\'appui.',
+  'Distingue toujours règle, route, délégation, auteur et exécutant; ne confonds pas permission, ordre, négation et condition.',
+  'Signale les contradictions au lieu de réécrire les pièces; préserve l\'irremplaçable avant toute action destructive.',
+  'Avant la réponse finale: vérifie ta couverture question par question et enregistre tes conclusions avec claim (méthode + preuve textuelle), puis passe audit.',
+  'Rédige une réponse structurée, complète et bornée (~2500 mots), jamais tronquée.',
+].join('\n');
+
 interface CertCheck {
   label: string;
   variants: string[];
@@ -282,6 +292,7 @@ interface CliOptions {
   apiKey?: string;
   concurrency: number;
   casesDir: string;
+  suite: 'cases' | 'transfer';
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -297,6 +308,7 @@ function parseArgs(argv: string[]): CliOptions {
     apiKey: process.env.DEEPSEEK_API_KEY ?? process.env.SMART_THINKING_ASSIST_API_KEY,
     concurrency: Number.parseInt(process.env.CHALLENGE_CONCURRENCY ?? '10', 10) || 10,
     casesDir: process.env.CASES_DIR ? path.resolve(process.env.CASES_DIR) : path.join(ROOT, 'cases'),
+    suite: process.env.CASES_SUITE === 'transfer' ? 'transfer' : 'cases',
   };
   for (const arg of argv) {
     const [key, value] = arg.replace(/^--/, '').split('=');
@@ -312,6 +324,7 @@ function parseArgs(argv: string[]): CliOptions {
     if (key === 'base-url' && value) options.baseUrl = value;
     if (key === 'concurrency' && value) options.concurrency = Math.max(1, Number.parseInt(value, 10) || 1);
     if (key === 'dir' && value) options.casesDir = path.resolve(value);
+    if (key === 'suite' && (value === 'cases' || value === 'transfer')) options.suite = value;
   }
   return options;
 }
@@ -351,7 +364,9 @@ async function runProblem(
       },
     ];
     const response = await provider.chat({
-      system: 'Tu es un expert scientifique. Résous le problème et rédige une réponse finale complète en français.',
+      system: buildScienceProtocol(problem.enonce_latex).variant === 'reasoning'
+        ? 'Tu es un analyste rigoureux. Résous ce dossier et rédige une réponse finale complète, structurée question par question, bornée (~2500 mots), jamais tronquée, en français.'
+        : 'Tu es un expert scientifique. Résous le problème et rédige une réponse finale complète, structurée, bornée (~2500 mots), jamais tronquée, en français.',
       messages: bareMessages,
       tools: [],
     });
@@ -516,9 +531,30 @@ async function main(): Promise<void> {
     throw new Error(`Dossier de cas introuvable ou incomplet: ${options.casesDir} (enonces.jsonl attendu).`);
   }
   CERT_SPECS = readCertSpecs(options.casesDir);
-  const allProblems = readJsonl<Record<string, unknown>>(path.join(options.casesDir, 'enonces.jsonl')).map(
+  let allProblems = readJsonl<Record<string, unknown>>(path.join(options.casesDir, 'enonces.jsonl')).map(
     normalizeProblem,
   );
+  const pendingCorrections: Array<[string, CorrectionBundle]> = [];
+  if (options.suite === 'transfer') {
+    const base = new Map(allProblems.map(problem => [problem.id, problem]));
+    const transfers = readJsonl<Record<string, unknown>>(path.join(options.casesDir, 'tests_transfert.jsonl'));
+    allProblems = transfers.flatMap(row => {
+      const baseId = String(row.base_id ?? '');
+      const source = base.get(baseId);
+      if (!source) {
+        return [];
+      }
+      const id = String(row.id ?? `${baseId}-X`);
+      pendingCorrections.push([id, { text: String(row.reponse_attendue ?? ''), indispensables: [], erreurs: [] }]);
+      return [{
+        ...source,
+        id,
+        titre: `${baseId} → ${id}`,
+        enonce_latex: `${source.enonce_latex}\n\n## VARIANTE\n${String(row.modification ?? '')}`,
+        instruction_evaluation: `${source.instruction_evaluation}\n\nRéponds à cette variante en t'appuyant sur le dossier de base.`,
+      }];
+    });
+  }
   const problems = options.problems.length > 0
     ? allProblems.filter(problem => options.problems.includes(problem.id))
     : allProblems;
@@ -535,6 +571,9 @@ async function main(): Promise<void> {
       },
     ]),
   );
+  for (const [id, bundle] of pendingCorrections) {
+    corrections.set(id, bundle);
+  }
   if (problems.length === 0) {
     throw new Error('Aucun problème sélectionné.');
   }
