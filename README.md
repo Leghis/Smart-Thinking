@@ -148,7 +148,7 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - Calculateur déterministe (`calculate`) : les LLM ne font plus de calcul mental faillible.
 
 Résultats mesurés (détail complet : [`proofs/RAPPORT-TESTS.md`](proofs/RAPPORT-TESTS.md)) :
-- Harnais de cas : `npm run challenge -- --dir=<dossier> --concurrency=10`; un dossier contient `enonces.jsonl` (+ `corrections.jsonl`, `certificats.json` optionnels). Modes `bare` (sans outils), `autonomous` (outils) et `guided` (protocole standard). Rapports dans `proofs/case-run-*.json|md`.
+- Harnais de cas : `npm run challenge -- --dir=<dossier> --concurrency=10`; un dossier contient `enonces.jsonl` (+ `corrections.jsonl`, `certificats.json` optionnels). Modes `autonomous` (défaut : outils à la demande), `guided` (protocole standard, pour les cas quantitatifs structurés) et `bare` (sans outils). Rapports dans `proofs/case-run-*.json|md`.
 
 | Campagne (deepseek-v4.1-flash) | Sans outil | Avec outil | Delta |
 | --- | ---: | ---: | ---: |
