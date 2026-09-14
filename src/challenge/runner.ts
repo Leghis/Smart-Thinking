@@ -341,7 +341,7 @@ function parseArgs(argv: string[]): CliOptions {
     iterations: 45,
     toolBudget: 60,
     mode:
-      (process.env.CHALLENGE_MODE as 'guided' | 'autonomous' | 'bare' | 'ultimate') ?? 'autonomous',
+      (process.env.CHALLENGE_MODE as 'guided' | 'autonomous' | 'bare' | 'ultimate') ?? 'ultimate',
     judge: true,
     label: process.env.CHALLENGE_LABEL ?? 'decade',
     model: process.env.CHALLENGE_MODEL ?? 'deepseek-flash',
