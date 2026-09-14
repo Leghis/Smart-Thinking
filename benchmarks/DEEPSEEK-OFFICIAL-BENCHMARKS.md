@@ -46,6 +46,21 @@ Note de transparence : les chiffres bruts ne reproduisent pas les valeurs publi�
 | **SWE-bench Multilingual** | idem multi-langages | ❌ idem | après Verified |
 | **Terminal-bench** | tâches terminal sandbox | ⚠️ Docker requis | VM GCP + Docker |
 
+## Décision (périmètre v13) — choix retenu
+
+**Périmètre = raisonnement (option B) pour la v13**, car c'est la valeur démontrée du MCP
+(+26.6 AIME, +5 MMLU-Pro, +6.6 Série III, 97.5 transfert). Les suites SWE-bench Verified,
+SWE-bench Multilingual et Terminal-bench mesurent des **agents de codage** (édition de fichiers,
+shell) : les exécuter sans outils code/terminal produirait un score d'un autre agent, pas le nôtre.
+Ajouter `read_file`/`edit_file`/`run_shell` est un chantier produit distinct (sécurité, confinement),
+à planifier après la v13 — il rendra alors SWE-bench/Terminal-bench légitimes.
+
+### Séquence GCP prévue (une traite, avec destruction garantie)
+1. VM `e2-standard-4`, 100 Go SSD, `europe-west1-b` + Docker + Node ; clone git du MCP, `npm ci && npm run build`, install globale depuis git (pas npm).
+2. Suites : **HMMT 2025**, **LiveCodeBench** (exécution sandbox Docker), **SimpleQA** ; A/B `deepseek-flash` seul vs + MCP (mode ultimate), grading déterministe.
+3. `trap` de destruction (VM + disque + règles) en fin de script, vérifié via `gcloud compute instances list`.
+4. Résultats reportés dans ce fichier + commit/push.
+
 ## Infra GCP (prévu, non exécuté)
 - Projet cible : `beaming-delight-507904-e4` (n° 923774092927). La config locale pointait sur `morgram` → à corriger avant toute création.
 - SWE-bench/Terminal-bench : VM GCP + Docker, disque ≥ 100 Go, jeu d'instances réduit, puis suppression de toutes les ressources (VM, disques, règles) après les tests.
