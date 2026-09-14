@@ -171,7 +171,7 @@ function normalizeProblem(raw: Record<string, unknown>): Problem {
   return {
     id: String(raw.id ?? ''),
     titre: String(raw.titre ?? raw.title ?? raw.id ?? ''),
-    domaine: String(raw.domain ?? raw.domaine ?? 'general'),
+    domaine: String(raw.domain ?? raw.domaine ?? raw.domaines ?? 'general'),
     conventions_latex: String(raw.conventions_latex ?? raw.conventions ?? ''),
     enonce_latex: String(raw.enonce_latex ?? raw.enonce_markdown ?? raw.enonce ?? ''),
     instruction_evaluation: String(raw.instruction_evaluation ?? raw.instructions ?? ''),
@@ -419,10 +419,12 @@ async function runProblem(
   let answer = '';
   let iterations = 0;
   let continuations = 0;
-  const mcpGuidance = client.getInstructions?.();
   const baseSystem =
-    options.mode === 'autonomous' && mcpGuidance
-      ? `${SYSTEM_PROMPT}\n\nGUIDAGE MCP (instructions du serveur):\n${mcpGuidance}`
+    options.mode === 'autonomous'
+      ? [
+          'Tu es un expert. Tu disposes d\'outils MCP que tu peux appeler si tu le juges utile.',
+          'Traite le problème avec rigueur, vérifie ce qui doit l\'être, puis rends une réponse finale complète, structurée question par question, bornée (~2500 mots), jamais tronquée, en français.',
+        ].join(' ')
       : SYSTEM_PROMPT;
 
   for (let i = 0; i < options.iterations; i += 1) {
