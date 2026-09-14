@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# GCP benchmark run: provision VM, install MCP from git, run reasoning suites + SWE-bench/Terminal-bench
-# oracle validation, fetch results back, DESTROY all resources (trap). See benchmarks/DEEPSEEK-OFFICIAL-BENCHMARKS.md
+# GCP benchmark run v2: remote script via scp (fixes gcloud ssh multiline), full run, guaranteed cleanup.
 set -uo pipefail
 
 PROJECT="beaming-delight-507904-e4"
@@ -10,23 +9,50 @@ MOUNT="/Users/leghis/Downloads/Smart-Thinking"
 OUT="${MOUNT}/proofs/gcp"
 mkdir -p "$OUT"
 LOG="${OUT}/gcp-run.log"
+: > "${OUT}/remote-run.sh"
 
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 
 cleanup() {
-  log "CLEANUP: suppression des ressources"
+  log "CLEANUP: suppression"
   gcloud compute instances delete "$NAME" --project="$PROJECT" --zone="$ZONE" --delete-disks=all --quiet >>"$LOG" 2>&1 || true
   gcloud compute firewall-rules delete "${NAME}-ssh" --project="$PROJECT" --quiet >>"$LOG" 2>&1 || true
-  gcloud compute disks list --project="$PROJECT" --filter="name~${NAME}" --format="value(name)" | while read -r d; do
-    gcloud compute disks delete "$d" --project="$PROJECT" --zone="$ZONE" --quiet >>"$LOG" 2>&1 || true
-  done
-  log "CLEANUP: verification — instances restantes:"
-  gcloud compute instances list --project="$PROJECT" --format="value(name)" >>"$LOG" 2>&1 || true
-  log "CLEANUP termine"
+  log "CLEANUP: instances restantes: $(gcloud compute instances list --project="$PROJECT" --format='value(name)' | tr '\n' ' ')"
 }
 trap cleanup EXIT
 
-log "PROVISION: VM $NAME ($PROJECT / $ZONE)"
+cat > "${OUT}/remote-run.sh" <<'REMOTE'
+#!/usr/bin/env bash
+set -uo pipefail
+export DEBIAN_FRONTEND=noninteractive
+echo "REMOTE: start $(date)"
+cd /opt/st
+mkdir -p /opt/ob proofs/gcp
+curl -s -m 60 "https://datasets-server.huggingface.co/rows?dataset=yentinglin%2Faime_2025&config=default&split=train&offset=0&length=100" -o /opt/ob/aime.json
+curl -s -m 60 "https://datasets-server.huggingface.co/rows?dataset=TIGER-Lab%2FMMLU-Pro&config=default&split=test&offset=0&length=20" -o /opt/ob/mmlu.json
+echo "REMOTE: reasoning suites (AIME+MMLU-Pro) with deepseek-flash"
+node scripts/official-bench.cjs --limit=50 --concurrency=8 > /opt/st/proofs/gcp/reasoning.txt 2>&1
+echo "REMOTE: reasoning exit=$?"
+python3 -m venv /opt/swe >/dev/null 2>&1
+. /opt/swe/bin/activate
+pip install -q swebench datasets >/dev/null 2>&1
+echo "REMOTE: SWE-bench Verified oracle (10 instances)"
+python - <<'PY' > /tmp/ids.txt 2>/dev/null
+from datasets import load_dataset
+ds = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
+print(" ".join(ds[:10]["instance_id"]))
+PY
+python -m swebench.harness.run_evaluation --dataset_name princeton-nlp/SWE-bench_Verified \
+  --predictions_path gold --max_workers 2 --run_id oracle $(cat /tmp/ids.txt) > /opt/st/proofs/gcp/swebench.txt 2>&1
+echo "REMOTE: swebench exit=$?"
+pip install -q git+https://github.com/laude-institute/terminal-bench.git >/dev/null 2>&1
+echo "REMOTE: terminal-bench oracle"
+(tb run --agent oracle --dataset terminal-bench-core 2>&1 | tail -40) > /opt/st/proofs/gcp/terminalbench.txt 2>&1
+echo "REMOTE: terminal exit=$?"
+echo "REMOTE: done $(date)"
+REMOTE
+
+log "PROVISION VM $NAME"
 gcloud config set project "$PROJECT" >>"$LOG" 2>&1
 gcloud compute instances create "$NAME" \
   --project="$PROJECT" --zone="$ZONE" --machine-type=e2-standard-4 \
@@ -42,50 +68,23 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
 apt-get install -y -qq nodejs
 git clone --depth=1 https://github.com/Leghis/Smart-Thinking.git /opt/st
 cd /opt/st && npm ci --no-audit --no-fund >/dev/null && npm run build >/dev/null
-npm install -g /opt/st >/dev/null 2>&1 || true
 touch /opt/st-ready
 ' >>"$LOG" 2>&1 || { log "PROVISION ECHEC"; exit 1; }
 
-log "WAIT: demarrage VM + installation (peut prendre 5-8 min)"
-for i in $(seq 1 60); do
-  if gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" --command='test -f /opt/st-ready' >>"$LOG" 2>&1; then
-    log "VM prete (essai $i)"; break
-  fi
+log "WAIT readiness"
+READY=0
+for i in $(seq 1 80); do
+  if gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" --command='test -f /opt/st-ready' >>"$LOG" 2>&1; then READY=1; log "VM prete (essai $i)"; break; fi
   sleep 15
 done
+[ "$READY" = 1 ] || { log "VM non prete"; exit 1; }
 
-log "TESTS: reproduction harnais officiel sur la VM (AIME 2025 + MMLU-Pro)"
-gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" --command='
-cd /opt/st
-mkdir -p /opt/ob
-curl -s -m 60 "https://datasets-server.huggingface.co/rows?dataset=yentinglin%2Faime_2025&config=default&split=train&offset=0&length=100" -o /opt/ob/aime.json
-curl -s -m 60 "https://datasets-server.huggingface.co/rows?dataset=TIGER-Lab%2FMMLU-Pro&config=default&split=test&offset=0&length=20" -o /opt/ob/mmlu.json
-DEEPSEEK_API_KEY='"$DEEPSEEK_API_KEY"' node scripts/official-bench.cjs --limit=50 --concurrency=8
-' >>"$LOG" 2>&1 || log "TESTS reasoning: erreur (voir log)"
+gcloud compute scp "${OUT}/remote-run.sh" "$NAME:/opt/remote-run.sh" --project="$PROJECT" --zone="$ZONE" >>"$LOG" 2>&1
+log "RUN remote (single-line ssh)"
+gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" \
+  --command="DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-} bash /opt/remote-run.sh" >>"$LOG" 2>&1
+log "RUN remote exit=$?"
 
-log "TESTS: SWE-bench Verified (validation harnais, agent oracle)"
-gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" --command='
-set -e
-python3 -m venv /opt/swe && . /opt/swe/bin/activate
-pip install -q swebench datasets
-cd /opt/st
-python -m swebench.harness.run_evaluation \
-  --dataset_name princeton-nlp/SWE-bench_Verified \
-  --predictions_path gold --max_workers 2 --run_id oracle \
-  --instance_ids $(python3 - <<PY
-from datasets import load_dataset
-ds = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
-print(" ".join(ds[:10]["instance_id"]))
-PY
-) || true
-' >>"$LOG" 2>&1 || log "SWE-bench oracle: erreur (voir log)"
-
-log "TESTS: Terminal-bench (validation harnais, agent oracle)"
-gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE" --command='
-pip install -q terminal-bench 2>/dev/null || pip install -q git+https://github.com/laude-institute/terminal-bench.git
-terminal-bench --help >/dev/null 2>&1 && (tb run --agent oracle --dataset terminal-bench-core 2>&1 | tail -30) || echo "terminal-bench: CLI indisponible, ignores"
-' >>"$LOG" 2>&1 || log "Terminal-bench oracle: erreur (voir log)"
-
-log "RAPATRIEMENT: resultats -> ${OUT}"
-gcloud compute scp --project="$PROJECT" --zone="$ZONE" --recurse "$NAME:/opt/st/proofs/." "$OUT/remote/" >>"$LOG" 2>&1 || log "scp: partiel (voir log)"
-log "RUN TERMINE — la destruction des ressources suit (trap)"
+log "FETCH results"
+gcloud compute scp --recurse "$NAME:/opt/st/proofs/gcp" "${OUT}/remote" --project="$PROJECT" --zone="$ZONE" >>"$LOG" 2>&1 || log "scp partiel"
+log "DONE — cleanup follows"
