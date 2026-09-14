@@ -93,11 +93,51 @@ let CERT_SPECS: Record<string, CertSpec> = {};
 
 function readCertSpecs(dir: string): Record<string, CertSpec> {
   const file = path.join(dir, 'certificats.json');
-  if (!existsSync(file)) {
-    return {};
-  }
   try {
-    return JSON.parse(readFileSync(file, 'utf8')) as Record<string, CertSpec>;
+    if (existsSync(file)) {
+      return JSON.parse(readFileSync(file, 'utf8')) as Record<string, CertSpec>;
+    }
+    const oraclesFile = path.join(dir, 'oracles.json');
+    if (!existsSync(oraclesFile)) {
+      return {};
+    }
+    const oracles = JSON.parse(readFileSync(oraclesFile, 'utf8')) as Record<
+      string,
+      { certificats?: Record<string, unknown> }
+    >;
+    const specs: Record<string, CertSpec> = {};
+    const variantsOf = (value: unknown): string[] => {
+      const raw = String(value);
+      const variants = new Set<string>([raw]);
+      const asNumber = typeof value === 'number' ? value : Number(raw);
+      if (Number.isFinite(asNumber) && !Number.isInteger(asNumber)) {
+        variants.add(String(asNumber));
+        variants.add(String(asNumber).replace('.', ','));
+      }
+      if (Number.isInteger(asNumber) && Math.abs(asNumber) >= 10_000) {
+        variants.add(asNumber.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' '));
+        variants.add(String(asNumber).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
+      }
+      const fraction = typeof raw === 'string' ? raw.match(/^(-?\d+)\s*\/\s*(\d+)$/) : null;
+      if (fraction) {
+        const decimal = Number(fraction[1]) / Number(fraction[2]);
+        if (Number.isFinite(decimal)) {
+          variants.add(String(decimal));
+          variants.add(String(decimal).replace('.', ','));
+        }
+      }
+      return [...variants];
+    };
+    for (const [id, entry] of Object.entries(oracles)) {
+      const checks = Object.entries(entry.certificats ?? {}).map(([label, value]) => ({
+        label,
+        variants: variantsOf(value),
+      }));
+      if (checks.length > 0) {
+        specs[id] = { checks };
+      }
+    }
+    return specs;
   } catch {
     return {};
   }
@@ -284,7 +324,7 @@ interface CliOptions {
   problems: string[];
   iterations: number;
   toolBudget: number;
-  mode: 'guided' | 'autonomous' | 'bare';
+  mode: 'guided' | 'autonomous' | 'bare' | 'ultimate';
   judge: boolean;
   label: string;
   model: string;
@@ -300,7 +340,8 @@ function parseArgs(argv: string[]): CliOptions {
     problems: [],
     iterations: 45,
     toolBudget: 60,
-    mode: (process.env.CHALLENGE_MODE as 'guided' | 'autonomous' | 'bare') ?? 'autonomous',
+    mode:
+      (process.env.CHALLENGE_MODE as 'guided' | 'autonomous' | 'bare' | 'ultimate') ?? 'autonomous',
     judge: true,
     label: process.env.CHALLENGE_LABEL ?? 'decade',
     model: process.env.CHALLENGE_MODEL ?? 'deepseek-flash',
@@ -317,7 +358,7 @@ function parseArgs(argv: string[]): CliOptions {
     }
     if (key === 'iterations' && value) options.iterations = Math.max(5, Number.parseInt(value, 10) || 45);
     if (key === 'tool-budget' && value) options.toolBudget = Math.max(5, Number.parseInt(value, 10) || 60);
-    if (key === 'mode' && (value === 'guided' || value === 'autonomous' || value === 'bare')) options.mode = value;
+    if (key === 'mode' && (value === 'guided' || value === 'autonomous' || value === 'bare' || value === 'ultimate')) options.mode = value;
     if (key === 'judge' && value) options.judge = value !== '0' && value !== 'false';
     if (key === 'label' && value) options.label = value;
     if (key === 'model' && value) options.model = value;
@@ -394,7 +435,7 @@ async function runProblem(
   }
 
   const guidedPrelude =
-    options.mode === 'guided' && protocol.variant === 'standard'
+    (options.mode === 'guided' || options.mode === 'ultimate') && protocol.variant === 'standard'
       ? [
           `PROTOCOLE STANDARD (domaine détecté: ${protocol.domain}):`,
           ...protocol.steps,
@@ -420,7 +461,7 @@ async function runProblem(
   let iterations = 0;
   let continuations = 0;
   const baseSystem =
-    options.mode === 'autonomous'
+    options.mode === 'autonomous' || options.mode === 'ultimate'
       ? [
           'Tu es un expert. Tu disposes d\'outils MCP que tu peux appeler si tu le juges utile.',
           'Traite le problème avec rigueur, vérifie ce qui doit l\'être, puis rends une réponse finale complète, structurée question par question, bornée (~2500 mots), jamais tronquée, en français.',
@@ -544,21 +585,42 @@ async function main(): Promise<void> {
   const pendingCorrections: Array<[string, CorrectionBundle]> = [];
   if (options.suite === 'transfer') {
     const base = new Map(allProblems.map(problem => [problem.id, problem]));
-    const transfers = readJsonl<Record<string, unknown>>(path.join(options.casesDir, 'tests_transfert.jsonl'));
+    const transferFile = path.join(options.casesDir, 'tests_transfert.jsonl');
+    const variantsFile = path.join(options.casesDir, 'variantes_enonces.jsonl');
+    const oraclesFile = path.join(options.casesDir, 'variantes_oracles.jsonl');
+    const transfers = existsSync(transferFile)
+      ? readJsonl<Record<string, unknown>>(transferFile)
+      : readJsonl<Record<string, unknown>>(variantsFile);
+    const oracleById = new Map<string, Record<string, unknown>>(
+      existsSync(oraclesFile)
+        ? readJsonl<Record<string, unknown>>(oraclesFile).map(oracle => [String(oracle.id ?? ''), oracle])
+        : [],
+    );
     allProblems = transfers.flatMap(row => {
-      const baseId = String(row.base_id ?? '');
+      const baseId = String(row.base_id ?? row.parent_id ?? '');
       const source = base.get(baseId);
       if (!source) {
         return [];
       }
       const id = String(row.id ?? `${baseId}-X`);
-      pendingCorrections.push([id, { text: String(row.reponse_attendue ?? ''), indispensables: [], erreurs: [] }]);
+      const oracle = oracleById.get(id);
+      const reponse = String(row.reponse_attendue ?? oracle?.reponse_attendue ?? '');
+      pendingCorrections.push([
+        id,
+        {
+          text: reponse,
+          indispensables: [],
+          erreurs: oracle?.erreur_decisive ? [String(oracle.erreur_decisive)] : [],
+        },
+      ]);
       return [{
         ...source,
         id,
-        titre: `${baseId} → ${id}`,
-        enonce_latex: `${source.enonce_latex}\n\n## VARIANTE\n${String(row.modification ?? '')}`,
-        instruction_evaluation: `${source.instruction_evaluation}\n\nRéponds à cette variante en t'appuyant sur le dossier de base.`,
+        titre: `${baseId} → ${String(row.titre ?? id)}`,
+        enonce_latex:
+          `${source.enonce_latex}\n\n## VARIANTE\n${String(row.modification ?? '')}` +
+          `${row.question ? `\n\nQuestion: ${String(row.question)}` : ''}`,
+        instruction_evaluation: `${String(row.instructions ?? source.instruction_evaluation)}\n\nRéponds à cette variante en t'appuyant sur le dossier de base.`,
       }];
     });
   }
