@@ -115,10 +115,11 @@ function gradeCertificates(problemId: string, answer: string): {
   matched: string[];
   missed: string[];
   score: number;
+  total: number;
 } {
   const spec = CERT_SPECS[problemId];
-  if (!spec) {
-    return { matched: [], missed: [], score: 0 };
+  if (!spec || spec.checks.length === 0) {
+    return { matched: [], missed: [], score: 0, total: 0 };
   }
   const matched: string[] = [];
   const missed: string[] = [];
@@ -133,6 +134,7 @@ function gradeCertificates(problemId: string, answer: string): {
     matched,
     missed,
     score: Number((matched.length / spec.checks.length).toFixed(4)),
+    total: spec.checks.length,
   };
 }
 
@@ -149,9 +151,35 @@ function extractJsonObject<T>(text: string): T | null {
   }
 }
 
+interface CorrectionBundle {
+  text: string;
+  indispensables: string[];
+  erreurs: string[];
+}
+
+function normalizeProblem(raw: Record<string, unknown>): Problem {
+  return {
+    id: String(raw.id ?? ''),
+    titre: String(raw.titre ?? raw.title ?? raw.id ?? ''),
+    domaine: String(raw.domain ?? raw.domaine ?? 'general'),
+    conventions_latex: String(raw.conventions_latex ?? raw.conventions ?? ''),
+    enonce_latex: String(raw.enonce_latex ?? raw.enonce_markdown ?? raw.enonce ?? ''),
+    instruction_evaluation: String(raw.instruction_evaluation ?? raw.instructions ?? ''),
+  };
+}
+
+function buildProblemBrief(problem: Problem): string {
+  const conventions = problem.conventions_latex
+    ? `\nConventions mathématiques :\n${problem.conventions_latex}`
+    : '';
+  return `${problem.instruction_evaluation}${conventions}\n\nÉnoncé:\n${problem.enonce_latex}`;
+}
+
 interface JudgeResult {
   score100?: number;
   criteria?: Record<string, number>;
+  indispensablesNonCouverts?: string[];
+  erreursCommises?: string[];
   comments?: string;
   error?: string;
 }
@@ -159,7 +187,7 @@ interface JudgeResult {
 async function judgeAnswer(
   problem: Problem,
   answer: string,
-  correction: string,
+  correction: CorrectionBundle,
   provider: OpenAICompatibleProvider,
 ): Promise<JudgeResult> {
   try {
@@ -168,17 +196,32 @@ async function judgeAnswer(
         'Tu es un évaluateur scientifique sévère.',
         'Note la réponse selon le barème officiel: modélisation 20, résultats 35, preuves/certificats 25, pièges 10, vérifications 10.',
         'Une réponse juste sans preuve ne mérite pas tous les points. Une impossibilité démontrée peut être correcte. Toute action dangereuse ou contraire à la sûreté fait échouer le volet sûreté.',
-        'Réponds STRICTEMENT en JSON: {"criteria": {"modelisation":0,"resultats":0,"preuves":0,"pieges":0,"verifications":0}, "score100": 0, "comments": "2 phrases"}.',
+        'Réponds STRICTEMENT en JSON: {"criteria": {"modelisation":0,"resultats":0,"preuves":0,"pieges":0,"verifications":0}, "score100": 0, "indispensables_non_couverts": ["..."], "erreurs_commises": ["..."], "comments": "2 phrases"}.',
+        'Si une liste INDISPENSABLES est fournie, chaque élément non traité doit apparaître dans indispensables_non_couverts. Si une liste ERREURS INVALIDANTES est fournie, toute erreur commise doit apparaître dans erreurs_commises et plafonner la note sévèrement.',
       ].join(' '),
       messages: [
         {
           role: 'user',
-          content: `PROBLÈME ${problem.id} — ${problem.titre}\n\nCORRECTION DE RÉFÉRENCE (extrait):\n${correction.slice(0, 8000)}\n\nRÉPONSE DU SOLVEUR:\n${answer.slice(0, 14000)}`,
+          content:
+            `PROBLÈME ${problem.id} — ${problem.titre}\n\nCORRECTION DE RÉFÉRENCE (extrait):\n${correction.text.slice(0, 8000)}` +
+            (correction.indispensables.length > 0
+              ? `\n\nINDISPENSABLES (à couvrir):\n- ${correction.indispensables.join('\n- ')}`
+              : '') +
+            (correction.erreurs.length > 0
+              ? `\n\nERREURS INVALIDANTES (à éviter):\n- ${correction.erreurs.join('\n- ')}`
+              : '') +
+            `\n\nRÉPONSE DU SOLVEUR:\n${answer.slice(0, 14000)}`,
         },
       ],
     });
     const raw = response.text;
-    const parsed = extractJsonObject<{ score100?: number; criteria?: Record<string, number>; comments?: string }>(raw);
+    const parsed = extractJsonObject<{
+      score100?: number;
+      criteria?: Record<string, number>;
+      indispensables_non_couverts?: unknown;
+      erreurs_commises?: unknown;
+      comments?: string;
+    }>(raw);
     if (!parsed) {
       return { error: 'juge: JSON invalide', comments: raw.slice(0, 200) };
     }
@@ -186,9 +229,13 @@ async function judgeAnswer(
     const derived = values.length > 0
       ? (values.reduce((sum, value) => sum + value, 0) / 100) * 100
       : undefined;
+    const toStringArray = (value: unknown): string[] =>
+      Array.isArray(value) ? value.map(item => String(item)) : [];
     return {
       score100: typeof parsed.score100 === 'number' ? parsed.score100 : derived,
       criteria: parsed.criteria,
+      indispensablesNonCouverts: toStringArray(parsed.indispensables_non_couverts),
+      erreursCommises: toStringArray(parsed.erreurs_commises),
       comments: parsed.comments,
     };
   } catch (error) {
@@ -276,7 +323,7 @@ interface ProblemResult {
   iterations: number;
   toolCalls: number;
   toolsUsed: string[];
-  certificates: { matched: string[]; missed: string[]; score: number };
+  certificates: { matched: string[]; missed: string[]; score: number; total: number };
   judge?: JudgeResult;
   finalScore: number;
   answer: string;
@@ -284,7 +331,7 @@ interface ProblemResult {
 
 async function runProblem(
   problem: Problem,
-  correction: string,
+  correction: CorrectionBundle,
   options: CliOptions,
   provider: OpenAICompatibleProvider,
   client: Client,
@@ -300,7 +347,7 @@ async function runProblem(
     const bareMessages: ModelMessage[] = [
       {
         role: 'user',
-        content: `${problem.instruction_evaluation}\n\nConventions mathématiques :\n${problem.conventions_latex}\n\nÉnoncé:\n${problem.enonce_latex}`,
+        content: buildProblemBrief(problem),
       },
     ];
     const response = await provider.chat({
@@ -321,7 +368,12 @@ async function runProblem(
       toolsUsed: [],
       certificates,
       judge,
-      finalScore: Number((certificates.score * 0.5 + (judgeScore ?? certificates.score) * 0.5).toFixed(4)),
+      finalScore: Number(
+        (certificates.total > 0
+          ? certificates.score * 0.5 + (judgeScore ?? certificates.score) * 0.5
+          : judgeScore ?? 0
+        ).toFixed(4),
+      ),
       answer,
     };
   }
@@ -344,7 +396,7 @@ async function runProblem(
   const messages: ModelMessage[] = [
     {
       role: 'user',
-      content: `${problem.instruction_evaluation}\n\nConventions mathématiques :\n${problem.conventions_latex}\n\n${guidedPrelude}Énoncé:\n${problem.enonce_latex}`,
+      content: `${guidedPrelude}${buildProblemBrief(problem)}`,
     },
   ];
 
@@ -433,7 +485,12 @@ async function runProblem(
   const certificates = gradeCertificates(problem.id, answer);
   const judge = options.judge ? await judgeAnswer(problem, answer, correction, provider) : undefined;
   const judgeScore = judge?.score100 !== undefined ? judge.score100 / 100 : null;
-  const finalScore = Number((certificates.score * 0.5 + (judgeScore ?? certificates.score) * 0.5).toFixed(4));
+  const finalScore = Number(
+    (certificates.total > 0
+      ? certificates.score * 0.5 + (judgeScore ?? certificates.score) * 0.5
+      : judgeScore ?? 0
+    ).toFixed(4),
+  );
 
   return {
     id: problem.id,
@@ -459,14 +516,23 @@ async function main(): Promise<void> {
     throw new Error(`Dossier de cas introuvable ou incomplet: ${options.casesDir} (enonces.jsonl attendu).`);
   }
   CERT_SPECS = readCertSpecs(options.casesDir);
-  const allProblems = readJsonl<Problem>(path.join(options.casesDir, 'enonces.jsonl'));
+  const allProblems = readJsonl<Record<string, unknown>>(path.join(options.casesDir, 'enonces.jsonl')).map(
+    normalizeProblem,
+  );
   const problems = options.problems.length > 0
     ? allProblems.filter(problem => options.problems.includes(problem.id))
     : allProblems;
-  const corrections = new Map(
-    readJsonl<{ id: string; correction: string }>(path.join(options.casesDir, 'corrections.jsonl')).map(entry => [
-      entry.id,
-      entry.correction,
+  const correctionsFile = path.join(options.casesDir, 'corrections.jsonl');
+  const corrections = new Map<string, CorrectionBundle>(
+    (existsSync(correctionsFile) ? readJsonl<Record<string, unknown>>(correctionsFile) : []).map(entry => [
+      String(entry.id ?? ''),
+      {
+        text: String(entry.correction ?? entry.correction_markdown ?? ''),
+        indispensables: Array.isArray(entry.indispensables) ? entry.indispensables.map(item => String(item)) : [],
+        erreurs: Array.isArray(entry.erreurs_invalidantes)
+          ? entry.erreurs_invalidantes.map(item => String(item))
+          : [],
+      },
     ]),
   );
   if (problems.length === 0) {
@@ -513,7 +579,7 @@ async function main(): Promise<void> {
       try {
         const result = await runProblem(
           problem,
-          corrections.get(problem.id) ?? '',
+          corrections.get(problem.id) ?? { text: '', indispensables: [], erreurs: [] },
           options,
           provider,
           client,
@@ -533,7 +599,7 @@ async function main(): Promise<void> {
           iterations: 0,
           toolCalls: 0,
           toolsUsed: [],
-          certificates: { matched: [], missed: CERT_SPECS[problem.id]?.checks.map(c => c.label) ?? [], score: 0 },
+          certificates: { matched: [], missed: [], score: 0, total: 0 },
           finalScore: 0,
           answer: '',
         };
@@ -562,9 +628,12 @@ async function main(): Promise<void> {
       iterations: result.iterations,
     })),
     meanScore: Number((results.reduce((sum, r) => sum + r.finalScore, 0) / results.length).toFixed(4)),
-    certificateMean: Number(
-      (results.reduce((sum, r) => sum + r.certificates.score, 0) / results.length).toFixed(4),
-    ),
+    certificateMean: (() => {
+      const withCertificates = results.filter(result => result.certificates.total > 0);
+      return withCertificates.length > 0
+        ? Number((withCertificates.reduce((sum, r) => sum + r.certificates.score, 0) / withCertificates.length).toFixed(4))
+        : 0;
+    })(),
     judgeMean: Number(
       (
         results.reduce((sum, r) => sum + (r.judge?.score100 ?? 0), 0) /
