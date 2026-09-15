@@ -74,11 +74,22 @@ export interface WebAgentResult {
   discardedNeutral: number;
   creditsUsed: number;
   creditsRemaining: number;
+  diagnostics: {
+    sourcesFetched: number;
+    pagesExtracted: number;
+    sentencesScanned: number;
+    sentencesKept: number;
+    discardedNeutral: number;
+  };
+  /** No usable evidence was produced: never let this look like a success. */
+  empty?: true;
+  emptyReason?: 'no_results' | 'no_relevant_sentence' | 'extraction_failed';
+  hint?: string;
   degraded?: true;
   degradedReason?: DegradationReason;
   degradedDetail?: string;
   truncated?: true;
-  truncationReason?: 'budget';
+  truncationReason?: 'session_budget' | 'call_budget';
   requiresClientAction?: boolean;
   instruction?: string;
 }
@@ -261,6 +272,13 @@ export async function runWebAgent(
     discardedNeutral: 0,
     creditsUsed: credits.used(sessionId),
     creditsRemaining: credits.remaining(sessionId),
+    diagnostics: {
+      sourcesFetched: 0,
+      pagesExtracted: 0,
+      sentencesScanned: 0,
+      sentencesKept: 0,
+      discardedNeutral: 0,
+    },
   };
 
   if (provider !== 'tavily') {
@@ -276,17 +294,24 @@ export async function runWebAgent(
   }
 
   let degradation: Degradation | undefined;
-  let truncated = false;
+  let sessionBudgetHit = false;
+  let callBudgetHit = false;
   let usedInRun = 0;
   const spend = (creditsToSpend: number): boolean => {
-    if (!credits.canAfford(sessionId, creditsToSpend) || usedInRun + creditsToSpend > budget) {
-      truncated = true;
+    if (!credits.canAfford(sessionId, creditsToSpend)) {
+      sessionBudgetHit = true;
+      return false;
+    }
+    if (usedInRun + creditsToSpend > budget) {
+      // The per-call cap is not an exhausted budget: say which one bit.
+      callBudgetHit = true;
       return false;
     }
     credits.charge(sessionId, creditsToSpend);
     usedInRun += creditsToSpend;
     return true;
   };
+  const truncated = () => sessionBudgetHit || callBudgetHit;
 
   // 1. Decomposition (assist model when available, deterministic otherwise).
   let subQuestions = heuristicSubQuestions(question, maxRounds);
@@ -306,7 +331,7 @@ export async function runWebAgent(
   const perDomain = new Map<string, number>();
   let rounds = 0;
   for (const subQuestion of subQuestions) {
-    if (degradation || truncated) {
+    if (degradation || truncated()) {
       break;
     }
     if (!spend(WEB_CREDIT_COSTS.search)) {
@@ -348,7 +373,7 @@ export async function runWebAgent(
   // 3. Extract full pages (batch of 5 ≈ 1 credit), falling back to snippets.
   const extracted = new Map<string, string>();
   for (let index = 0; index < selected.length; index += EXTRACT_BATCH_SIZE) {
-    if (degradation || truncated) {
+    if (degradation || truncated()) {
       break;
     }
     const batch = selected.slice(index, index + EXTRACT_BATCH_SIZE);
@@ -378,10 +403,12 @@ export async function runWebAgent(
   const contradictions: string[] = [];
   let discardedNeutral = 0;
 
+  let sentencesScanned = 0;
   for (const source of selected) {
     const content = extracted.get(source.url) ?? source.text;
     const domain = domainOf(source.url);
     const sentences = toSentences(content ?? '');
+    sentencesScanned += sentences.length;
     const scored = sentences
       .map(sentence => ({
         sentence,
@@ -417,6 +444,16 @@ export async function runWebAgent(
 
   const answerCandidates = clusterCandidates(hits);
   const citations = Array.from(new Set(answerCandidates.flatMap(candidate => candidate.sources)));
+  const pagesExtracted = extracted.size;
+  const emptyReason: WebAgentResult['emptyReason'] =
+    selected.length === 0
+      ? 'no_results'
+      : sentencesScanned === 0
+        ? 'extraction_failed'
+        : 'no_relevant_sentence';
+  // A degraded run already explains itself; a clean run that produced nothing
+  // must say so explicitly instead of looking like a success.
+  const isEmpty = evidence.length === 0 && !degradation;
 
   return {
     ...base,
@@ -438,6 +475,25 @@ export async function runWebAgent(
     discardedNeutral,
     creditsUsed: credits.used(sessionId),
     creditsRemaining: credits.remaining(sessionId),
+    diagnostics: {
+      sourcesFetched: selected.length,
+      pagesExtracted,
+      sentencesScanned,
+      sentencesKept: evidence.length,
+      discardedNeutral,
+    },
+    ...(isEmpty
+      ? {
+          empty: true as const,
+          emptyReason,
+          hint:
+            emptyReason === 'no_results'
+              ? 'Aucun résultat de recherche exploitable : reformulez la question ou élargissez les domaines.'
+              : emptyReason === 'extraction_failed'
+                ? 'Les pages n\'ont pas pu être extraites : réessayez avec fetch sur une URL précise, ou vérifiez la clé/quota Tavily.'
+                : 'Des pages ont été lues mais aucune phrase ne soutient ou ne contredit la question : précisez la question ou fournissez une entité/un chiffre attendu.',
+        }
+      : {}),
     ...(degradation
       ? {
           degraded: true as const,
@@ -445,6 +501,11 @@ export async function runWebAgent(
           degradedDetail: degradation.detail,
         }
       : {}),
-    ...(truncated ? { truncated: true as const, truncationReason: 'budget' as const } : {}),
+    ...(truncated()
+      ? {
+          truncated: true as const,
+          truncationReason: sessionBudgetHit ? ('session_budget' as const) : ('call_budget' as const),
+        }
+      : {}),
   };
 }

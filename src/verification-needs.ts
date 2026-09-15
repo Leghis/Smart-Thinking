@@ -107,11 +107,24 @@ export function evaluateVerificationHeuristics(thought: ThoughtNode): HeuristicV
 
 export function generateCertaintySummary(
   status: VerificationStatus,
-  confidence: number = 0.5
+  confidence: number = 0.5,
+  basis?: { kind: 'deterministic' | 'web' | 'mixed' | 'none'; detail?: string },
 ): string {
   const percentage = Math.round(confidence * 100);
+
+  // A decisive exact check must not be described with the probabilistic wording
+  // ("plusieurs sources fiables confirment") while `evidence` is empty.
+  if (basis?.kind === 'deterministic') {
+    if (status === 'verified') {
+      return 'Résultat établi par un contrôle exact (calcul, solveur ou CAS) : preuve déterministe, aucune corroboration externe requise.';
+    }
+    if (status === 'contradicted') {
+      return 'Affirmation réfutée par un contrôle exact (calcul, solveur ou CAS).';
+    }
+  }
+
   const statusDescriptions: Record<VerificationStatus, string> = {
-    verified: `Information vérifiée avec un niveau de confiance de ${percentage}%. Plusieurs sources fiables confirment cette information.`,
+    verified: `Information vérifiée avec un niveau de confiance de ${percentage}%. Plusieurs domaines sources indépendants confirment cette information.`,
     partially_verified: `Information partiellement vérifiée avec un niveau de confiance de ${percentage}%. Certains éléments sont confirmés par des sources fiables.`,
     unverified: `Information non vérifiée. Niveau de confiance: ${percentage}%. Aucune source ne confirme ou n'infirme cette information.`,
     contradicted: `Information contredite. Niveau de confiance: ${percentage}%. Des sources fiables contredisent cette information.`,

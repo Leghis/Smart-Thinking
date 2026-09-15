@@ -137,7 +137,7 @@ describe('context budget and honesty guards', () => {
     expect(typeof full.reliabilityScore).toBe('number');
   });
 
-  test('verifies an exact computation as verified/0.95 without touching the web', async () => {
+  test('verifies an exact computation as verified/1.0 without touching the web', async () => {
     const client = await connect();
 
     const result = payloadOf(
@@ -148,7 +148,9 @@ describe('context budget and honesty guards', () => {
     );
 
     expect(result.status).toBe('verified');
-    expect(result.confidence).toBe(0.95);
+    expect(result.confidence).toBe(1);
+    expect(String(result.certaintySummary)).toContain('contrôle exact');
+    expect(String(result.certaintySummary)).not.toContain('sources fiables');
     expect((result.verificationBasis as { kind?: string }).kind).toBe('deterministic');
     expect(result.evidence as unknown[]).toHaveLength(0);
     expect(global.fetch).not.toHaveBeenCalled();
@@ -232,5 +234,151 @@ describe('context budget and honesty guards', () => {
     expect(afterSecond).toBe(2);
     expect((first.webCredits as { creditsUsed: number }).creditsUsed).toBe(1);
     expect((second.webCredits as { creditsUsed: number }).creditsUsed).toBe(2);
+  });
+
+  test('keeps the certificate ledger across a server restart', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'smart-thinking-claims-'));
+    const first = createEnvironment({ dataDir: dir, persistenceDisabled: false });
+    const firstServer = createSmartThinkingServer(first);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'claims-a', version: '1' });
+    await firstServer.server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    const claimed = payloadOf(
+      (await client.callTool({
+        name: 'claim',
+        arguments: {
+          statement: '1729 est le plus petit nombre somme de deux cubes de deux façons',
+          value: '1729',
+          method: 'énumération exhaustive',
+          evidence: '9^3+10^3 = 1729 = 1^3+12^3',
+          sessionId: 'claims-restart',
+        },
+      })) as unknown as StructuredResult,
+    );
+    expect((claimed.claim as { value?: string }).value).toBe('1729');
+    await client.close();
+    await firstServer.server.close();
+    await first.sessionStore.flush();
+
+    // "Restart": a brand new environment on the same data directory.
+    const second = createEnvironment({ dataDir: dir, persistenceDisabled: false });
+    const secondServer = createSmartThinkingServer(second);
+    const [ct2, st2] = InMemoryTransport.createLinkedPair();
+    const client2 = new Client({ name: 'claims-b', version: '1' });
+    await secondServer.server.connect(st2);
+    await client2.connect(ct2);
+
+    const audit = payloadOf(
+      (await client2.callTool({
+        name: 'audit',
+        arguments: { sessionId: 'claims-restart' },
+      })) as unknown as StructuredResult,
+    );
+    expect(audit.total).toBe(1);
+    expect(audit.supported).toBe(1);
+
+    const status = payloadOf(
+      (await client2.callTool({
+        name: 'session',
+        arguments: { action: 'status', sessionId: 'claims-restart' },
+      })) as unknown as StructuredResult,
+    );
+    expect(status.claims).toBe(1);
+    expect(status.claimsWithoutCertificate).toBe(0);
+
+    await client2.close();
+    await secondServer.server.close();
+    await second.sessionStore.flush();
+    await fsp.rm(dir, { recursive: true, force: true });
+  });
+
+  test('purges neutral web evidence inherited from older versions', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'smart-thinking-purge-'));
+    const sessionsDir = path.join(dir, 'sessions');
+    await fsp.mkdir(sessionsDir, { recursive: true });
+    await fsp.writeFile(
+      path.join(sessionsDir, 'session_state_purge-session.json'),
+      JSON.stringify({
+        sessionId: 'purge-session',
+        hypotheses: [],
+        evidence: [
+          {
+            id: 'web-noise',
+            quote: 'Sesame Street counting segments.',
+            sourceType: 'web',
+            source: 'https://en.wikipedia.org/wiki/Pinball_Number_Count',
+            stance: 'neutral',
+            confidence: 0.4,
+            retrievedAt: '2026-09-15T04:41:59.120Z',
+          },
+          {
+            id: 'web-kept',
+            quote: 'La tour Eiffel mesure 330 mètres.',
+            sourceType: 'web',
+            source: 'https://mairie-paris.fr/eiffel',
+            stance: 'supports',
+            confidence: 0.6,
+            retrievedAt: '2026-09-15T04:41:59.120Z',
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+      'utf8',
+    );
+
+    const purgeEnv = createEnvironment({ dataDir: dir, persistenceDisabled: false });
+    const { server } = createSmartThinkingServer(purgeEnv);
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const purgeClient = new Client({ name: 'purge', version: '1' });
+    await server.connect(st);
+    await purgeClient.connect(ct);
+
+    const status = payloadOf(
+      (await purgeClient.callTool({
+        name: 'session',
+        arguments: { action: 'status', sessionId: 'purge-session' },
+      })) as unknown as StructuredResult,
+    );
+
+    expect(status.evidence).toBe(1);
+    expect((status.evidencePurged as { count?: number })?.count).toBe(1);
+
+    await purgeClient.close();
+    await server.close();
+    await purgeEnv.sessionStore.flush();
+    await fsp.rm(dir, { recursive: true, force: true });
+  });
+
+  test('never claims an exhausted budget when the call is simply too expensive', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ results: [] }),
+      text: async () => '{}',
+    })) as unknown as typeof fetch;
+
+    env = createEnvironment({
+      dataDir: tempDir,
+      persistenceDisabled: true,
+      search: { provider: 'tavily', tavilyApiKey: 'tvly-test' },
+    });
+    const client = await connect();
+
+    const result = payloadOf(
+      (await client.callTool({
+        name: 'research',
+        arguments: { question: 'Question coûteuse', sessionId: 'research-budget', provider: 'tavily' },
+      })) as unknown as StructuredResult,
+    );
+
+    expect(result.degraded).toBe(true);
+    expect(result.reason).toBe('budget_insufficient');
+    expect(String(result.detail)).toContain('50');
+    expect(String(result.instruction)).not.toContain('épuisé');
+    expect(result.creditsUsed).toBe(0);
   });
 });

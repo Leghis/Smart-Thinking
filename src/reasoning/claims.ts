@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { LIMITS } from '../constants';
+import type { Claim, ClaimInput } from '../types';
+
+export type { Claim, ClaimInput };
 
 /**
  * Certificate ledger: general enforcement of "no result without evidence".
@@ -8,24 +11,6 @@ import { LIMITS } from '../constants';
  * the session to find unsupported claims or conflicting values. Domain-agnostic
  * (math, engineering, security, economics…).
  */
-
-export interface Claim {
-  id: string;
-  statement: string;
-  value?: string;
-  method?: string;
-  evidence?: string;
-  confidence: number;
-  createdAt: string;
-}
-
-export interface ClaimInput {
-  statement: string;
-  value?: string;
-  method?: string;
-  evidence?: string;
-  confidence?: number;
-}
 
 export interface AuditReport {
   total: number;
@@ -139,6 +124,22 @@ export class ClaimLedger {
 
   list(sessionId: string): Claim[] {
     return [...(this.sessions.get(sessionId || LIMITS.DEFAULT_SESSION_ID) ?? [])];
+  }
+
+  /**
+   * Rehydrate the in-memory cache from the persisted session without losing
+   * claims registered during this process (union by id, insertion order kept).
+   */
+  hydrate(sessionId: string, persisted: Claim[] | undefined): void {
+    const safeSession = sessionId || LIMITS.DEFAULT_SESSION_ID;
+    if (!persisted || persisted.length === 0) {
+      return;
+    }
+    const current = this.sessions.get(safeSession) ?? [];
+    const known = new Set(current.map(claim => claim.id));
+    const merged = [...persisted.filter(claim => !known.has(claim.id)), ...current];
+    merged.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    this.sessions.set(safeSession, merged.slice(-500));
   }
 
   clear(sessionId: string): void {

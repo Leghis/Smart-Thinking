@@ -1,5 +1,19 @@
 # Changelog
 
+## v13.1.1 — Le registre de certificats survit au redémarrage, diagnostics honnêtes
+
+### Corrections
+
+- **Registre de certificats durable.** Les affirmations (`claim`) étaient stockées en mémoire et disparaissaient à chaque redémarrage du serveur, alors que le graphe, le plan et les preuves survivaient. Elles sont désormais persistées par session (comme le plan et les hypothèses), rechargées à la demande par `claim`/`audit`/`session export`, et comptées dans `session(action="status")` (`claims`, `claimsWithoutCertificate`). `session reset` les efface avec le reste.
+- **Purge des preuves neutres héritées.** Les extraits web `stance: "neutral"` enregistrés par les versions < 13.1 (hors sujet, jamais des preuves) sont retirés au chargement de la session ; le nombre purgé est exposé dans `session status` (`evidencePurged`), et `addEvidence` refuse désormais d'en enregistrer de nouveaux.
+- **Diagnostics de budget exacts.** `research` annonçait « budget épuisé » alors que le budget restait largement disponible : l'agent géré Tavily coûte ~50 crédits, au-dessus du plafond par défaut de 25. Le refus distingue maintenant `budget` (vraiment épuisé) de `budget_insufficient` (coût de l'appel > restant) avec le détail chiffré, et `provider: "auto"` bascule vers le multi-hop interne en expliquant pourquoi au lieu de refuser. `web_agent` distingue `truncationReason: "session_budget"` de `"call_budget"` (plafond par appel via `maxCredits`).
+- **Compteur de crédits persistant.** Les crédits consommés sont écrits dans la session : le compteur ne repart plus de zéro après un redémarrage et deux processus ne peuvent plus diverger sur la même session.
+- **Sources dédoublonnées dans `verify`.** Plusieurs requêtes renvoyant la même URL la comptaient deux fois (« 5 sources » pour 3 domaines) ; chaque source est désormais comptée une fois.
+- **Résumé cohérent avec le verdict.** `certaintySummary` disait « plusieurs sources fiables confirment » pour un résultat démontré par un calcul, avec zéro preuve. Le texte distingue maintenant le déterministe (« preuve déterministe, aucune corroboration externe requise ») du web, et une preuve exacte vaut `confidence: 1` (un calcul exact n'est pas une estimation probabiliste).
+- **`cas` et l'opérateur `^`.** `(x+1)^2` plantait avec `TypeError: unsupported operand type(s) for ^` (SymPy lit `^` comme un XOR). L'opérateur est converti en `**` avec `normalizedPower: true` et une note ; `calculate` acceptait déjà `^`.
+- **Échec vide explicite dans `web_agent`.** Une exécution sans preuve exploitable renvoie désormais `empty: true`, `emptyReason` (`no_results` | `no_relevant_sentence` | `extraction_failed`), un `hint` actionnable et un bloc `diagnostics` (sources, pages extraites, phrases lues/retenues, extraits neutres jetés) — plus de succès silencieux.
+- **Métriques étiquetées.** `metricsBasis` porte un `disclaimer` explicite : `qualityMetrics` sont des heuristiques de forme (modalisation, vocabulaire, structure), pas une mesure de fiabilité ; la description de `smartthinking` le rappelle et renvoie vers `verificationStatus` et `claim`/`audit`.
+
 ## v13.1.0 — Vérité déterministe, agent internet autonome, budget de contexte
 
 ### Corrections d'exactitude

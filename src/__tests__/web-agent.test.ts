@@ -160,9 +160,62 @@ describe('web agent', () => {
     );
 
     expect(outcome.truncated).toBe(true);
-    expect(outcome.truncationReason).toBe('budget');
+    expect(outcome.truncationReason).toBe('session_budget');
     expect(stub.calls.search).toBe(2);
     expect(credits.used('agent-budget')).toBe(2);
+  });
+
+  test('distinguishes the per-call cap from the session budget', async () => {
+    const stub = createStub({
+      results: [result('web-1', 'https://one.fr/a', 'Un', SUPPORT_SENTENCE)],
+    });
+    const credits = new WebCreditLedger(25);
+
+    const outcome = await runWebAgent(
+      QUESTION,
+      { searchService: stub, credits, sessionId: 'agent-call-budget' },
+      { maxRounds: 2, maxCredits: 1 },
+    );
+
+    expect(outcome.truncated).toBe(true);
+    expect(outcome.truncationReason).toBe('call_budget');
+    expect(outcome.creditsRemaining).toBe(24);
+  });
+
+  test('flags an empty result instead of returning a silent success', async () => {
+    const stub = createStub({
+      results: [result('web-1', 'https://one.fr/a', 'Un', IRRELEVANT_SENTENCE)],
+    });
+    const credits = new WebCreditLedger(25);
+
+    const outcome = await runWebAgent(
+      QUESTION,
+      { searchService: stub, credits, sessionId: 'agent-empty' },
+      { maxRounds: 1 },
+    );
+
+    expect(outcome.empty).toBe(true);
+    expect(outcome.emptyReason).toBe('no_relevant_sentence');
+    expect(outcome.hint).toBeTruthy();
+    expect(outcome.diagnostics.sourcesFetched).toBe(1);
+    expect(outcome.diagnostics.sentencesKept).toBe(0);
+  });
+
+  test('reports an extraction failure when no text could be read at all', async () => {
+    const stub = createStub({
+      results: [result('web-1', 'https://one.fr/a', 'Un', '')],
+    });
+    const credits = new WebCreditLedger(25);
+
+    const outcome = await runWebAgent(
+      QUESTION,
+      { searchService: stub, credits, sessionId: 'agent-extract-fail' },
+      { maxRounds: 1 },
+    );
+
+    expect(outcome.empty).toBe(true);
+    expect(outcome.emptyReason).toBe('extraction_failed');
+    expect(outcome.diagnostics.pagesExtracted).toBe(0);
   });
 
   test('reports a quota refusal as degraded instead of pretending success', async () => {

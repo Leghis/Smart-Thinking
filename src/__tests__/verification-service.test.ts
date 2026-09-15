@@ -99,7 +99,8 @@ describe('VerificationService', () => {
     const calculation = result.checks?.find(check => check.name === 'calculation');
     expect(calculation?.outcome).toBe('passed');
     expect(result.status).toBe('verified');
-    expect(result.confidence).toBe(0.95);
+    // An exact check is a proof, not a probabilistic estimate.
+    expect(result.confidence).toBe(1);
     expect(result.verificationBasis?.kind).toBe('deterministic');
     expect(result.checks?.find(check => check.name === 'web')?.outcome).toBe('skipped');
     expect(result.evidence).toBeUndefined();
@@ -224,6 +225,29 @@ describe('VerificationService', () => {
     expect(result.evidence).toBeUndefined();
     expect(result.discardedNeutral).toBeGreaterThanOrEqual(2);
     expect(result.status).not.toBe('verified');
+  });
+
+  test('counts a source once even when several queries return the same URL', async () => {
+    const { service } = createWebBackedService();
+    // The stub answers every generated query with the same single URL.
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        results: [webResult(1, 'La tour Eiffel culmine à 330 mètres', SUPPORT_CONTENT)],
+      }),
+    );
+
+    const result = await service.verifyClaim({
+      claim: 'La tour Eiffel mesure 330 mètres de hauteur.',
+      sessionId: 'dedupe-session',
+      checkCalculation: false,
+      checkConsistency: false,
+      checkWeb: true,
+    });
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(result.evidence).toHaveLength(1);
+    expect(result.sources).toEqual(['https://example.com/source-1']);
+    expect(result.confidence).toBe(0.55);
   });
 
   test('marks a claim partially verified with a single supporting web source', async () => {

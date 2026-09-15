@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "13.1.0",
+  "version": "13.1.1",
   "description": "MCP reasoning server: graph-based multi-step reasoning, honest verification, persistent sessions and per-user web search (Tavily or native delegation).",
   "main": "build/index.js",
   "module": "./src/index.ts",

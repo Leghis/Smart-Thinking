@@ -65,6 +65,9 @@ export interface CasResult {
   equal?: boolean;
   error?: string;
   durationMs: number;
+  /** Set when `^` was rewritten to `**` (SymPy reads `^` as XOR). */
+  normalizedPower?: boolean;
+  note?: string;
 }
 
 const PYTHON_CANDIDATES = ['python3', 'python'];
@@ -129,11 +132,13 @@ export function isCasAvailable(): Promise<boolean> {
 
 export async function runCas(request: CasRequest, timeoutMs = 25_000): Promise<CasResult> {
   const started = Date.now();
-  validateRequest(request);
+  const { request: normalized, normalizedPower } = normalizePowerOperator(request);
+  const effective = normalized;
+  validateRequest(effective);
   const python = await resolvePython();
   const worker = await ensureWorker();
 
-  const payload = JSON.stringify(request).replace(/\n/g, ' ');
+  const payload = JSON.stringify(effective).replace(/\n/g, ' ');
   const output = await new Promise<string>((resolve, reject) => {
     const child = spawn(python, [worker, payload], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
@@ -168,7 +173,16 @@ export async function runCas(request: CasRequest, timeoutMs = 25_000): Promise<C
 
   try {
     const parsed = JSON.parse(output) as Omit<CasResult, 'durationMs'>;
-    return { ...parsed, durationMs: Date.now() - started };
+    return {
+      ...parsed,
+      durationMs: Date.now() - started,
+      ...(normalizedPower
+        ? {
+            normalizedPower: true,
+            note: '`^` a été interprété comme une puissance (`**`) : SymPy lit `^` comme un XOR. Préférez `x**2` ou `pow(x, 2)`.',
+          }
+        : {}),
+    };
   } catch {
     throw new ProviderError(`CAS réponse illisible: ${output.slice(0, 300)}`, { provider: 'cas' });
   }
@@ -187,6 +201,28 @@ function validateRequest(request: CasRequest): void {
   if (request.precision !== undefined && (request.precision < 2 || request.precision > 500)) {
     throw new ValidationError('precision doit être comprise entre 2 et 500.');
   }
+}
+
+const POWER_FIELDS = ['expr', 'lhs', 'rhs', 'equation', 'value', 'polynomial'] as const;
+
+/**
+ * SymPy parses `^` as bitwise XOR, so `(x+1)^2` used to crash with a raw
+ * TypeError. Users mean exponentiation: rewrite it and say so.
+ */
+function normalizePowerOperator(request: CasRequest): {
+  request: CasRequest;
+  normalizedPower: boolean;
+} {
+  let normalizedPower = false;
+  const next: CasRequest = { ...request };
+  for (const field of POWER_FIELDS) {
+    const value = next[field];
+    if (typeof value === 'string' && value.includes('^')) {
+      next[field] = value.replace(/\^/g, '**');
+      normalizedPower = true;
+    }
+  }
+  return { request: next, normalizedPower };
 }
 
 const CAS_WORKER_SOURCE = String.raw`#!/usr/bin/env python3

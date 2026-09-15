@@ -382,11 +382,16 @@ export class ReasoningOrchestrator {
     );
     const fallbackConfidence =
       deterministicFallback === 'verified'
-        ? 0.95
+        ? 1
         : deterministicFallback === 'contradicted'
-          ? 0.9
+          ? 1
           : 0.4;
-    const certaintySummary = generateCertaintySummary(status, verification?.confidence ?? fallbackConfidence);
+    const certaintySummary = generateCertaintySummary(
+      status,
+      verification?.confidence ?? fallbackConfidence,
+      verification?.verificationBasis ??
+        (deterministicFallback ? { kind: 'deterministic' as const } : undefined),
+    );
 
     const response: SmartThinkingResponse = {
       thoughtId,
@@ -699,6 +704,8 @@ function buildMetricsBasis(
   return {
     heuristic: true,
     scale: '0..1 (heuristique, non probabiliste)',
+    disclaimer:
+      'Scores heuristiques de forme (modalisation, vocabulaire, structure, type de pensée) : ce ne sont PAS des mesures de vérité ni de fiabilité. Pour la vérité, utilisez verificationStatus, claim/audit et verify.',
     contributions,
   };
 }

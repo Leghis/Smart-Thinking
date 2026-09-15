@@ -328,6 +328,28 @@ export interface CritiqueReport {
 }
 
 // ---------------------------------------------------------------------------
+// Certificate ledger
+// ---------------------------------------------------------------------------
+
+export interface Claim {
+  id: string;
+  statement: string;
+  value?: string;
+  method?: string;
+  evidence?: string;
+  confidence: number;
+  createdAt: string;
+}
+
+export interface ClaimInput {
+  statement: string;
+  value?: string;
+  method?: string;
+  evidence?: string;
+  confidence?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Web search & fetch (Tavily or client-native delegation)
 // ---------------------------------------------------------------------------
 
@@ -395,6 +417,12 @@ export interface SessionState {
   plan?: Plan;
   hypotheses: HypothesisNode[];
   evidence: EvidenceItem[];
+  /** Persisted certificate ledger (survives a server restart). */
+  claims?: Claim[];
+  /** Web credits consumed by this session, persisted across processes/restarts. */
+  webCreditsUsed?: number;
+  /** Neutral web hits dropped on load because they are not evidence. */
+  purgedNeutralEvidence?: number;
   searchConfig?: Omit<SearchConfig, 'tavilyApiKey'> & { hasApiKey?: boolean };
   createdAt: string;
   updatedAt: string;
@@ -563,6 +591,7 @@ export interface SmartThinkingResponse {
   metricsBasis?: {
     heuristic: true;
     scale: '0..1 (heuristique, non probabiliste)';
+    disclaimer: string;
     contributions: Record<string, MetricContribution[]>;
   };
   sessionId?: string;

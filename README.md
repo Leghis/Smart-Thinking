@@ -73,8 +73,17 @@ Paramètres : `question`, `maxSources` (≤ 20), `maxRounds` (≤ 4), `maxCredit
 Comportements explicites, jamais silencieux :
 
 - **Budget** — chaque appel compte ses crédits (`web_search` 1, `web_agent` 1/recherche + 1/5 pages extraites, `web_crawl` 5 (crawl) ou 1 (map), `research` ≈ 50 pour l'agent géré). Plafond par session via `SMART_THINKING_WEB_CREDIT_BUDGET` (défaut 25), visible dans `session(action="status")` ; le compteur vit en mémoire et repart à zéro au redémarrage du serveur. Budget épuisé → `degraded: true, reason: "budget"` et aucun appel réseau.
-- **Dégradation** — clé absente → délégation native (`requiresClientAction`) ; 401/403 → `reason: "auth"` ; 429 → `"rate_limit"` ; 432/433 → `"quota"`. La réponse contient ce qui a déjà été collecté.
+- **Budget (suite)** — le compteur est **persisté dans la session** (il ne repart plus de zéro après un redémarrage et deux processus ne divergent plus). Les refus distinguent `reason: "budget"` (vraiment épuisé) de `"budget_insufficient"` (l'appel coûte plus que le restant, ex. `research` ≈ 50 crédits pour un plafond de 25) ; `provider: "auto"` bascule alors vers le multi-hop interne en expliquant pourquoi. `web_agent` précise `truncationReason: "session_budget"` ou `"call_budget"`.
+- **Dégradation** — clé absente → délégation native (`requiresClientAction`) ; 401/403 → `reason: "auth"` ; 429 → `"rate_limit"` ; 432/433 → `"quota"`. La réponse contient ce qui a déjà été collecté. Une exécution sans preuve exploitable renvoie `empty: true` + `emptyReason` + `hint` + un bloc `diagnostics` (jamais un succès silencieux).
 - **Recherche vide** — `web_crawl` renvoie `empty: true` + `hint` au lieu d'un succès muet.
+
+## Session, certificats et preuves
+
+- `claim` / `audit` : le registre de certificats est **persisté par session** et survit au redémarrage du serveur ; `session(action="status")` expose `claims` et `claimsWithoutCertificate`.
+- Les extraits web `stance: "neutral"` ne sont **jamais** enregistrés comme preuves ; ceux écrits par les versions < 13.1 sont purgés au chargement (`evidencePurged` dans `session status`).
+- Un contrôle exact (calcul, solveur, CAS) est une **preuve** : `verify` renvoie `confidence: 1`, `verificationBasis.kind: "deterministic"`, aucune requête web, et un `certaintySummary` qui ne parle pas de « sources fiables ».
+- `qualityMetrics` (smartthinking) sont des **heuristiques de forme** (modalisation, vocabulaire, structure) : `metricsBasis.disclaimer` le rappelle. Pour la vérité, utilisez `verificationStatus`, `verify` et `claim`/`audit`.
+- `cas` accepte `^` comme puissance (`(x+1)^2`) en le convertissant en `**` : la réponse porte `normalizedPower: true` et une note.
 
 ## Installation
 

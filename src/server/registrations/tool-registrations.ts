@@ -141,15 +141,52 @@ function chargeWebCredits(env: SmartThinkingEnvironment, sessionId: string, cred
   return env.webCredits.charge(sessionId, credits);
 }
 
-/** Explicit refusal payload: never pretend the call happened. */
-function budgetPayload(env: SmartThinkingEnvironment, sessionId: string, tool: string) {
+/** Load the persisted counter so several processes/restarts agree on usage. */
+async function syncWebCredits(env: SmartThinkingEnvironment, sessionId: string): Promise<void> {
+  const state = await env.sessionStore.get(sessionId);
+  env.webCredits.hydrate(sessionId, state.webCreditsUsed ?? 0);
+}
+
+async function persistWebCredits(env: SmartThinkingEnvironment, sessionId: string): Promise<void> {
+  await env.sessionStore.setWebCreditsUsed(sessionId, env.webCredits.used(sessionId));
+}
+
+/** Rehydrate the certificate ledger from the persisted session. */
+async function syncClaims(env: SmartThinkingEnvironment, sessionId: string): Promise<void> {
+  const state = await env.sessionStore.get(sessionId);
+  env.claims.hydrate(sessionId, state.claims);
+}
+
+async function persistClaims(env: SmartThinkingEnvironment, sessionId: string): Promise<void> {
+  await env.sessionStore.setClaims(sessionId, env.claims.list(sessionId));
+}
+
+/**
+ * Explicit refusal payload. The reason distinguishes a truly exhausted session
+ * budget from a call that simply costs more than what remains.
+ */
+function budgetPayload(
+  env: SmartThinkingEnvironment,
+  sessionId: string,
+  tool: string,
+  cost?: number,
+) {
+  const summary = budgetSummary(env, sessionId);
+  const exhausted = summary.creditsRemaining <= 0;
+  const detail =
+    cost !== undefined && !exhausted
+      ? `Cet appel coûte environ ${cost} crédits, il en reste ${summary.creditsRemaining} (plafond ${summary.creditsLimit}).`
+      : `Aucun crédit web disponible (${summary.creditsUsed}/${summary.creditsLimit}).`;
   return {
     tool,
     degraded: true,
-    reason: 'budget',
-    ...budgetSummary(env, sessionId),
+    reason: exhausted ? 'budget' : 'budget_insufficient',
+    detail,
+    ...summary,
     instruction:
-      'Budget de crédits web épuisé pour cette session. Augmentez SMART_THINKING_WEB_CREDIT_BUDGET, utilisez votre recherche native, ou passez à une autre session (sessionId). Aucun appel réseau n\'a été effectué.',
+      exhausted
+        ? 'Budget de crédits web épuisé pour cette session. Augmentez SMART_THINKING_WEB_CREDIT_BUDGET, utilisez votre recherche native, ou passez à une autre session (sessionId). Aucun appel réseau n\'a été effectué.'
+        : `Crédits insuffisants pour cet appel (${cost ?? '?'} requis, ${summary.creditsRemaining} restants). Augmentez SMART_THINKING_WEB_CREDIT_BUDGET ou utilisez un outil moins coûteux (web_search, web_agent). Aucun appel réseau n'a été effectué.`,
   };
 }
 
@@ -233,7 +270,7 @@ function registerSmartThinkingTool(server: McpServer, env: SmartThinkingEnvironm
     {
       title: 'Smart-Thinking',
       description:
-        'Graph-based multi-step reasoning with persistent memory, honest verification and planning. Use it to record thoughts, build on prior steps, track hypotheses and get next-step guidance. Call it for any non-trivial reasoning task, not just for storage.',
+        'Graph-based multi-step reasoning with persistent memory, honest verification and planning. Use it to record thoughts, build on prior steps, track hypotheses and get next-step guidance. Call it for any non-trivial reasoning task, not just for storage. qualityMetrics are FORMAL heuristics (wording, vocabulary, structure) — never read them as reliability; use verificationStatus and claim/audit for truth.',
       inputSchema: SmartThinkingParamsSchema.shape,
       annotations: REASONING_ANNOTATIONS,
     },
@@ -416,6 +453,7 @@ function registerWebSearchTool(server: McpServer, env: SmartThinkingEnvironment)
       try {
         const sessionConfig = env.sessionStore.getSearchConfig(params.sessionId);
         const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        await syncWebCredits(env, sessionId);
         const provider = env.searchService.resolveProvider(
           params.provider,
           sessionConfig,
@@ -424,7 +462,7 @@ function registerWebSearchTool(server: McpServer, env: SmartThinkingEnvironment)
         if (provider === 'tavily') {
           const budget = chargeWebCredits(env, sessionId, WEB_CREDIT_COSTS.search);
           if (!budget.granted) {
-            return asTextResult(budgetPayload(env, sessionId, 'web_search'));
+            return asTextResult(budgetPayload(env, sessionId, 'web_search', WEB_CREDIT_COSTS.search));
           }
         }
         const response = await env.searchService.webSearch(
@@ -446,6 +484,7 @@ function registerWebSearchTool(server: McpServer, env: SmartThinkingEnvironment)
           },
           sessionConfig,
         );
+        await persistWebCredits(env, sessionId);
         return asTextResult({
           ...response,
           webCredits: budgetSummary(env, sessionId),
@@ -471,6 +510,7 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
       try {
         const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
         const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
+        await syncWebCredits(env, sessionId);
         if (!env.searchService.isTavilyConfigured(params.tavilyApiKey ?? sessionConfig?.tavilyApiKey)) {
           return asTextResult({
             provider: 'native',
@@ -482,7 +522,7 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
         }
         const cost = params.mode === 'map' ? WEB_CREDIT_COSTS.map : WEB_CREDIT_COSTS.crawl;
         if (!env.webCredits.canAfford(sessionId, cost)) {
-          return asTextResult(budgetPayload(env, sessionId, 'web_crawl'));
+          return asTextResult(budgetPayload(env, sessionId, 'web_crawl', cost));
         }
         env.webCredits.charge(sessionId, cost);
 
@@ -503,6 +543,7 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
 
         if (params.mode === 'map') {
           const mapped = await env.searchService.mapSite(request);
+          await persistWebCredits(env, sessionId);
           return asTextResult({
             ...mapped,
             mode: 'map',
@@ -514,6 +555,7 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
         }
 
         const crawled = await env.searchService.crawlSite(request);
+        await persistWebCredits(env, sessionId);
         return asTextResult({
           ...crawled,
           mode: 'crawl',
@@ -564,7 +606,11 @@ function registerVerifyTool(server: McpServer, env: SmartThinkingEnvironment): v
           status: result.status,
           confidence: result.confidence,
           verificationBasis: result.verificationBasis,
-          certaintySummary: generateCertaintySummary(result.status, result.confidence),
+          certaintySummary: generateCertaintySummary(
+            result.status,
+            result.confidence,
+            result.verificationBasis,
+          ),
           checks: result.checks ?? [],
           evidence: result.evidence ?? [],
           contradictions: result.contradictions ?? [],
@@ -656,8 +702,11 @@ function registerClaimTool(server: McpServer, env: SmartThinkingEnvironment): vo
     },
     async (params: ClaimToolParams) => {
       try {
-        const claim = env.claims.register(params.sessionId ?? LIMITS.DEFAULT_SESSION_ID, params);
-        return asTextResult({ claim, audit: env.claims.audit(params.sessionId ?? LIMITS.DEFAULT_SESSION_ID).summary });
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        await syncClaims(env, sessionId);
+        const claim = env.claims.register(sessionId, params);
+        await persistClaims(env, sessionId);
+        return asTextResult({ claim, audit: env.claims.audit(sessionId).summary });
       } catch (error) {
         return asErrorResult(error);
       }
@@ -677,8 +726,10 @@ function registerAuditTool(server: McpServer, env: SmartThinkingEnvironment): vo
     },
     async (params: AuditToolParams) => {
       try {
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        await syncClaims(env, sessionId);
         return asTextResult(
-          env.claims.audit(params.sessionId ?? LIMITS.DEFAULT_SESSION_ID, params.requirements) as unknown as Record<string, unknown>,
+          env.claims.audit(sessionId, params.requirements) as unknown as Record<string, unknown>,
         );
       } catch (error) {
         return asErrorResult(error);
@@ -866,6 +917,7 @@ function registerWebAgentTool(server: McpServer, env: SmartThinkingEnvironment):
       try {
         const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
         const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
+        await syncWebCredits(env, sessionId);
         const result = await runWebAgent(
           params.question,
           {
@@ -889,6 +941,7 @@ function registerWebAgentTool(server: McpServer, env: SmartThinkingEnvironment):
         if (result.evidence.length > 0) {
           await env.sessionStore.addEvidence(sessionId, result.evidence);
         }
+        await persistWebCredits(env, sessionId);
         return asTextResult({
           ...(result as unknown as Record<string, unknown>),
           sessionId,
@@ -916,12 +969,28 @@ function registerResearchTool(server: McpServer, env: SmartThinkingEnvironment):
         const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
         const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
         const tavilyKey = params.tavilyApiKey ?? sessionConfig?.tavilyApiKey;
+        await syncWebCredits(env, sessionId);
         let fallbackReason: string | undefined;
         let degraded: Record<string, unknown> | undefined;
         if (params.provider !== 'internal' && env.searchService.isTavilyConfigured(tavilyKey)) {
-          if (!env.webCredits.canAfford(sessionId, WEB_CREDIT_COSTS.research)) {
-            return asTextResult(budgetPayload(env, sessionId, 'research'));
+          const affordable = env.webCredits.canAfford(sessionId, WEB_CREDIT_COSTS.research);
+          if (!affordable) {
+            const refusal = budgetPayload(env, sessionId, 'research', WEB_CREDIT_COSTS.research);
+            if (params.provider === 'tavily') {
+              return asTextResult(refusal);
+            }
+            // auto: the managed agent is simply unaffordable — fall back to the
+            // internal multi-hop and say why, instead of pretending the budget
+            // is exhausted.
+            fallbackReason = refusal.detail;
+            degraded = { degraded: true, reason: refusal.reason, detail: refusal.detail };
           }
+        }
+        if (
+          params.provider !== 'internal' &&
+          env.searchService.isTavilyConfigured(tavilyKey) &&
+          env.webCredits.canAfford(sessionId, WEB_CREDIT_COSTS.research)
+        ) {
           try {
             const report = await env.searchService.tavilyResearch(
               params.question,
@@ -929,6 +998,7 @@ function registerResearchTool(server: McpServer, env: SmartThinkingEnvironment):
               tavilyKey,
             );
             env.webCredits.charge(sessionId, WEB_CREDIT_COSTS.research);
+            await persistWebCredits(env, sessionId);
             return asTextResult({
               provider: 'tavily',
               mode: 'tavily_agent',
@@ -959,6 +1029,7 @@ function registerResearchTool(server: McpServer, env: SmartThinkingEnvironment):
         if (internalCredits > 0) {
           env.webCredits.charge(sessionId, internalCredits);
         }
+        await persistWebCredits(env, sessionId);
         const result = await deepResearch(
           params.question,
           {
@@ -1066,16 +1137,24 @@ function registerSessionTool(server: McpServer, env: SmartThinkingEnvironment): 
           }
           case 'reset': {
             graph.clear();
+            env.claims.clear(sessionId);
             await env.sessionStore.clear(sessionId);
+            env.webCredits.reset(sessionId);
             await env.memoryManager.clear(sessionId);
             return asTextResult({ sessionId, reset: true });
           }
           case 'summary': {
+            await syncClaims(env, sessionId);
             return asTextResult({
               sessionId,
               plan: state.plan,
               hypotheses: state.hypotheses,
+              claims: env.claims.list(sessionId).slice(-20),
               evidence: state.evidence.slice(-20),
+              evidenceCount: state.evidence.length,
+              ...(state.purgedNeutralEvidence
+                ? { purgedNeutralEvidence: state.purgedNeutralEvidence }
+                : {}),
               recentThoughts: graph.getRecentThoughts(10, sessionId).map(thought => ({
                 id: thought.id,
                 type: thought.type,
@@ -1085,15 +1164,19 @@ function registerSessionTool(server: McpServer, env: SmartThinkingEnvironment): 
             });
           }
           case 'export': {
+            await syncClaims(env, sessionId);
             return asTextResult({
               sessionId,
-              state,
+              state: { ...state, claims: env.claims.list(sessionId) },
               graph: JSON.parse(graph.exportEnrichedGraph()) as Record<string, unknown>,
             });
           }
           case 'status':
           default: {
+            await syncWebCredits(env, sessionId);
+            await syncClaims(env, sessionId);
             const searchConfig = env.sessionStore.getSearchConfig(sessionId);
+            const audit = env.claims.audit(sessionId);
             return asTextResult({
               sessionId,
               version: env.version,
@@ -1103,6 +1186,16 @@ function registerSessionTool(server: McpServer, env: SmartThinkingEnvironment): 
               planCompleted: state.plan?.steps.filter(step => step.status === 'completed').length ?? 0,
               hypotheses: state.hypotheses.length,
               evidence: state.evidence.length,
+              claims: audit.total,
+              claimsWithoutCertificate: audit.unsupported.length,
+              ...(state.purgedNeutralEvidence
+                ? {
+                    evidencePurged: {
+                      count: state.purgedNeutralEvidence,
+                      reason: 'preuves web neutres enregistrées avant la v13.1 (jamais des preuves)',
+                    },
+                  }
+                : {}),
               verificationEntries: env.verificationMemory.getSessionVerifications(sessionId).length,
               search: {
                 provider: searchConfig?.provider ?? env.runtime.search.provider,

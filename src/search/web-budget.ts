@@ -40,6 +40,18 @@ export class WebCreditLedger {
     return this.usageBySession.get(sessionId) ?? 0;
   }
 
+  /**
+   * Align the in-memory counter with the persisted one (another process or a
+   * previous run may have charged the same session). Never decreases.
+   */
+  hydrate(sessionId: string, persistedCredits: number): void {
+    if (!Number.isFinite(persistedCredits) || persistedCredits <= 0) {
+      return;
+    }
+    const current = this.usageBySession.get(sessionId) ?? 0;
+    this.usageBySession.set(sessionId, Math.max(current, Math.floor(persistedCredits)));
+  }
+
   remaining(sessionId: string): number {
     return Math.max(0, this.limit - this.used(sessionId));
   }

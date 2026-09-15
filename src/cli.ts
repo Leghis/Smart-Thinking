@@ -436,10 +436,23 @@ async function startStdIoServer(options: CliOptions): Promise<void> {
   if (options.mode === 'connector') {
     console.info('Smart-Thinking: mode connecteur actif (outils search & fetch uniquement)');
   }
-  const { server } = createSmartThinkingServer(undefined, {
+  const { server, env } = createSmartThinkingServer(undefined, {
     includeSmartThinkingTool: options.mode !== 'connector',
     includeWebTools: options.mode !== 'connector'
   });
+  // Flush pending session writes so a restart does not lose the last tool call
+  // (plan, hypotheses, evidence). Claims and web credits are already written
+  // immediately by the session store.
+  const shutdown = async (signal: string): Promise<void> => {
+    try {
+      await env.sessionStore.flush();
+    } catch {
+      // Best effort: never block the shutdown on I/O.
+    }
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  };
+  process.once('SIGINT', () => void shutdown('SIGINT'));
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
   const transport = new EnhancedStdioServerTransport();
   try {
     await server.connect(transport);

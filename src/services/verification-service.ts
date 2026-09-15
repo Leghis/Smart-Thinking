@@ -452,6 +452,9 @@ export class VerificationService implements IVerificationService {
     const queries = buildVerificationQueries(request.claim);
     const contradictions: string[] = [];
     const supportDomains = new Set<string>();
+    // One hit per source: several queries return the same URL, which used to
+    // inflate the "sources favorables" count.
+    const seenSources = new Set<string>();
     let supports = 0;
     let contradicts = 0;
     let discardedNeutral = 0;
@@ -463,6 +466,10 @@ export class VerificationService implements IVerificationService {
           undefined,
         );
         for (const result of response.results) {
+          if (seenSources.has(result.id)) {
+            continue;
+          }
+          seenSources.add(result.id);
           const stance = classifyStance(request.claim, result);
           if (stance === 'neutral') {
             // Irrelevant hits are noise: they are counted, never stored.
@@ -574,13 +581,14 @@ export class VerificationService implements IVerificationService {
     deterministicVerdict?: VerificationStatus | null,
   ): number {
     if (status === 'contradicted') {
-      return deterministicVerdict === 'contradicted' ? 0.9 : 0.85;
+      // A failed exact check is a proof of falsity, not a probabilistic guess.
+      return deterministicVerdict === 'contradicted' ? 1 : 0.85;
     }
     if (status === 'contradictory') {
       return 0.5;
     }
     if (status === 'verified') {
-      return deterministicVerdict === 'verified' ? 0.95 : 0.8;
+      return deterministicVerdict === 'verified' ? 1 : 0.8;
     }
     if (status === 'partially_verified') {
       const independentDomains = webCounts.supportDomains.length;

@@ -71,6 +71,12 @@ describe('reasoning toolbox', () => {
     const residues = await runCas({ operation: 'mod_linear', coefficient: 4, modulus: 17, count: 16 });
     expect(residues.result).toEqual([4, 8, 12, 16, 3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13]);
 
+    // `^` is XOR in SymPy: it used to crash with a raw TypeError.
+    const caret = await runCas({ operation: 'simplify', expr: '(x+1)^2', symbols: ['x'] });
+    expect(caret.ok).toBe(true);
+    expect(caret.normalizedPower).toBe(true);
+    expect(String(caret.result)).toBe('(x + 1)**2');
+
     const lattice = await runCas({ operation: 'lattice_solve', a: 4, b: 1, modulus: 17, count: 16 });
     const points = lattice.result as Array<{ u: number; v: number }>;
     expect(points).toHaveLength(16);

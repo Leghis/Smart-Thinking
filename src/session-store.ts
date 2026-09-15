@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import type { EvidenceItem, HypothesisNode, Plan, SearchConfig, SessionState } from './types';
+import type { Claim, EvidenceItem, HypothesisNode, Plan, SearchConfig, SessionState } from './types';
 import { LIMITS, CACHE_TTL_MS } from './constants';
 import { assertSafeSessionId, writeJsonAtomic } from './utils/persistence-utils';
 import { PathUtils } from './utils/path-utils';
@@ -63,6 +63,12 @@ export class SessionStore {
       const known = new Set(state.evidence.map(item => item.id));
       const merged = [...state.evidence];
       for (const item of evidence) {
+        // Neutral web hits are not evidence: the pre-13.1 code stored them and
+        // they polluted sessions (an arithmetic claim "corroborated" by an
+        // unrelated page). They are never stored again.
+        if (item.sourceType === 'web' && item.stance === 'neutral') {
+          continue;
+        }
         if (!known.has(item.id)) {
           merged.push(item);
           known.add(item.id);
@@ -70,6 +76,29 @@ export class SessionStore {
       }
       return { ...state, evidence: merged.slice(-500) };
     });
+  }
+
+  async setClaims(sessionId: string, claims: Claim[]): Promise<SessionState> {
+    // Durable by contract: a restart (or a killed process) must not lose the
+    // certificate ledger, so this write is not debounced.
+    const next = await this.update(sessionId, state => ({ ...state, claims: claims.slice(-500) }));
+    await this.persistNow(sessionId);
+    return next;
+  }
+
+  /** Absolute value (not a delta): the in-memory ledger stays the source of truth. */
+  async setWebCreditsUsed(sessionId: string, creditsUsed: number): Promise<SessionState> {
+    const normalized = Number.isFinite(creditsUsed) ? Math.max(0, Math.floor(creditsUsed)) : 0;
+    const next = await this.update(sessionId, state => ({
+      ...state,
+      webCreditsUsed: Math.max(state.webCreditsUsed ?? 0, normalized),
+    }));
+    await this.persistNow(sessionId);
+    return next;
+  }
+
+  async setPurgedNeutralEvidence(sessionId: string, count: number): Promise<SessionState> {
+    return this.update(sessionId, state => ({ ...state, purgedNeutralEvidence: count }));
   }
 
   async setSearchConfig(sessionId: string, config: SearchConfig): Promise<SessionState> {
@@ -173,15 +202,27 @@ export class SessionStore {
       if (age > CACHE_TTL_MS.SESSION * 30) {
         return;
       }
+      const rawEvidence = Array.isArray(parsed.evidence) ? parsed.evidence : [];
+      // Migration: drop neutral web hits persisted by versions < 13.1.
+      const evidence = rawEvidence.filter(
+        item => !(item?.sourceType === 'web' && item?.stance === 'neutral'),
+      );
+      const purged = rawEvidence.length - evidence.length;
       this.sessions.set(sessionId, {
         sessionId,
         plan: parsed.plan,
         hypotheses: parsed.hypotheses,
-        evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+        evidence,
+        ...(Array.isArray(parsed.claims) ? { claims: parsed.claims } : {}),
+        ...(typeof parsed.webCreditsUsed === 'number' ? { webCreditsUsed: parsed.webCreditsUsed } : {}),
+        ...(purged > 0 ? { purgedNeutralEvidence: purged } : {}),
         searchConfig: parsed.searchConfig,
         createdAt: parsed.createdAt ?? new Date().toISOString(),
         updatedAt: parsed.updatedAt ?? new Date().toISOString(),
       });
+      if (purged > 0) {
+        this.schedulePersist(sessionId);
+      }
     } catch {
       // Missing or corrupt session file: start fresh.
     }
@@ -200,6 +241,15 @@ export class SessionStore {
       void this.flush();
     }, 50);
     this.flushTimer.unref?.();
+  }
+
+  /** Immediate, awaited persistence for writes that must survive a hard restart. */
+  private async persistNow(sessionId: string): Promise<void> {
+    if (this.persistenceDisabled) {
+      return;
+    }
+    this.dirty.delete(sessionId);
+    await this.persist(sessionId);
   }
 
   private async persist(sessionId: string): Promise<void> {
