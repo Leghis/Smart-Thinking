@@ -304,18 +304,57 @@ function normalize(value: string): string {
     .toLowerCase();
 }
 
-export function lookupKnowledge(query?: string, domain?: string): KnowledgeEntry[] {
+/**
+ * Generic words that used to manufacture relevance by matching every entry's
+ * body. They are ignored when scoring a query.
+ */
+const STOPWORDS = new Set([
+  'les', 'des', 'une', 'uns', 'que', 'qui', 'est', 'sont', 'par', 'pour', 'avec',
+  'dans', 'sur', 'pas', 'plus', 'mais', 'tout', 'tous', 'toute', 'cette', 'ces',
+  'ses', 'son', 'leur', 'comme', 'alors', 'donc', 'entre', 'aussi', 'ainsi',
+  'elle', 'ils', 'nous', 'vous', 'the', 'and', 'for', 'are', 'was', 'were',
+  'its', 'their', 'not', 'but', 'all', 'any', 'can', 'how', 'what', 'when',
+  'where', 'which', 'while', 'into', 'than', 'then', 'they', 'you', 'your',
+  'with', 'from', 'have', 'has', 'this', 'that',
+]);
+
+export interface KnowledgeMatch {
+  entry: KnowledgeEntry;
+  score: number;
+  matchedTerms: string[];
+  /** A hit in the title or the curated keywords (as opposed to body-only matches). */
+  titleOrKeywordHit: boolean;
+  /** Number of distinct query terms matched in the title or the curated keywords. */
+  strongTermCount: number;
+}
+
+function tokenizeQuery(query: string): string[] {
+  return normalize(query)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(term => term.length > 2 && !STOPWORDS.has(term));
+}
+
+/**
+ * Score a query against the curated entries. Body-only matches are heavily
+ * discounted (0.5 per term) so a long generic question can no longer pull in
+ * unrelated entries: an entry must reach 3 points or hit a title/keyword.
+ */
+export function searchKnowledge(query?: string, domain?: string): KnowledgeMatch[] {
   const filtered = domain
     ? ENTRIES.filter(entry => normalize(entry.domain) === normalize(domain))
     : ENTRIES;
   if (!query?.trim()) {
-    return filtered;
+    return filtered.map(entry => ({
+      entry,
+      score: 0,
+      matchedTerms: [],
+      titleOrKeywordHit: false,
+      strongTermCount: 0,
+    }));
   }
-  const terms = normalize(query)
-    .split(/\s+/)
-    .filter(term => term.length > 2);
+  const terms = tokenizeQuery(query);
   if (terms.length === 0) {
-    return filtered;
+    return [];
   }
   return filtered
     .map(entry => {
@@ -323,16 +362,48 @@ export function lookupKnowledge(query?: string, domain?: string): KnowledgeEntry
       const keywords = normalize(entry.keywords.join(' '));
       const content = normalize(entry.content);
       let score = 0;
+      let titleOrKeywordHit = false;
+      let strongTermCount = 0;
+      const matchedTerms: string[] = [];
       for (const term of terms) {
-        if (title.includes(term)) score += 3;
-        if (keywords.includes(term)) score += 2;
-        if (content.includes(term)) score += 1;
+        let termScore = 0;
+        let strong = false;
+        if (title.includes(term)) {
+          termScore += 3;
+          titleOrKeywordHit = true;
+          strong = true;
+        }
+        if (keywords.includes(term)) {
+          termScore += 2;
+          titleOrKeywordHit = true;
+          strong = true;
+        }
+        if (content.includes(term)) {
+          termScore += 0.5;
+        }
+        if (termScore > 0) {
+          score += termScore;
+          matchedTerms.push(term);
+          if (strong) {
+            strongTermCount += 1;
+          }
+        }
       }
-      return { entry, score };
+      return { entry, score, matchedTerms, titleOrKeywordHit, strongTermCount };
     })
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(item => item.entry);
+    // Either a strong single-term hit, or several distinct terms from the query:
+    // one generic word ("entiers", "modèle", "agent") is no longer enough.
+    .filter(
+      item =>
+        item.titleOrKeywordHit &&
+        (item.score >= 5 || item.strongTermCount >= 2),
+    )
+    .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title));
+}
+
+export function lookupKnowledge(query?: string, domain?: string, limit = 3): KnowledgeEntry[] {
+  const matches = searchKnowledge(query, domain);
+  return (query?.trim() ? matches.slice(0, Math.max(limit, 1)) : matches).map(match => match.entry);
 }
 
 export function listKnowledgeTopics(): Array<{ id: string; domain: string; title: string }> {

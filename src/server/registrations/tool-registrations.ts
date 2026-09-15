@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
-import type { MemoryItem, SmartThinkingParams } from '../../types';
+import type { MemoryItem, PlanTemplateId, SmartThinkingParams } from '../../types';
 import type { SmartThinkingEnvironment } from '../environment';
 import { createPlan, suggestPlanQueries, updatePlanStep } from '../../planner';
 import { isPrivateUrl, normalizeUrl } from '../../search/url-content';
@@ -16,9 +16,13 @@ import {
 import { deepResearch } from '../../reasoning/research';
 import { assistCritique } from '../../reasoning/assist';
 import { runCas } from '../../reasoning/cas';
-import { listKnowledgeTopics, lookupKnowledge } from '../../reasoning/math-knowledge';
+import { listKnowledgeTopics, lookupKnowledge, searchKnowledge } from '../../reasoning/math-knowledge';
 import { runCompute } from '../../reasoning/compute';
+import { runWebAgent } from '../../reasoning/web-agent';
+import { WEB_CREDIT_COSTS } from '../../search/web-budget';
+import { classifyProviderFailure } from '../../search/provider-status';
 import { buildScienceProtocol, type ScienceDomain } from '../../reasoning/protocol';
+import { SMART_THINKING_TOOL_GUIDE } from '../server-metadata';
 import { LIMITS } from '../../constants';
 import {
   SearchParamsSchema,
@@ -33,6 +37,7 @@ import {
   SolveLogicParamsSchema,
   SolveMathParamsSchema,
   ResearchParamsSchema,
+  WebAgentParamsSchema,
   CritiqueParamsSchema,
   CasParamsSchema,
   MathKnowledgeParamsSchema,
@@ -53,6 +58,7 @@ import {
   type SolveLogicToolParams,
   type SolveMathToolParams,
   type ResearchToolParams,
+  type WebAgentToolParams,
   type CritiqueToolParams,
   type CasToolParams,
   type MathKnowledgeToolParams,
@@ -123,6 +129,30 @@ function asErrorResult(error: unknown) {
   };
 }
 
+function budgetSummary(env: SmartThinkingEnvironment, sessionId: string) {
+  return {
+    creditsUsed: env.webCredits.used(sessionId),
+    creditsLimit: env.webCredits.creditLimit,
+    creditsRemaining: env.webCredits.remaining(sessionId),
+  };
+}
+
+function chargeWebCredits(env: SmartThinkingEnvironment, sessionId: string, credits: number) {
+  return env.webCredits.charge(sessionId, credits);
+}
+
+/** Explicit refusal payload: never pretend the call happened. */
+function budgetPayload(env: SmartThinkingEnvironment, sessionId: string, tool: string) {
+  return {
+    tool,
+    degraded: true,
+    reason: 'budget',
+    ...budgetSummary(env, sessionId),
+    instruction:
+      'Budget de crédits web épuisé pour cette session. Augmentez SMART_THINKING_WEB_CREDIT_BUDGET, utilisez votre recherche native, ou passez à une autre session (sessionId). Aucun appel réseau n\'a été effectué.',
+  };
+}
+
 function buildMemoryUri(memoryId: string): string {
   return `${MEMORY_URI_PREFIX}/${encodeURIComponent(memoryId)}`;
 }
@@ -170,6 +200,7 @@ function buildHelpText(): string {
     '- calculate: évalue une expression arithmétique de façon déterministe.',
     '- solve_logic: résout exactement les puzzles d\'ordre et de classement.',
     '- solve_math: résout équations linéaires, systèmes et quadratiques.',
+    '- web_agent: boucle de recherche autonome bornée (décomposition, dédup par domaine, extraction, stance, contradictions).',
     '- research: rapport profond (agent Tavily Research, sources numérotées) ou multi-hop interne en repli.',
     '- critique: revue adversariale d\'une réponse brouillon.',
     '- smartthinking: ajoute une pensée au graphe (métriques, vérification, plan, hypothèses).',
@@ -185,17 +216,14 @@ function buildHelpText(): string {
     '- thought: pensée à analyser (obligatoire).',
     '- thoughtType: regular | revision | meta | hypothesis | conclusion.',
     '- depth: fast | balanced | deep.',
+    '- responseDetail: compact (défaut) | full — le mode compact retire la chronologie et le score composite.',
     '- connections: [{ targetId, type, strength }].',
     '- requestVerification: force la vérification.',
     '- containsCalculations: renforce la vérification mathématique.',
     '- plan: { goal, constraints?, maxSteps? }.',
     '- hypotheses: [{ statement, confidence? }].',
     '',
-    '## Boucle recommandée',
-    '1. plan(goal) pour les tâches complexes.',
-    '2. smartthinking pour consigner chaque étape importante.',
-    '3. web_search puis fetch sur les 2-3 sources clés (faits récents ou chiffrés); web_crawl pour un site entier; research pour une question multi-sources.',
-    '4. verify pour ne jamais présenter une affirmation incertaine comme un fait.',
+    SMART_THINKING_TOOL_GUIDE,
   ].join('\n');
 }
 
@@ -220,13 +248,24 @@ function registerSmartThinkingTool(server: McpServer, env: SmartThinkingEnvironm
         const safeParams: SmartThinkingParams = { ...params, thought: params.thought.trim() };
         const { response, sessionId } = await env.orchestrator.run(safeParams);
 
-        // Keep the MCP payload compact: the full trace stays available through the
-        // library API, but sending it to a model wastes context budget.
-        const { reasoningTrace, relevantMemories, ...compact } = response;
+        // Keep the MCP payload compact: the full trace and the composite score
+        // stay available through `responseDetail: "full"`, `session export` and
+        // the library API, but sending them by default wastes context budget.
+        const detail = params.responseDetail ?? 'compact';
+        const { reasoningTrace, relevantMemories, reasoningTimeline, reliabilityScore, ...compact } =
+          response;
         void reasoningTrace;
+        void reasoningTimeline;
+        void reliabilityScore;
+        const nextSteps = compact.suggestedNextSteps;
+        const trimmed =
+          detail === 'compact' && nextSteps && nextSteps.length > 2
+            ? { ...compact, suggestedNextSteps: nextSteps.slice(0, 2) }
+            : compact;
         const payload: Record<string, unknown> = {
-          ...compact,
+          ...trimmed,
           sessionId,
+          ...(detail === 'full' ? { reasoningTimeline, reliabilityScore } : {}),
           ...(relevantMemories && relevantMemories.length > 0
             ? {
                 relevantMemories: relevantMemories.map(memory => ({
@@ -376,6 +415,18 @@ function registerWebSearchTool(server: McpServer, env: SmartThinkingEnvironment)
     async (params: WebSearchToolParams) => {
       try {
         const sessionConfig = env.sessionStore.getSearchConfig(params.sessionId);
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        const provider = env.searchService.resolveProvider(
+          params.provider,
+          sessionConfig,
+          params.tavilyApiKey ?? sessionConfig?.tavilyApiKey,
+        );
+        if (provider === 'tavily') {
+          const budget = chargeWebCredits(env, sessionId, WEB_CREDIT_COSTS.search);
+          if (!budget.granted) {
+            return asTextResult(budgetPayload(env, sessionId, 'web_search'));
+          }
+        }
         const response = await env.searchService.webSearch(
           {
             query: params.query,
@@ -395,7 +446,10 @@ function registerWebSearchTool(server: McpServer, env: SmartThinkingEnvironment)
           },
           sessionConfig,
         );
-        return asTextResult(response as unknown as Record<string, unknown>);
+        return asTextResult({
+          ...response,
+          webCredits: budgetSummary(env, sessionId),
+        } as unknown as Record<string, unknown>);
       } catch (error) {
         return asErrorResult(error);
       }
@@ -415,7 +469,8 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
     },
     async (params: WebCrawlToolParams) => {
       try {
-        const sessionConfig = env.sessionStore.getSearchConfig(params.sessionId);
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
         if (!env.searchService.isTavilyConfigured(params.tavilyApiKey ?? sessionConfig?.tavilyApiKey)) {
           return asTextResult({
             provider: 'native',
@@ -425,6 +480,11 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
             url: params.url,
           });
         }
+        const cost = params.mode === 'map' ? WEB_CREDIT_COSTS.map : WEB_CREDIT_COSTS.crawl;
+        if (!env.webCredits.canAfford(sessionId, cost)) {
+          return asTextResult(budgetPayload(env, sessionId, 'web_crawl'));
+        }
+        env.webCredits.charge(sessionId, cost);
 
         const request = {
           url: params.url,
@@ -443,11 +503,28 @@ function registerWebCrawlTool(server: McpServer, env: SmartThinkingEnvironment):
 
         if (params.mode === 'map') {
           const mapped = await env.searchService.mapSite(request);
-          return asTextResult({ ...mapped, mode: 'map' });
+          return asTextResult({
+            ...mapped,
+            mode: 'map',
+            ...(mapped.urls.length === 0
+              ? { empty: true, hint: 'Aucune URL découverte à cette profondeur (site sans liens explorables ou bloqué).' }
+              : {}),
+            webCredits: budgetSummary(env, sessionId),
+          });
         }
 
         const crawled = await env.searchService.crawlSite(request);
-        return asTextResult({ ...crawled, mode: 'crawl' });
+        return asTextResult({
+          ...crawled,
+          mode: 'crawl',
+          ...(crawled.pages.length === 0
+            ? {
+                empty: true,
+                hint: 'Aucune page extraite (site sans liens explorables, robots.txt ou contenu non textuel). Essayez fetch sur une URL précise ou augmentez maxDepth.',
+              }
+            : {}),
+          webCredits: budgetSummary(env, sessionId),
+        });
       } catch (error) {
         return asErrorResult(error);
       }
@@ -486,11 +563,13 @@ function registerVerifyTool(server: McpServer, env: SmartThinkingEnvironment): v
           claim: params.claim,
           status: result.status,
           confidence: result.confidence,
+          verificationBasis: result.verificationBasis,
           certaintySummary: generateCertaintySummary(result.status, result.confidence),
           checks: result.checks ?? [],
           evidence: result.evidence ?? [],
           contradictions: result.contradictions ?? [],
           methodsUnavailable: result.methodsUnavailable ?? [],
+          discardedNeutral: result.discardedNeutral,
           notes: result.notes,
         });
       } catch (error) {
@@ -512,11 +591,19 @@ function registerPlanTool(server: McpServer, env: SmartThinkingEnvironment): voi
     },
     async (params: PlanToolParams) => {
       try {
-        const plan = createPlan(params.goal, params.constraints, params.depth, params.maxSteps);
+        const plan = createPlan(
+          params.goal,
+          params.constraints,
+          params.depth,
+          params.maxSteps,
+          params.template as PlanTemplateId | undefined,
+        );
         await env.sessionStore.setPlan(params.sessionId ?? LIMITS.DEFAULT_SESSION_ID, plan);
+        // Search queries only make sense for an explicit research intent.
+        const searchQueries = plan.template === 'research' ? suggestPlanQueries(params.goal, 3) : [];
         return asTextResult({
           plan,
-          searchQueries: suggestPlanQueries(params.goal, 3),
+          searchQueries,
           notes: 'Consignez chaque étape avec smartthinking et citez les preuves avec verify.',
         });
       } catch (error) {
@@ -634,11 +721,24 @@ function registerProtocolTool(server: McpServer): void {
     async (params: ProtocolToolParams) => {
       try {
         const protocol = buildScienceProtocol(params.problem, params.domain as ScienceDomain | undefined);
-        const knowledge = lookupKnowledge(params.problem).slice(0, 3);
-        return asTextResult({
+        // Only strictly relevant entries: a generic question must not pull
+        // unrelated classical results into the model's context.
+        const matches = searchKnowledge(params.problem).slice(0, 3);
+        const payload: Record<string, unknown> = {
           ...protocol,
-          knowledge: knowledge.map(entry => ({ id: entry.id, title: entry.title, domain: entry.domain, content: entry.content })),
-        } as unknown as Record<string, unknown>);
+          knowledge: matches.map(match => ({
+            id: match.entry.id,
+            title: match.entry.title,
+            domain: match.entry.domain,
+            score: match.score,
+            content: match.entry.content,
+          })),
+        };
+        if (matches.length === 0) {
+          payload.knowledgeNote =
+            'Aucune fiche pertinente pour cet énoncé : suis le protocole sans t\'appuyer sur des résultats classiques hors sujet.';
+        }
+        return asTextResult(payload);
       } catch (error) {
         return asErrorResult(error);
       }
@@ -752,33 +852,112 @@ function registerSolveMathTool(server: McpServer): void {
   );
 }
 
+function registerWebAgentTool(server: McpServer, env: SmartThinkingEnvironment): void {
+  server.registerTool(
+    'web_agent',
+    {
+      title: 'Autonomous Web Agent',
+      description:
+        'Autonomous web research loop: decomposes the question, searches (Tavily), deduplicates by domain, extracts full pages, then returns cited answer candidates, per-source stance and contradictions — bounded by a per-session credit budget. Prefer it over manual web_search chains for any multi-source question; it reports `degraded`/`truncated` instead of pretending.',
+      inputSchema: WebAgentParamsSchema.shape,
+      annotations: WEB_ANNOTATIONS,
+    },
+    async (params: WebAgentToolParams) => {
+      try {
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
+        const result = await runWebAgent(
+          params.question,
+          {
+            searchService: env.searchService,
+            credits: env.webCredits,
+            sessionId,
+            sessionConfig,
+            assist: env.assist,
+          },
+          {
+            maxSources: params.maxSources,
+            maxRounds: params.maxRounds,
+            maxCredits: params.maxCredits,
+            includeDomains: params.includeDomains,
+            excludeDomains: params.excludeDomains,
+            timeRange: params.timeRange,
+            provider: params.provider,
+            tavilyApiKey: params.tavilyApiKey ?? sessionConfig?.tavilyApiKey,
+          },
+        );
+        if (result.evidence.length > 0) {
+          await env.sessionStore.addEvidence(sessionId, result.evidence);
+        }
+        return asTextResult({
+          ...(result as unknown as Record<string, unknown>),
+          sessionId,
+          webCredits: budgetSummary(env, sessionId),
+        });
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    },
+  );
+}
+
 function registerResearchTool(server: McpServer, env: SmartThinkingEnvironment): void {
   server.registerTool(
     'research',
     {
       title: 'Deep Research',
       description:
-        'Deep research on a question or topic. provider=auto uses the Tavily Research agent when a key is configured (comprehensive report with numbered sources) and falls back to internal multi-hop Tavily searches. Use it for literature-style or multi-source questions; use web_search+fetch for quick targeted lookups.',
+        'Managed deep-research report. provider=auto uses the Tavily Research agent when the plan allows it (comprehensive report with numbered sources) and otherwise falls back to the internal multi-hop search; the response always states `mode` (tavily_agent|internal) and any `fallbackReason`. For an autonomous server-side loop with per-domain cross-checking, prefer web_agent.',
       inputSchema: ResearchParamsSchema.shape,
       annotations: WEB_ANNOTATIONS,
     },
     async (params: ResearchToolParams) => {
       try {
-        const sessionConfig = env.sessionStore.getSearchConfig(params.sessionId);
+        const sessionId = params.sessionId ?? LIMITS.DEFAULT_SESSION_ID;
+        const sessionConfig = env.sessionStore.getSearchConfig(sessionId);
         const tavilyKey = params.tavilyApiKey ?? sessionConfig?.tavilyApiKey;
+        let fallbackReason: string | undefined;
+        let degraded: Record<string, unknown> | undefined;
         if (params.provider !== 'internal' && env.searchService.isTavilyConfigured(tavilyKey)) {
+          if (!env.webCredits.canAfford(sessionId, WEB_CREDIT_COSTS.research)) {
+            return asTextResult(budgetPayload(env, sessionId, 'research'));
+          }
           try {
             const report = await env.searchService.tavilyResearch(
               params.question,
               { model: params.model, outputLength: params.outputLength },
               tavilyKey,
             );
-            return asTextResult({ provider: 'tavily', mode: 'research', ...report });
+            env.webCredits.charge(sessionId, WEB_CREDIT_COSTS.research);
+            return asTextResult({
+              provider: 'tavily',
+              mode: 'tavily_agent',
+              ...report,
+              webCredits: budgetSummary(env, sessionId),
+            });
           } catch (error) {
+            const failure = classifyProviderFailure(error);
             if (params.provider === 'tavily') {
-              throw error;
+              return asTextResult({
+                tool: 'research',
+                provider: 'tavily',
+                mode: 'tavily_agent',
+                degraded: true,
+                reason: failure.reason,
+                detail: failure.detail,
+                ...budgetSummary(env, sessionId),
+              });
             }
+            degraded = { degraded: true, reason: failure.reason, detail: failure.detail };
+            fallbackReason = failure.detail;
           }
+        }
+        const internalCredits = Math.min(
+          WEB_CREDIT_COSTS.search * Math.max(params.maxHops ?? 2, 1),
+          env.webCredits.remaining(sessionId),
+        );
+        if (internalCredits > 0) {
+          env.webCredits.charge(sessionId, internalCredits);
         }
         const result = await deepResearch(
           params.question,
@@ -795,8 +974,14 @@ function registerResearchTool(server: McpServer, env: SmartThinkingEnvironment):
             tavilyApiKey: tavilyKey,
           },
         );
-        await env.sessionStore.addEvidence(params.sessionId ?? LIMITS.DEFAULT_SESSION_ID, result.evidence);
-        return asTextResult(result as unknown as Record<string, unknown>);
+        await env.sessionStore.addEvidence(sessionId, result.evidence);
+        return asTextResult({
+          ...(result as unknown as Record<string, unknown>),
+          mode: 'internal',
+          ...(fallbackReason ? { fallbackReason } : {}),
+          ...(degraded ?? {}),
+          webCredits: budgetSummary(env, sessionId),
+        });
       } catch (error) {
         return asErrorResult(error);
       }
@@ -923,7 +1108,15 @@ function registerSessionTool(server: McpServer, env: SmartThinkingEnvironment): 
                 provider: searchConfig?.provider ?? env.runtime.search.provider,
                 tavilyConfigured: env.searchService.isTavilyConfigured(searchConfig?.tavilyApiKey),
               },
-              suggestedQueries: state.plan ? suggestPlanQueries(state.plan.goal, 3) : [],
+              webBudget: {
+                creditsUsed: env.webCredits.used(sessionId),
+                creditsLimit: env.runtime.search.webCreditBudget,
+                resetOn: 'redémarrage du serveur',
+              },
+              suggestedQueries:
+                state.plan && state.plan.template === 'research'
+                  ? suggestPlanQueries(state.plan.goal, 3)
+                  : [],
             });
           }
         }
@@ -955,6 +1148,7 @@ export function registerCoreTools(
     registerMathKnowledgeTool(server);
     registerSolveLogicTool(server);
     registerSolveMathTool(server);
+    registerWebAgentTool(server, env);
     registerWebSearchTool(server, env);
     registerWebCrawlTool(server, env);
     registerResearchTool(server, env);

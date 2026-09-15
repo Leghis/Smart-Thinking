@@ -21,6 +21,7 @@ import type {
   HeuristicTrace,
   HypothesisNode,
   MemoryItem,
+  MetricContribution,
   NextStepSuggestion,
   Plan,
   ReasoningDepth,
@@ -30,6 +31,7 @@ import type {
   ReasoningStepStatus,
   SmartThinkingParams,
   SmartThinkingResponse,
+  ThoughtMetricBreakdown,
   ThoughtMetrics,
   VerificationResult,
   VerificationStatus,
@@ -363,7 +365,14 @@ export class ReasoningOrchestrator {
 
     const calculations = verification?.verifiedCalculations ?? preliminary.verifiedCalculations ?? [];
     const incorrectCalculations = calculations.filter(calculation => !calculation.isCorrect);
-    const status: VerificationStatus = verification?.status ?? (calculations.length > 0 && incorrectCalculations.length === 0 ? 'partially_verified' : 'unverified');
+    // A decisive exact computation is a proof: it is `verified`, not "partially".
+    const deterministicFallback: VerificationStatus | undefined =
+      calculations.length === 0
+        ? undefined
+        : incorrectCalculations.length > 0
+          ? 'contradicted'
+          : 'verified';
+    const status: VerificationStatus = verification?.status ?? deterministicFallback ?? 'unverified';
     const isVerified =
       (status === 'verified' || status === 'partially_verified') && incorrectCalculations.length === 0;
     const reliabilityScore = this.deps.metricsCalculator.calculateReliabilityScore(
@@ -371,13 +380,20 @@ export class ReasoningOrchestrator {
       status,
       calculations,
     );
-    const certaintySummary = generateCertaintySummary(status, verification?.confidence ?? 0.4);
+    const fallbackConfidence =
+      deterministicFallback === 'verified'
+        ? 0.95
+        : deterministicFallback === 'contradicted'
+          ? 0.9
+          : 0.4;
+    const certaintySummary = generateCertaintySummary(status, verification?.confidence ?? fallbackConfidence);
 
     const response: SmartThinkingResponse = {
       thoughtId,
       thought: thoughtContent,
       thoughtType: params.thoughtType ?? 'regular',
       qualityMetrics: metrics,
+      metricsBasis: buildMetricsBasis(thought.metadata.metricBreakdown),
       sessionId,
       suggestedTools,
       visualization,
@@ -642,6 +658,49 @@ export class ReasoningOrchestrator {
 
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+const METRIC_BASIS_LIMIT = 3;
+
+function topContributions(contributions: MetricContribution[] | undefined): MetricContribution[] {
+  if (!contributions || contributions.length === 0) {
+    return [];
+  }
+  return [...contributions]
+    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+    .slice(0, METRIC_BASIS_LIMIT)
+    .map(contribution => ({
+      key: contribution.key,
+      label: contribution.label,
+      weight: contribution.weight,
+      value: contribution.value,
+      impact: contribution.impact,
+      rationale: contribution.rationale,
+    }));
+}
+
+/** Makes the heuristic metrics auditable instead of opaque. */
+function buildMetricsBasis(
+  breakdown?: ThoughtMetricBreakdown,
+): SmartThinkingResponse['metricsBasis'] {
+  if (!breakdown) {
+    return undefined;
+  }
+  const contributions: Record<string, MetricContribution[]> = {};
+  for (const key of ['confidence', 'relevance', 'quality'] as const) {
+    const top = topContributions(breakdown[key]?.contributions);
+    if (top.length > 0) {
+      contributions[key] = top;
+    }
+  }
+  if (Object.keys(contributions).length === 0) {
+    return undefined;
+  }
+  return {
+    heuristic: true,
+    scale: '0..1 (heuristique, non probabiliste)',
+    contributions,
+  };
 }
 
 export { ReasoningStepTracker };

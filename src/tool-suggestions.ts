@@ -1,6 +1,6 @@
 import type { ReasoningDepth, SuggestedTool, VerificationResult } from './types';
 import { determineVerificationRequirements } from './verification-needs';
-import { PATTERNS } from './constants';
+import { PATTERNS, TOOL_NAMES } from './constants';
 
 export interface ToolSuggestionContext {
   content: string;
@@ -72,6 +72,10 @@ export function suggestTools(context: ToolSuggestionContext): SuggestedTool[] {
 
   const deduped = new Map<string, SuggestedTool>();
   for (const suggestion of suggestions) {
+    // Never advertise a tool the server does not expose.
+    if (!(TOOL_NAMES as readonly string[]).includes(suggestion.name)) {
+      continue;
+    }
     const existing = deduped.get(suggestion.name);
     if (!existing || (existing.priority ?? 99) > (suggestion.priority ?? 99)) {
       deduped.set(suggestion.name, suggestion);

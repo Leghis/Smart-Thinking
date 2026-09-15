@@ -201,6 +201,11 @@ export const SmartThinkingParamsSchema = z.object({
   help: z.boolean().default(false).describe('Afficher le guide d\'utilisation sans exécuter le pipeline'),
   requestVerification: z.boolean().default(false).describe('Forcer la vérification des affirmations'),
   containsCalculations: z.boolean().default(false).describe('Indiquer la présence de calculs à vérifier'),
+  responseDetail: z
+    .enum(['compact', 'full'])
+    .optional()
+    .default('compact')
+    .describe('compact (défaut) retire chronologie et score composite ; full renvoie l\'enveloppe complète'),
   plan: PlanRequestSchema.describe('Créer ou remplacer le plan de session'),
   hypotheses: z.array(HypothesisInputSchema).optional().describe('Créer ou mettre à jour des hypothèses'),
   hypothesisUpdate: HypothesisUpdateSchema.describe('Ajouter une preuve à une hypothèse'),
@@ -239,6 +244,19 @@ export const WebSearchParamsSchema = z.object({
   sessionId: z.string().max(128).optional(),
 });
 
+export const WebAgentParamsSchema = z.object({
+  question: z.string().min(1).max(20000).describe('Question à instruire par l\'agent web autonome'),
+  sessionId: z.string().max(128).optional(),
+  maxSources: z.number().int().min(1).max(20).optional().describe('Nombre maximal de sources retenues (défaut 8)'),
+  maxRounds: z.number().int().min(1).max(4).optional().describe('Nombre de sous-questions/recherches (défaut 2)'),
+  maxCredits: z.number().int().min(1).max(200).optional().describe('Crédits web maximaux pour cet appel'),
+  includeDomains: z.array(z.string()).optional().describe('Domaines à privilégier'),
+  excludeDomains: z.array(z.string()).optional().describe('Domaines à exclure'),
+  timeRange: TavilyTimeRangeEnum.optional().describe('Filtrer par ancienneté de publication'),
+  provider: SearchProviderEnum.optional().describe('Provider web: auto, tavily, native ou off'),
+  tavilyApiKey: z.string().min(1).optional(),
+});
+
 export const WebCrawlParamsSchema = z.object({
   url: z.string().min(1).describe('URL racine à explorer'),
   mode: z.enum(['crawl', 'map']).optional().default('crawl').describe('crawl = contenu des pages, map = liste des URLs'),
@@ -275,6 +293,10 @@ export const PlanParamsSchema = z.object({
   sessionId: z.string().max(128).optional(),
   depth: DepthEnum.optional().default('balanced'),
   maxSteps: z.number().int().min(2).max(20).optional(),
+  template: z
+    .enum(['math', 'decision', 'causal', 'research', 'code', 'generic'])
+    .optional()
+    .describe('Forcer le gabarit d\'étapes au lieu de la détection par signaux (auto sinon)'),
 });
 
 export const SessionParamsSchema = z.object({
@@ -292,6 +314,7 @@ export type SearchToolParams = z.infer<typeof SearchParamsSchema>;
 export type FetchToolParams = z.infer<typeof FetchParamsSchema>;
 export type WebSearchToolParams = z.infer<typeof WebSearchParamsSchema>;
 export type WebCrawlToolParams = z.infer<typeof WebCrawlParamsSchema>;
+export type WebAgentToolParams = z.infer<typeof WebAgentParamsSchema>;
 export type CalculateToolParams = z.infer<typeof CalculateParamsSchema>;
 export type ClaimToolParams = z.infer<typeof ClaimParamsSchema>;
 export type AuditToolParams = z.infer<typeof AuditParamsSchema>;

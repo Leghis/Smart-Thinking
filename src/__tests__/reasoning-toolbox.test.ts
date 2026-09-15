@@ -1,11 +1,15 @@
 import { solveOrdering } from '../reasoning/constraint-solver';
 import { solveLinearEquation, solveLinearSystem } from '../reasoning/equation-solver';
-import { listKnowledgeTopics, lookupKnowledge } from '../reasoning/math-knowledge';
+import { listKnowledgeTopics, lookupKnowledge, searchKnowledge } from '../reasoning/math-knowledge';
 import { runCas, isCasAvailable } from '../reasoning/cas';
 import { deepResearch } from '../reasoning/research';
 import { assistCritique, assistDecompose, assistJudge, createAssistClient } from '../reasoning/assist';
 import { ClaimLedger } from '../reasoning/claims';
-import { buildScienceProtocol, detectScienceDomain } from '../reasoning/protocol';
+import {
+  buildScienceProtocol,
+  classifyScienceDomain,
+  detectScienceDomain,
+} from '../reasoning/protocol';
 import { runCompute } from '../reasoning/compute';
 import type { SearchService, WebSearchRequest } from '../search/search-service';
 import type { WebSearchResponse } from '../types';
@@ -191,6 +195,30 @@ describe('reasoning toolbox', () => {
     expect(protocol.steps.length).toBeGreaterThan(4);
     expect(protocol.checklist.length).toBeGreaterThan(0);
     expect(protocol.answerFormat.join(' ').toLowerCase()).toContain('réponse');
+  });
+
+  test('classifies a sums-of-two-cubes problem as number theory with auditable signals', () => {
+    const problem =
+      'Trouver tous les entiers naturels qui sont somme de deux cubes de deux façons distinctes, par exemple 1729 = 1^3+12^3 = 9^3+10^3';
+
+    const classification = classifyScienceDomain(problem);
+    expect(classification.domain).toBe('number-theory');
+    expect(classification.confidence).toBeGreaterThan(0.5);
+    expect(classification.signals).toContain('cubes');
+
+    const protocol = buildScienceProtocol(problem);
+    expect(protocol.domain).toBe('number-theory');
+    expect(protocol.domainConfidence).toBeGreaterThan(0.5);
+    expect(protocol.checklist.join(' ')).toContain('CRT');
+  });
+
+  test('never injects an off-topic knowledge sheet for a generic question', () => {
+    const problem =
+      'Trouver tous les entiers naturels qui sont somme de deux cubes de deux façons distinctes, par exemple 1729 = 1^3+12^3 = 9^3+10^3';
+
+    const matches = searchKnowledge(problem);
+    expect(matches).toHaveLength(0);
+    expect(lookupKnowledge(problem)).toHaveLength(0);
   });
 
   test('compute sandbox rejects dangerous code and runs exact math', async () => {

@@ -69,16 +69,6 @@ const SYSTEM_PROMPT = [
   'EXHAUSTIVITÉ: avant la réponse finale, reprends l\'instruction d\'évaluation point par point et vérifie que CHAQUE quantité ou liste demandée possède un claim avec sa valeur exacte; sinon calcule-la avec compute puis enregistre-la avec claim.',
 ].join('\n');
 
-const REASONING_SYSTEM = [
-  'Tu es un analyste rigoureux. Tu résous un dossier de raisonnement pur, sans calcul et sans recherche externe.',
-  'Seules les règles, pièces et données fournies dans l\'énoncé comptent; n\'importe rien de l\'extérieur et n\'invente aucune pièce.',
-  'Pour chaque question: statue établi / réfuté / non déterminé, avec les identifiants exacts à l\'appui.',
-  'Distingue toujours règle, route, délégation, auteur et exécutant; ne confonds pas permission, ordre, négation et condition.',
-  'Signale les contradictions au lieu de réécrire les pièces; préserve l\'irremplaçable avant toute action destructive.',
-  'Avant la réponse finale: vérifie ta couverture question par question et enregistre tes conclusions avec claim (méthode + preuve textuelle), puis passe audit.',
-  'Rédige une réponse structurée, complète et bornée (~2500 mots), jamais tronquée.',
-].join('\n');
-
 interface CertCheck {
   label: string;
   variants: string[];

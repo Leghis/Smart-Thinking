@@ -24,10 +24,24 @@ export interface ScienceProtocol {
   checklist: string[];
   toolHints: string[];
   answerFormat: string[];
+  /** Confidence of the automatic domain classification (0..1). */
+  domainConfidence?: number;
+  /** Terms that triggered the classification, for auditability. */
+  matchedSignals?: string[];
+}
+
+export interface DomainClassification {
+  domain: ScienceDomain;
+  confidence: number;
+  signals: string[];
+  scores: Partial<Record<ScienceDomain, number>>;
 }
 
 const DOMAIN_KEYWORDS: Array<{ domain: ScienceDomain; keywords: RegExp }> = [
-  { domain: 'number-theory', keywords: /(modulo|mod\b|premiers?\b|valuation|hensel|chinois|racines?|anneau|congruence|nombres? premiers?)/i },
+  {
+    domain: 'number-theory',
+    keywords: /(cubes?|carrés?|puissances?|diophantien|diophantine|taxicab|ramanujan|waring|sommes? de (?:deux|trois|quatre)|entiers?\s+(?:naturels?|relatifs?|positifs?)|modulo|mod\b|premiers?\b|valuation|hensel|chinois|racines?|anneau|congruence|divisibilité|pgcd|factorisation|nombreux? entiers|théorie des nombres|arithmétique)/i,
+  },
   { domain: 'distributed', keywords: /(transaction|sérialis|serialis|registre|journal|instantané|snapshot|validation|verrou|exclusion)/i },
   { domain: 'causal', keywords: /(causal|contrefactuel|ate\b|late\b|instrument|invitation|traitement|imparfait)/i },
   { domain: 'optimization', keywords: /(politique|scénario|adversarial|robuste|coût|stock|minimax|règret|regret|décision|capacité|budget)/i },
@@ -149,23 +163,53 @@ const REASONING_CHECKLIST = [
 ];
 
 export function detectScienceDomain(problem: string): ScienceDomain {
+  return classifyScienceDomain(problem).domain;
+}
+
+/**
+ * Keyword-based classification, but auditable: the caller receives the score,
+ * the confidence and the exact terms that triggered the decision.
+ */
+export function classifyScienceDomain(problem: string): DomainClassification {
+  const scores: Partial<Record<ScienceDomain, number>> = {};
   let best: { domain: ScienceDomain; score: number } = { domain: 'general', score: 0 };
+  let bestSignals: string[] = [];
+
   for (const { domain, keywords } of DOMAIN_KEYWORDS) {
     const global = new RegExp(keywords.source, 'gi');
-    const score = (problem.match(global) ?? []).length;
+    const matches = problem.match(global) ?? [];
+    const score = matches.length;
+    if (score > 0) {
+      scores[domain] = score;
+    }
     if (score > best.score) {
       best = { domain, score };
+      bestSignals = Array.from(new Set(matches.map(match => match.trim().toLowerCase()))).slice(0, 6);
     }
   }
-  return best.domain;
+
+  const confidence =
+    best.score >= 4 ? 0.9 : best.score >= 2 ? 0.75 : best.score === 1 ? 0.55 : 0.2;
+
+  return {
+    domain: best.domain,
+    confidence: best.domain === 'general' ? 0.2 : confidence,
+    signals: bestSignals,
+    scores,
+  };
 }
 
 export function buildScienceProtocol(problem: string, domainHint?: ScienceDomain): ScienceProtocol {
-  const domain = domainHint ?? detectScienceDomain(problem);
+  const classification = domainHint
+    ? { domain: domainHint, confidence: 1, signals: [] as string[] }
+    : classifyScienceDomain(problem);
+  const domain = classification.domain;
   const reasoning = isReasoningOnly(problem);
   return {
     domain,
     variant: reasoning ? 'reasoning' : 'standard',
+    domainConfidence: classification.confidence,
+    matchedSignals: classification.signals,
     steps: reasoning ? REASONING_STEPS : [
       '1. Reformuler le problème : données, inconnues, unités, contraintes et format de réponse attendu.',
       '2. Classifier le domaine et écrire un plan de résolution testable (outil plan).',

@@ -36,11 +36,12 @@ Les preuves mesurées (tests, couverture, benchmark avec/sans l'outil) sont dans
 | `solve_math` | Solveur exact d'équations linéaires, systèmes et quadratiques. |
 | `cas` | Calcul symbolique exact (SymPy) : identités, factorisation, polynôme minimal, congruences, fonctions elliptiques. |
 | `math_knowledge` | Base de connaissances mathématiques classiques (Weierstrass, duplication, réseau carré, Gauss/Eisenstein, méthodes de preuve). |
-| `research` | Recherche web multi-hop : sous-questions, enchaînement Tavily, réponses candidates sourcées. |
+| `web_agent` | **Agent internet autonome** borné : décomposition en sous-questions, recherche, déduplication par domaine, extraction des pages, stance par source, contradictions, réponses candidates citées. |
+| `research` | Rapport web long via l'agent géré Tavily, ou repli multi-hop interne annoncé explicitement (`mode`, `fallbackReason`). |
 | `critique` | Revue adversariale d'un brouillon (erreurs, faits non prouvés, étapes manquantes) via modèle assistant. |
-| `smartthinking` | Cœur du système : ajoute une pensée au graphe (métriques, vérification, plan, hypothèses, prochaines étapes). |
-| `plan` | Décompose un objectif en 2–20 étapes ordonnées avec critères de succès. |
-| `verify` | Vérifie une affirmation : calculs, cohérence de session, sources web. Ne marque jamais « vérifié » sans preuve. |
+| `smartthinking` | Cœur du système : ajoute une pensée au graphe (métriques heuristiques traçables, vérification, plan, hypothèses). `responseDetail: compact` par défaut, `full` pour l'enveloppe complète. |
+| `plan` | Décompose un objectif en 2–20 étapes ordonnées, avec gabarit détecté par signaux (`template`, `signals`) ou forcé. |
+| `verify` | Vérifie une affirmation : un contrôle déterministe exact tranche seul (`verified` 0,95) ; sinon croisement web par domaines indépendants. |
 | `web_search` | Recherche web via Tavily, ou délégation native si aucun moteur serveur n'est configuré. |
 | `search` | Recherche unifiée mémoires + web (compatible connecteurs OpenAI/ChatGPT). |
 | `fetch` | Récupère une mémoire par id **ou** le contenu texte d'une URL. |
@@ -62,6 +63,18 @@ Smart-Thinking ne force aucune clé API. Trois modes :
 3. **Désactivé** — `provider="off"` pour un mode 100 % local.
 
 Dans tous les cas, `verify` précise ce qui a réellement été vérifié et ce qui ne l'a pas été (`methodsUnavailable`).
+
+### Agent internet (`web_agent`)
+
+Boucle serveur bornée : décomposition → recherche → déduplication (URL + domaine) → extraction des pages → preuves au niveau phrase avec stance par source → réponses candidates croisées par domaines indépendants → contradictions → citations. Les preuves sont écrites dans la session.
+
+Paramètres : `question`, `maxSources` (≤ 20), `maxRounds` (≤ 4), `maxCredits`, `includeDomains`, `excludeDomains`, `timeRange`, `provider`.
+
+Comportements explicites, jamais silencieux :
+
+- **Budget** — chaque appel compte ses crédits (`web_search` 1, `web_agent` 1/recherche + 1/5 pages extraites, `web_crawl` 5 (crawl) ou 1 (map), `research` ≈ 50 pour l'agent géré). Plafond par session via `SMART_THINKING_WEB_CREDIT_BUDGET` (défaut 25), visible dans `session(action="status")` ; le compteur vit en mémoire et repart à zéro au redémarrage du serveur. Budget épuisé → `degraded: true, reason: "budget"` et aucun appel réseau.
+- **Dégradation** — clé absente → délégation native (`requiresClientAction`) ; 401/403 → `reason: "auth"` ; 429 → `"rate_limit"` ; 432/433 → `"quota"`. La réponse contient ce qui a déjà été collecté.
+- **Recherche vide** — `web_crawl` renvoie `empty: true` + `hint` au lieu d'un succès muet.
 
 ## Installation
 
@@ -109,7 +122,7 @@ Le mode connector expose uniquement `search` et `fetch`, dont `search` peut inte
 ```bash
 npm run build          # compilation TypeScript
 npm run lint           # ESLint strict
-npm test               # 171 tests (unitaires, intégration, E2E MCP)
+npm test               # 219 tests (unitaires, intégration, E2E MCP)
 npm run test:coverage  # couverture
 npm run bench:sim      # benchmark hors-ligne déterministe
 npm run bench:ab       # A/B avec un vrai LLM (OpenAI-compatible / DeepSeek)
@@ -141,7 +154,7 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Qualité & preuves
 
-- 198 tests passent (25 suites), dont un E2E MCP complet via `InMemoryTransport`.
+- 219 tests passent (27 suites), dont un E2E MCP complet via `InMemoryTransport` et des gardes de contexte (taille des instructions, payload compact, noms d'outils).
 - Couverture : 82,0 % lignes / 81,1 % statements / 64,8 % branches (base de code élargie : CAS, solveurs, recherche multi-hop).
 - Benchmark reproductible avec et sans Smart-Thinking : `npm run proof`.
 - Vérification honnête : aucun résultat simulé ne peut être présenté comme vérifié ; les modules de vérification ne fabriquent jamais de sources.

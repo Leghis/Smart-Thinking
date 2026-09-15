@@ -15,12 +15,35 @@ describe('planner', () => {
   test('selects goal-specific templates for math, search and decision goals', () => {
     const math = createPlan(MATH_GOAL);
     expect(math.steps[0].description).toContain('grandeurs connues');
+    expect(math.template).toBe('math');
 
     const search = createPlan(SEARCH_GOAL);
     expect(search.steps[0].description).toContain('requêtes de recherche');
+    expect(search.template).toBe('research');
 
     const decision = createPlan(DECISION_GOAL);
     expect(decision.steps[0].description).toContain('critères de décision');
+    expect(decision.template).toBe('decision');
+  });
+
+  test('never turns a goal that merely mentions research into a literature review', () => {
+    const plan = createPlan(
+      'Évaluer la fiabilité du serveur MCP smart-thinking sur une tâche arithmétique, une tâche symbolique et une tâche de recherche documentaire',
+    );
+
+    expect(plan.template).toBe('generic');
+    expect(plan.steps.map(step => step.description).join(' ')).not.toContain('requêtes de recherche');
+    expect(plan.steps[0].description).toContain('sujet exact');
+    expect(plan.signals).toEqual([]);
+  });
+
+  test('exposes match metadata and accepts a forced template', () => {
+    const forced = createPlan('Objectif ambigu à cadrer', [], 'balanced', 5, 'decision');
+
+    expect(forced.template).toBe('decision');
+    expect(forced.matchConfidence).toBe(1);
+    expect(forced.signals).toContain('template forcé');
+    expect(forced.steps[0].description).toContain('critères de décision');
   });
 
   test('respects maxSteps and depth profile limits', () => {

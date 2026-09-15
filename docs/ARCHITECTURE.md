@@ -31,7 +31,7 @@ memory-manager         verification-memory
 
 Outils MCP (standard scientifique) : `protocol` (workflow standard), `compute`
 (sandbox Python exact sympy/numpy/scipy), `claim`/`audit` (registre de certificats),
-`cas`, `math_knowledge`, `calculate`, `solve_logic`, `solve_math`, `research`, `critique`,
+`cas`, `math_knowledge`, `calculate`, `solve_logic`, `solve_math`, `web_agent`, `research`, `critique`,
 `smartthinking`, `plan`, `verify`, `web_search`, `web_crawl`, `search`, `fetch`, `session`.
 
 Le **protocole standard** (`protocol`, prompt `smartthinking-science-protocol`) classe le
@@ -42,7 +42,7 @@ défaut recommandé pour tout problème de recherche.
 
 ## Principes
 
-1. **Honnêteté de vérification.** Aucun provider simulé ne renvoie de succès. Sans preuve, le statut est `unverified` et `methodsUnavailable` est explicite. Un calcul faux force `contradicted`.
+1. **Honnêteté de vérification.** Aucun provider simulé ne renvoie de succès. Sans preuve, le statut est `unverified` et `methodsUnavailable` est explicite. Un calcul faux force `contradicted`. **Un contrôle déterministe exact est souverain** : il donne `verified` (0,95) ou `contradicted` (0,90), court-circuite la couche web (`web: skipped`) et n'enregistre aucune preuve neutre (`discardedNeutral`). Sinon, `verified` exige ≥ 2 domaines sources indépendants.
 2. **Déterminisme local.** Similarité TF-IDF, calculs (Shunting-Yard, sans `eval`), métriques heuristiques et planification sont reproductibles hors-ligne.
 3. **Sessions isolées.** Toutes les données sont indexées par `sessionId` assaini (`assertSafeSessionId`) : pas de fuite entre sessions, pas de path traversal.
 4. **Recherche web optionnelle.** Tavily si une clé est fournie (env ou session), sinon le client exécute sa recherche native. La clé de session n'est jamais écrite sur disque.
@@ -72,6 +72,10 @@ défaut recommandé pour tout problème de recherche.
 - `src/search/tavily-client.ts` : client Tavily (search/extract), redaction des clés, erreurs typées, timeout.
 - `src/search/url-content.ts` : fetch direct avec blocage SSRF, limite de taille, extraction HTML → texte.
 - `src/search/search-service.ts` : résolution du provider (`auto` → Tavily si clé, sinon natif), cache TTL borné, génération de requêtes.
+- `src/search/stance.ts` : classificateur de stance partagé (verify + web_agent) ; sous le seuil de recouvrement, un extrait est *neutre* et doit être écarté.
+- `src/search/web-budget.ts` : registre de crédits par session (`WebCreditLedger`), coûts par appel, plafond `SMART_THINKING_WEB_CREDIT_BUDGET`.
+- `src/search/provider-status.ts` : traduction des échecs provider en `degraded` + `reason` (`auth`, `quota`, `rate_limit`, `timeout`, `server`, `budget`).
+- `src/reasoning/web-agent.ts` : boucle autonome (décomposition → recherche → dédup URL/domaine → extraction → preuves avec stance → candidats croisés → contradictions → citations), bornée par `maxSources`, `maxRounds`, `maxCredits`.
 - Délégation native : la réponse contient `requiresClientAction: true` et une consigne explicite ; le serveur ne prétend jamais avoir cherché.
 
 ## Persistance

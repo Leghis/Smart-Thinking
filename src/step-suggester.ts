@@ -1,5 +1,6 @@
 import type { Hyperlink, NextStepSuggestion, ThoughtNode } from './types';
 import { detectClusters } from './connection-inference';
+import { determineVerificationRequirements } from './verification-needs';
 
 export interface SuggestionOutcome {
   suggestions: NextStepSuggestion[];
@@ -14,14 +15,12 @@ export interface SuggestionContext {
   structureSummary: string;
 }
 
-const FACT_CHECK_TERMS = [
-  'vérifier', 'confirmer', 'source', 'preuve', 'statistique', 'données', 'affirme', 'selon',
-] as const;
-const CALCULATION_TERMS = [
-  'calculer', 'calcul', 'équation', 'résoudre', 'chiffre', 'formule', 'mathématique',
-] as const;
 const EXTERNAL_INFO_TERMS = [
   'chercher', 'information', 'recherche', 'trouver', 'données', 'référence', 'source', 'actualité',
+] as const;
+/** Explicit calculation intent ("nous devons calculer…") — suggestion only, never a status. */
+const CALCULATION_INTENT_TERMS = [
+  'calculer', 'calcul', 'équation', 'résoudre', 'formule',
 ] as const;
 const UNCERTAINTY_TERMS = [
   'peut-être', 'probablement', 'semble', 'possible', 'hypothèse', 'incertain', 'pourrait',
@@ -97,8 +96,13 @@ export function suggestNextStepsHeuristic(
   const recentContent = context.recent.map((thought) => thought.content).join(' ');
   const normalizedRecent = recentContent.toLowerCase();
 
-  const needsFactChecking = containsAny(normalizedRecent, FACT_CHECK_TERMS);
-  const needsCalculation = containsAny(normalizedRecent, CALCULATION_TERMS);
+  // Relevance gate: the same requirements engine that drives `verify` and the
+  // tool suggestions, so a purely reflective thought no longer triggers a
+  // "go search the web" nudge.
+  const requirements = determineVerificationRequirements(recentContent);
+  const needsFactChecking = requirements.needsFactCheck || requirements.needsSourceCheck;
+  const needsCalculation =
+    requirements.needsMathCheck || containsAny(normalizedRecent, CALCULATION_INTENT_TERMS);
   const needsExternalInfo = containsAny(normalizedRecent, EXTERNAL_INFO_TERMS);
   const containsUncertainty = containsAny(normalizedRecent, UNCERTAINTY_TERMS);
 
@@ -107,7 +111,7 @@ export function suggestNextStepsHeuristic(
       description: 'Vérifiez les informations avec une recherche web',
       type: 'regular',
       confidence: 0.9,
-      reasoning: "Utilisez l'outil perplexity_search_web ou tavily-search pour confirmer les faits mentionnés",
+      reasoning: "Utilisez web_search (puis fetch sur les meilleures URLs) ou web_agent pour confirmer les faits mentionnés",
     });
   }
 
@@ -116,7 +120,7 @@ export function suggestNextStepsHeuristic(
       description: 'Exécutez du code pour effectuer les calculs nécessaires',
       type: 'regular',
       confidence: 0.85,
-      reasoning: "Utilisez l'outil executePython ou executeJavaScript pour résoudre les calculs ou équations",
+      reasoning: "Utilisez calculate, solve_math ou compute pour résoudre les calculs ou équations",
     });
   }
 
@@ -125,7 +129,7 @@ export function suggestNextStepsHeuristic(
       description: 'Recherchez des informations supplémentaires en ligne',
       type: 'regular',
       confidence: 0.9,
-      reasoning: "Utilisez les outils de recherche web pour enrichir votre analyse avec des données pertinentes",
+      reasoning: "Utilisez web_search, web_agent ou web_crawl pour enrichir votre analyse avec des sources",
     });
   }
 
@@ -140,7 +144,7 @@ export function suggestNextStepsHeuristic(
       description: 'Résolvez les contradictions en consultant des sources fiables',
       type: 'meta',
       confidence: 0.85,
-      reasoning: 'Utilisez tavily-search ou perplexity_search_web pour vérifier quelle position est correcte',
+      reasoning: 'Utilisez verify ou research pour établir quelle position est correcte',
     });
   }
 
@@ -149,7 +153,7 @@ export function suggestNextStepsHeuristic(
       description: "Extrayez et analysez le contenu des URL mentionnées",
       type: 'regular',
       confidence: 0.85,
-      reasoning: "Utilisez l'outil tavily-extract pour analyser en profondeur le contenu des pages web",
+      reasoning: "Utilisez fetch pour extraire le contenu des URLs mentionnées",
     });
   }
 

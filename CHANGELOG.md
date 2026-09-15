@@ -1,5 +1,32 @@
 # Changelog
 
+## v13.1.0 — Vérité déterministe, agent internet autonome, budget de contexte
+
+### Corrections d'exactitude
+
+- **`verify` : le déterministe tranche.** Un contrôle exact concluant donne `verified` (confiance 0,95) ou `contradicted` (0,90) ; la couche web n'est plus appelée et ne peut donc plus diluer une preuve formelle. Exemple corrigé : `(1234*5678)+91011 = 7097663` renvoyait `partially_verified` (0,65) avec des sources hors sujet stockées comme preuves ; il renvoie désormais `verified` (0,95) sans aucun appel réseau.
+- **Indépendance des sources** : `verified` exige ≥ 2 domaines distincts ; une seule domaine → `partially_verified`. Nouveau champ `verificationBasis` (déterministe / web / mixte / aucune) et compteur `discardedNeutral` ; les extraits neutres ne sont plus conservés comme preuves ni écrits en session.
+- **`protocol`** : classification de domaine élargie (cubes, puissances, diophantien, taxibab/Ramanujan, sommes de deux/trois, divisibilité, pgcd…) avec `domainConfidence` et `matchedSignals` auditables.
+- **`math_knowledge` / `protocol`** : filtrage strict des fiches (correspondance titre/mot-clé et score minimal, mots vides ignorés). Un problème de sommes de deux cubes ne reçoit plus de fiches Gauss/Eisenstein hors sujet ; sans fiche pertinente, `knowledgeNote` est renvoyé.
+- **`plan`** : sélection par signaux pondérés (`template`, `matchConfidence`, `signals`), gabarit `generic` par défaut, paramètre `template` pour forcer. Un objectif qui mentionne « recherche documentaire » ne produit plus un plan de revue de littérature ; `searchQueries` n'est renvoyé que pour un plan de recherche.
+- **Suggestions** : plus aucun outil fantôme (`perplexity_search_web`, `tavily-search`, `tavily-extract`, `executePython`, `executeJavaScript`, `calculator`, `source_check`) ; les suggestions sont filtrées sur la liste réelle des outils et le rappel « va chercher sur le web » dépend des besoins réellement détectés.
+
+### Nouveau : agent internet
+
+- **`web_agent`** : boucle de recherche autonome bornée (décomposition, recherche, déduplication par domaine, extraction, preuves avec stance, réponses candidates croisées, contradictions, citations), preuves persistées en session.
+- **Budget de crédits web par session** (`SMART_THINKING_WEB_CREDIT_BUDGET`, défaut 25) partagé par `web_agent`, `web_search`, `web_crawl` et `research` ; `session(action="status")` expose `webBudget`.
+- **Dégradation explicite** : `degraded`/`reason` (`auth`, `quota`, `rate_limit`, `timeout`, `server`, `budget`) au lieu d'un repli silencieux. `research` annonce `mode` (`tavily_agent` | `internal`) et `fallbackReason` ; `web_crawl` signale `empty: true` + `hint`.
+
+### Contexte
+
+- Instructions serveur réduites de ~3 400 à ~900 caractères (elles sont dupliquées par le client sur chaque outil) ; le guide complet passe dans `smartthinking(help=true)` et la ressource `smart-thinking://docs/about` (test de garde sur la taille).
+- `smartthinking` : `responseDetail: "compact"` par défaut (plus de `reasoningTimeline` ni de `reliabilityScore`, suggestions plafonnées à 2) ; `qualityMetrics` accompagné de `metricsBasis` (contributions détaillées) et marqué `heuristic: true`.
+
+### Compatibilité
+
+- **Breaking léger** : un calcul exact n'est plus rapporté comme « partiellement vérifié » mais comme « vérifié ». Les champs existants sont conservés ; `partially_verified` reste atteignable (un seul domaine web, cas non déterministe).
+- Nouvel outil exposé : `web_agent` (20 outils au total).
+
 ## v13.0.0 — Refonte complète : raisonnement outillé, vérification honnête, recherche web
 
 ### Ajouts majeurs

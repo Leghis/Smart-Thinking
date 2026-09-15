@@ -136,12 +136,12 @@ describe('MetricsCalculator heuristics', () => {
     expect(requirements.needsSourceCheck).toBe(true);
     expect(requirements.priority).toBe('high');
     expect(requirements.suggestedTools).toEqual(
-      expect.arrayContaining(['web_search', 'source_check'])
+      expect.arrayContaining(['web_search', 'verify'])
     );
     expect(new Set(requirements.suggestedTools).size).toBe(requirements.suggestedTools.length);
 
     const mathRequirements = await calculator.determineVerificationRequirements('2 + 2 = 4');
-    expect(mathRequirements.suggestedTools).toContain('calculator');
+    expect(mathRequirements.suggestedTools).toContain('calculate');
     expect(mathRequirements.suggestedTools).not.toContain('math_evaluator');
   });
 

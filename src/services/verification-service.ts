@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { MathEvaluator } from '../utils/math-evaluator';
 import { VerificationMemory } from '../verification-memory';
 import { SearchService } from '../search/search-service';
+import { classifyStanceFromKeywords } from '../search/stance';
 import { extractKeywords } from '../keywords';
 import {
   evaluateVerificationHeuristics,
@@ -17,6 +18,7 @@ import type {
   VerificationDetailedStatus,
   VerificationResult,
   VerificationStatus,
+  VerificationBasis,
   WebSearchResult,
 } from '../types';
 import { assistJudge, type AssistClient, type JudgeResult } from '../reasoning/assist';
@@ -183,14 +185,21 @@ export class VerificationService implements IVerificationService {
     const contradictions: string[] = [];
     const methodsUnavailable: string[] = [];
     let verifiedCalculations: CalculationVerificationResult[] | undefined;
-    let webCounts: { supports: number; contradicts: number } = { supports: 0, contradicts: 0 };
+    let webCounts: { supports: number; contradicts: number; supportDomains: string[] } = {
+      supports: 0,
+      contradicts: 0,
+      supportDomains: [],
+    };
+    let discardedNeutral = 0;
     let judgeVerdict: JudgeResult | null = null;
+    let deterministicVerdict: VerificationStatus | null = null;
 
     if (request.checkCalculation !== false) {
       const calculations = await this.detectAndVerifyCalculations(request.claim);
       if (calculations.length > 0) {
         verifiedCalculations = calculations;
         const incorrect = calculations.filter(calculation => !calculation.isCorrect);
+        deterministicVerdict = incorrect.length > 0 ? 'contradicted' : 'verified';
         checks.push({
           name: 'calculation',
           outcome: incorrect.length > 0 ? 'failed' : 'passed',
@@ -198,6 +207,7 @@ export class VerificationService implements IVerificationService {
             incorrect.length > 0
               ? `${incorrect.length}/${calculations.length} calcul(s) incorrect(s).`
               : `${calculations.length} calcul(s) vérifié(s) avec succès.`,
+          reason: 'deterministic_short_circuit',
           details: calculations.map(calculation =>
             calculation.isCorrect
               ? `✓ ${calculation.original} → ${calculation.verified}`
@@ -226,12 +236,25 @@ export class VerificationService implements IVerificationService {
       });
     }
 
-    if (request.checkWeb && this.searchService) {
+    if (deterministicVerdict) {
+      // A decisive deterministic check (exact computation) is never diluted by
+      // an open-world web layer: no query, no evidence, no confidence penalty.
+      checks.push({
+        name: 'web',
+        outcome: 'skipped',
+        reason: 'deterministic_short_circuit',
+        summary:
+          deterministicVerdict === 'verified'
+            ? 'Recherche web ignorée : un contrôle déterministe exact tranche déjà l\'affirmation.'
+            : 'Recherche web ignorée : un contrôle déterministe exact contredit déjà l\'affirmation.',
+      });
+    } else if (request.checkWeb && this.searchService) {
       const webOutcome = await this.runWebCheck(request, evidence);
       checks.push(webOutcome.check);
       methodsUnavailable.push(...webOutcome.unavailable);
       contradictions.push(...webOutcome.contradictions);
       webCounts = webOutcome.counts;
+      discardedNeutral = webOutcome.discardedNeutral;
 
       if (this.assist?.available && evidence.length > 0) {
         const judgeStep = trackerlessJudge(this.assist, request.claim, evidence);
@@ -265,29 +288,31 @@ export class VerificationService implements IVerificationService {
       });
     }
 
-    const heuristic = evaluateVerificationHeuristics({
-      id: 'claim',
-      content: request.claim,
-      type: 'regular',
-      timestamp: new Date(),
-      connections: [],
-      metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 },
-      metadata: {},
-    });
-    checks.push({
-      name: 'heuristics',
-      outcome:
-        heuristic.status === 'contradicted'
-          ? 'failed'
-          : heuristic.status === 'uncertain'
-            ? 'inconclusive'
-            : 'passed',
-      summary: heuristic.notes,
-      details: heuristic.keyFactors,
-    });
+    if (!deterministicVerdict) {
+      const heuristic = evaluateVerificationHeuristics({
+        id: 'claim',
+        content: request.claim,
+        type: 'regular',
+        timestamp: new Date(),
+        connections: [],
+        metrics: { confidence: 0.5, relevance: 0.5, quality: 0.5 },
+        metadata: {},
+      });
+      checks.push({
+        name: 'heuristics',
+        outcome:
+          heuristic.status === 'contradicted'
+            ? 'failed'
+            : heuristic.status === 'uncertain'
+              ? 'inconclusive'
+              : 'passed',
+        summary: heuristic.notes,
+        details: heuristic.keyFactors,
+      });
+    }
 
     const requirements = determineVerificationRequirements(request.claim);
-    if (requirements.priority === 'high') {
+    if (!deterministicVerdict && requirements.priority === 'high') {
       checks.push({
         name: 'source_quality',
         outcome: 'inconclusive',
@@ -296,9 +321,10 @@ export class VerificationService implements IVerificationService {
       });
     }
 
-    const status = this.aggregateStatus(checks, contradictions, webCounts, judgeVerdict);
-    const confidence = this.aggregateConfidence(status, checks, evidence);
+    const status = this.aggregateStatus(checks, contradictions, webCounts, judgeVerdict, deterministicVerdict);
+    const confidence = this.aggregateConfidence(status, webCounts, evidence, deterministicVerdict);
     const sources = evidence.map(item => item.source);
+    const verificationBasis = this.buildBasis(status, deterministicVerdict, webCounts, evidence);
 
     const result: VerificationResult = {
       status,
@@ -311,6 +337,8 @@ export class VerificationService implements IVerificationService {
       methodsUnavailable: methodsUnavailable.length > 0 ? methodsUnavailable : undefined,
       notes: buildNotes(status, checks),
       verifiedCalculations,
+      verificationBasis,
+      discardedNeutral: discardedNeutral > 0 ? discardedNeutral : undefined,
     };
 
     if (cacheKey) {
@@ -385,7 +413,8 @@ export class VerificationService implements IVerificationService {
     check: VerificationCheck;
     unavailable: string[];
     contradictions: string[];
-    counts: { supports: number; contradicts: number };
+    counts: { supports: number; contradicts: number; supportDomains: string[] };
+    discardedNeutral: number;
   }> {
     const searchService = this.searchService;
     if (!searchService) {
@@ -393,7 +422,8 @@ export class VerificationService implements IVerificationService {
         check: { name: 'web', outcome: 'unavailable', summary: 'Recherche web non configurée.' },
         unavailable: ['web'],
         contradictions: [],
-        counts: { supports: 0, contradicts: 0 },
+        counts: { supports: 0, contradicts: 0, supportDomains: [] },
+        discardedNeutral: 0,
       };
     }
 
@@ -414,14 +444,17 @@ export class VerificationService implements IVerificationService {
         },
         unavailable: [provider === 'none' ? 'web' : 'web-native'],
         contradictions: [],
-        counts: { supports: 0, contradicts: 0 },
+        counts: { supports: 0, contradicts: 0, supportDomains: [] },
+        discardedNeutral: 0,
       };
     }
 
     const queries = buildVerificationQueries(request.claim);
     const contradictions: string[] = [];
+    const supportDomains = new Set<string>();
     let supports = 0;
     let contradicts = 0;
+    let discardedNeutral = 0;
 
     for (const query of queries) {
       try {
@@ -431,8 +464,19 @@ export class VerificationService implements IVerificationService {
         );
         for (const result of response.results) {
           const stance = classifyStance(request.claim, result);
+          if (stance === 'neutral') {
+            // Irrelevant hits are noise: they are counted, never stored.
+            discardedNeutral += 1;
+            continue;
+          }
           evidence.push(toEvidenceItem(request.claim, result, stance));
-          if (stance === 'supports') supports += 1;
+          if (stance === 'supports') {
+            supports += 1;
+            const domain = domainOf(result.url);
+            if (domain) {
+              supportDomains.add(domain);
+            }
+          }
           if (stance === 'contradicts') {
             contradicts += 1;
             contradictions.push(`Source opposée: ${result.title} (${result.url})`);
@@ -447,7 +491,8 @@ export class VerificationService implements IVerificationService {
           },
           unavailable: ['web'],
           contradictions,
-          counts: { supports, contradicts },
+          counts: { supports, contradicts, supportDomains: Array.from(supportDomains) },
+          discardedNeutral,
         };
       }
     }
@@ -457,21 +502,31 @@ export class VerificationService implements IVerificationService {
       check: {
         name: 'web',
         outcome,
-        summary: `${supports} source(s) favorable(s), ${contradicts} source(s) opposée(s).`,
+        summary: `${supports} source(s) favorable(s) sur ${supportDomains.size} domaine(s) indépendant(s), ${contradicts} source(s) opposée(s).`,
         evidenceIds: evidence.map(item => item.id),
       },
       unavailable: [],
       contradictions,
-      counts: { supports, contradicts },
+      counts: { supports, contradicts, supportDomains: Array.from(supportDomains) },
+      discardedNeutral,
     };
   }
 
   private aggregateStatus(
     checks: VerificationCheck[],
     contradictions: string[],
-    webCounts: { supports: number; contradicts: number },
+    webCounts: { supports: number; contradicts: number; supportDomains: string[] },
     judgeVerdict?: JudgeResult | null,
+    deterministicVerdict?: VerificationStatus | null,
   ): VerificationStatus {
+    // 1. A decisive deterministic check is sovereign.
+    if (deterministicVerdict === 'contradicted') {
+      return 'contradicted';
+    }
+    if (deterministicVerdict === 'verified') {
+      return 'verified';
+    }
+
     if (judgeVerdict?.verdict === 'contradicts') {
       return 'contradicted';
     }
@@ -488,11 +543,13 @@ export class VerificationService implements IVerificationService {
     const web = checks.find(check => check.name === 'web');
     const supportCount = webCounts.supports;
     const opposeCount = webCounts.contradicts;
+    const independentDomains = webCounts.supportDomains.length;
 
     if (web?.outcome === 'failed' || (opposeCount > 0 && supportCount === 0)) {
       return 'contradicted';
     }
-    if (supportCount >= 2 && opposeCount === 0) {
+    // Independence is measured in distinct domains, not in raw result count.
+    if (independentDomains >= 2 && opposeCount === 0) {
       return 'verified';
     }
     if (supportCount >= 1 && opposeCount === 0) {
@@ -500,9 +557,6 @@ export class VerificationService implements IVerificationService {
     }
     if (supportCount > 0 && opposeCount > 0) {
       return 'contradictory';
-    }
-    if (calculation?.outcome === 'passed') {
-      return 'partially_verified';
     }
     if (judgeVerdict?.verdict === 'supports' && judgeVerdict.confidence >= 0.7) {
       return 'partially_verified';
@@ -515,26 +569,66 @@ export class VerificationService implements IVerificationService {
 
   private aggregateConfidence(
     status: VerificationStatus,
-    checks: VerificationCheck[],
+    webCounts: { supports: number; contradicts: number; supportDomains: string[] },
     evidence: EvidenceItem[],
+    deterministicVerdict?: VerificationStatus | null,
   ): number {
     if (status === 'contradicted') {
-      return 0.85;
+      return deterministicVerdict === 'contradicted' ? 0.9 : 0.85;
     }
     if (status === 'contradictory') {
       return 0.5;
     }
     if (status === 'verified') {
-      return evidence.length > 0 ? 0.8 : 0.7;
+      return deterministicVerdict === 'verified' ? 0.95 : 0.8;
     }
     if (status === 'partially_verified') {
-      const hasCalculation = checks.some(check => check.name === 'calculation' && check.outcome === 'passed');
-      return hasCalculation ? 0.65 : 0.55;
+      const independentDomains = webCounts.supportDomains.length;
+      if (independentDomains >= 1) {
+        return 0.55;
+      }
+      return evidence.length > 0 ? 0.55 : 0.5;
     }
     if (status === 'uncertain') {
       return 0.35;
     }
     return 0.3;
+  }
+
+  private buildBasis(
+    status: VerificationStatus,
+    deterministicVerdict: VerificationStatus | null,
+    webCounts: { supports: number; contradicts: number; supportDomains: string[] },
+    evidence: EvidenceItem[],
+  ): VerificationBasis {
+    if (deterministicVerdict === 'verified') {
+      return {
+        kind: 'deterministic',
+        detail: 'Contrôle déterministe exact réussi : aucune corroboration web requise.',
+      };
+    }
+    if (deterministicVerdict === 'contradicted') {
+      return {
+        kind: 'deterministic',
+        detail: 'Contrôle déterministe exact en échec : l\'affirmation est contredite par le calcul.',
+      };
+    }
+    if (evidence.length > 0 && status === 'contradictory') {
+      return {
+        kind: 'mixed',
+        detail: `${webCounts.supportDomains.length} domaine(s) favorable(s) et ${webCounts.contradicts} source(s) opposée(s) : sources en désaccord.`,
+      };
+    }
+    if (evidence.length > 0) {
+      return {
+        kind: 'web',
+        detail: `${webCounts.supportDomains.length} domaine(s) indépendant(s) favorable(s), ${webCounts.contradicts} opposé(s).`,
+      };
+    }
+    return {
+      kind: 'none',
+      detail: 'Aucune preuve exploitable : statut non concluant.',
+    };
   }
 
   private storeInCache(key: string, result: VerificationResult): void {
@@ -608,26 +702,10 @@ function findConsistencyConflicts(claim: string, connectedThoughts: ThoughtNode[
 }
 
 function classifyStance(claim: string, result: WebSearchResult): EvidenceStance {
-  const claimKeywords = new Set(extractKeywords(claim));
-  if (claimKeywords.size === 0) {
-    return 'neutral';
-  }
-  const snippetKeywords = extractKeywords(`${result.title} ${result.text}`);
-  const overlap = snippetKeywords.filter(keyword => claimKeywords.has(keyword)).length / claimKeywords.size;
-  const text = `${result.title} ${result.text}`.toLowerCase();
-  const negation = /(?:n'est pas|ne sont pas|faux|fausse|erroné|incorrect|contredit|dément|démenti|refut|réfut|debunk|not true|false|no evidence)/i.test(text);
-  const support = /(?:confirme|confirment|selon|indique|révèle|montre|démontre|rapporte|à raison|true|correct|validé)/i.test(text);
-
-  if (overlap < 0.2) {
-    return 'neutral';
-  }
-  if (negation && !support) {
-    return 'contradicts';
-  }
-  if (support || overlap >= 0.45) {
-    return 'supports';
-  }
-  return 'neutral';
+  return classifyStanceFromKeywords(
+    new Set(extractKeywords(claim)),
+    `${result.title} ${result.text}`,
+  );
 }
 
 function toEvidenceItem(claim: string, result: WebSearchResult, stance: EvidenceStance): EvidenceItem {
@@ -660,4 +738,14 @@ function buildVerificationQueries(claim: string): string[] {
 
 function truncate(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : `${value.slice(0, maxLength)}...`;
+}
+
+/** Hostname (without leading www.) used to measure source independence. */
+function domainOf(url: string): string | null {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname.startsWith('www.') ? hostname.slice(4) : hostname;
+  } catch {
+    return null;
+  }
 }

@@ -3,27 +3,48 @@ import { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/ty
 const PROJECT_HOMEPAGE = 'https://github.com/Leghis/Smart-Thinking';
 const PROJECT_ICON = 'https://raw.githubusercontent.com/Leghis/Smart-Thinking/main/logoSmart-thinking.png';
 
+/**
+ * Server instructions. Kept deliberately short: MCP clients duplicate this text
+ * on every tool description, so a long block multiplies the context cost by the
+ * number of tools. The detailed guide lives in SMART_THINKING_TOOL_GUIDE and is
+ * served on demand (`smartthinking(help=true)` and the docs resource).
+ */
 export const SMART_THINKING_INSTRUCTIONS = [
-  'Smart-Thinking augmente ton raisonnement: graphe de pensées persistant, planification, vérification honnête et recherche web.',
+  'Smart-Thinking augmente ton raisonnement : graphe de pensées persistant, vérification honnête, calcul exact et recherche web.',
   '',
-  'RÈGLES D\'USAGE:',
-  '0. Problème de recherche/ingénierie complexe: commence par protocol(problem) et suis le protocole standard (classer le domaine, plan, compute exact, certificats, checklist des pièges, limites). Utilise compute pour écrire des scripts exacts (sympy/numpy/scipy) qui produisent des certificats.',
-  '0bis. Certifie CHAQUE résultat avec claim(statement, value, method, evidence) et lance audit() avant la réponse finale: aucune affirmation ne doit rester sans méthode ni preuve.',
-  '0ter. Bornes, intervalles, optima, cardinaux, structures minimales: énumère l\'espace complet des configurations avec compute et certifie min/max/comptage avec témoins. Avant la réponse finale, reprends chaque quantité demandée avec audit(requirements=[...]): toute exigence sans certificat doit être calculée puis claim.',
-  '1. Tâche complexe (plus de 2 étapes): commence par plan(goal) puis exécute les étapes.',
-  '2. Utilise calculate pour TOUT calcul non trivial (ex: calculate("(120*0.45)")) au lieu de calculer de tête. Passe "expression = résultat" pour vérifier une valeur.',
-  '2bis. Puzzle d\'ordre/classement (avant/après, plus rapide/lent, >/<) : utilise solve_logic. Équations ou systèmes : solve_math. Ces solveurs sont exacts : ne les remplace jamais par du calcul mental.',
-  '2bis-cas. Mathématiques avancées (analyse complexe, algèbre, identités, polynômes minimaux, fonctions elliptiques) : utilise math_knowledge pour la théorie puis cas pour PROUVER les identités (verify_identity), calculer exactement (minimal_polynomial, solve, mod_linear) et vérifier en haute précision (evalf, elliptic). Une preuve doit reposer sur des identités vérifiées par cas, pas sur des approximations.',
-  '2ter. Question multi-hop (deux entités à relier, fait composite) : utilise research (recherche itérative Tavily + réponses candidates sourcées) avant de conclure.',
-  '2quater. Avant de rendre une réponse importante, passe-la à critique pour une revue adversariale (erreurs, faits non prouvés, étapes manquantes).',
-  '3. Consigne chaque étape importante avec smartthinking (thoughtType, connections vers les pensées précédentes, depth adapté).',
-  '4. Affirmation factuelle, chiffrée ou récente: utilise web_search puis verify. web_search accepte topic, timeRange, include/excludeDomains et includeRawContent pour cibler les sources. Si provider="native", effectue la recherche avec ton outil natif et cite les URL.',
-  '4bis. Pour explorer un site ou rassembler plusieurs pages (documentation, dossier de presse), utilise web_crawl (mode="crawl" pour le contenu, mode="map" pour lister les URLs).',
-  '5. Ne présente jamais un résultat "unverified", "uncertain" ou "absence_of_information" comme un fait. Signale l\'incertitude.',
-  '6. Utilise hypotheses dès qu\'il y a plusieurs explications possibles, puis hypothesisUpdate pour ajouter les preuves.',
-  '7. Utilise search/fetch pour retrouver les mémoires de la session; fetch accepte aussi une URL.',
-  '8. Configure la clé Tavily par session avec session(action="configure_search", tavilyApiKey="...") si web_search indique que la recherche serveur n\'est pas configurée.',
-  '9. Termine par une réponse synthétique: conclusion, preuves sourcées, incertitudes restantes.',
+  'RÈGLES ESSENTIELLES :',
+  '1. Fait chiffré, récent ou incertain : vérifie avant d\'affirmer (calculate, cas, compute, verify) ; ne présente jamais un résultat non vérifié comme un fait.',
+  '2. Résultat quantifié : enregistre-le avec claim(statement, value, method, evidence) puis lance audit() avant la réponse finale.',
+  '3. Multi-sources : web_search + fetch, ou web_agent (boucle autonome bornée) ; research pour un rapport long.',
+  '4. Tâche complexe : plan(goal) puis smartthinking pour consigner les étapes et les hypothèses.',
+  '5. Problème difficile : protocol(problem) pour le domaine, la checklist des pièges et le format de réponse.',
+  '6. Détail des outils et boucle complète : smartthinking(help=true) ou la ressource smart-thinking://docs/about.',
+].join('\n');
+
+/** Full operating guide, served on demand instead of being duplicated per tool. */
+export const SMART_THINKING_TOOL_GUIDE = [
+  '## Boucle recommandée',
+  '1. protocol(problem) pour cadrer un problème difficile (domaine, pièges, format de réponse).',
+  '2. plan(goal) pour les tâches de plus de deux étapes, puis smartthinking pour consigner chaque étape.',
+  '3. compute pour écrire un script exact (sympy/numpy/scipy) et produire un certificat : énumération exhaustive, LP, corps finis, valeurs propres, récurrences.',
+  '4. claim(statement, value, method, evidence) pour chaque résultat, puis audit(requirements=[...]) avant la réponse finale.',
+  '5. web_search + fetch pour les faits ciblés ; web_agent pour une question multi-sources ; web_crawl pour un site entier ; research pour un rapport long.',
+  '6. verify pour une affirmation donnée : un contrôle déterministe exact tranche seul (aucune dilution par le web).',
+  '7. critique pour une revue adversariale du brouillon (nécessite SMART_THINKING_ASSIST_API_KEY).',
+  '',
+  '## Repères par outil',
+  '- calculate : arithmétique déterministe ; "expression = résultat" vérifie une valeur.',
+  '- solve_logic / solve_math : ordres et équations exacts, sans calcul mental.',
+  '- cas : identités symboliques (verify_identity), polynôme minimal, fonctions elliptiques.',
+  '- math_knowledge : fiches classiques ciblées (aucune fiche hors sujet n\'est injectée).',
+  '- web_agent : décomposition, dédup par domaine, extraction, stance par source, contradictions, budget de crédits par session.',
+  '- session : état, export, plan, configuration Tavily, crédits web consommés.',
+  '- search / fetch : mémoires locales et contenus web (compatibles connecteurs).',
+  '',
+  '## Règles de vérité',
+  '- Un statut "unverified", "uncertain" ou "absence_of_information" ne doit jamais être présenté comme un fait.',
+  '- Aucune recherche web n\'est simulée : si aucun moteur n\'est configuré, l\'outil délègue explicitement au client (requiresClientAction).',
+  '- Un budget de crédits web épuisé, un quota ou une clé invalide se traduisent par degraded/truncated + raison, jamais par un succès silencieux.',
 ].join('\n');
 
 export const SMART_THINKING_CAPABILITIES: ServerCapabilities = {

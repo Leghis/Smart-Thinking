@@ -73,7 +73,7 @@ describe('Smart-Thinking MCP server (in-memory E2E)', () => {
     return client;
   }
 
-  test('exposes exactly nineteen tools in full mode', async () => {
+  test('exposes exactly twenty tools in full mode', async () => {
     const client = await connect();
 
     const { tools } = await client.listTools();
@@ -95,6 +95,7 @@ describe('Smart-Thinking MCP server (in-memory E2E)', () => {
       'solve_logic',
       'solve_math',
       'verify',
+      'web_agent',
       'web_crawl',
       'web_search',
     ]);

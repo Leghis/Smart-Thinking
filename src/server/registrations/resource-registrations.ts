@@ -3,8 +3,9 @@ import type { SmartThinkingEnvironment } from '../environment';
 import {
   SERVER_DOCS_RESOURCE_URI,
   SERVER_RUNTIME_RESOURCE_URI,
+  SMART_THINKING_TOOL_GUIDE,
 } from '../server-metadata';
-import { LIMITS } from '../../constants';
+import { LIMITS, TOOL_NAMES } from '../../constants';
 
 function buildAboutDocument(version: string): string {
   return [
@@ -18,7 +19,8 @@ function buildAboutDocument(version: string): string {
     '## Outils',
     '- calculate : calcul déterministe d\'expressions.',
     '- solve_logic / solve_math : solveurs exacts (ordre, équations).',
-    '- research : recherche web multi-hop sourcée.',
+    '- web_agent : boucle de recherche autonome bornée (décomposition, dédup par domaine, extraction, stance, contradictions).',
+    '- research : rapport web multi-hop sourcé (agent géré Tavily ou repli interne explicite).',
     '- critique : revue adversariale assistée.',
     '- smartthinking : graphe de pensées, métriques, vérification, plan, hypothèses.',
     '- plan : décomposition d\'objectif en étapes testables.',
@@ -28,9 +30,13 @@ function buildAboutDocument(version: string): string {
     '- search / fetch : mémoires locales et contenus web (compatibles connecteurs).',
     '- session : état, export, configuration Tavily, mise à jour du plan.',
     '',
+    SMART_THINKING_TOOL_GUIDE,
+    '',
     '## Principes',
     '- Zéro clé API obligatoire : Tavily est optionnel par utilisateur.',
     '- Aucune vérification fabriquée : sans preuve, le statut reste "unverified".',
+    '- Un contrôle déterministe exact (calcul, solveur, CAS) tranche seul : le web ne le dilue pas.',
+    '- Budget de crédits web par session, avec statut degraded/truncated explicite.',
     '- Session persistante et reprise déterministe.',
   ].join('\n');
 }
@@ -51,7 +57,8 @@ function buildRuntimeStatus(env: SmartThinkingEnvironment): string {
     capabilities: {
       prompts: true,
       resources: true,
-      tools: ['protocol', 'compute', 'calculate', 'cas', 'math_knowledge', 'solve_logic', 'solve_math', 'research', 'critique', 'smartthinking', 'plan', 'verify', 'web_search', 'web_crawl', 'search', 'fetch', 'session'],
+      tools: [...TOOL_NAMES],
+      webCreditBudget: env.runtime.search.webCreditBudget,
     },
   }, null, 2);
 }

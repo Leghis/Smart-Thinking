@@ -216,7 +216,12 @@ export type VerificationCheckName =
   | 'heuristics'
   | 'source_quality';
 
-export type VerificationCheckOutcome = 'passed' | 'failed' | 'inconclusive' | 'unavailable';
+export type VerificationCheckOutcome =
+  | 'passed'
+  | 'failed'
+  | 'inconclusive'
+  | 'unavailable'
+  | 'skipped';
 
 export interface VerificationCheck {
   name: VerificationCheckName;
@@ -225,6 +230,17 @@ export interface VerificationCheck {
   details?: string[];
   evidenceIds?: string[];
   durationMs?: number;
+  /** Machine-readable justification, e.g. "deterministic_short_circuit" or "budget". */
+  reason?: string;
+}
+
+/**
+ * Why the final status was reached. A deterministic verdict (exact computation,
+ * solver, CAS) is sovereign: no web layer may water it down.
+ */
+export interface VerificationBasis {
+  kind: 'deterministic' | 'web' | 'mixed' | 'none';
+  detail: string;
 }
 
 export interface VerificationResult {
@@ -238,6 +254,9 @@ export interface VerificationResult {
   checks?: VerificationCheck[];
   evidence?: EvidenceItem[];
   methodsUnavailable?: string[];
+  verificationBasis?: VerificationBasis;
+  /** Neutral web hits that were discarded instead of being stored as evidence. */
+  discardedNeutral?: number;
 }
 
 export interface SuggestedTool {
@@ -252,6 +271,8 @@ export interface SuggestedTool {
 // ---------------------------------------------------------------------------
 
 export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
+
+export type PlanTemplateId = 'math' | 'decision' | 'causal' | 'research' | 'code' | 'generic';
 
 export interface PlanStep {
   id: string;
@@ -271,6 +292,12 @@ export interface Plan {
   depth: ReasoningDepth;
   createdAt: string;
   updatedAt: string;
+  /** Which deterministic template produced the plan (v13.1). */
+  template?: PlanTemplateId;
+  /** Confidence of the template match, 0..1. */
+  matchConfidence?: number;
+  /** Matched signals that justify the template choice. */
+  signals?: string[];
 }
 
 export type HypothesisStatus = 'open' | 'supported' | 'refuted' | 'inconclusive';
@@ -487,6 +514,12 @@ export interface SmartThinkingParams {
   requestVerification?: boolean;
   containsCalculations?: boolean;
 
+  /**
+   * Payload verbosity for the MCP response. `compact` (default) drops the
+   * timeline and the composite reliability score, and caps suggestions.
+   */
+  responseDetail?: 'compact' | 'full';
+
   /** Update the session plan (goal decomposition) in the same call. */
   plan?: {
     goal: string;
@@ -526,6 +559,12 @@ export interface SmartThinkingResponse {
   thought: string;
   thoughtType: ThoughtType;
   qualityMetrics: ThoughtMetrics;
+  /** Heuristic nature of `qualityMetrics` + the contributions behind each number. */
+  metricsBasis?: {
+    heuristic: true;
+    scale: '0..1 (heuristique, non probabiliste)';
+    contributions: Record<string, MetricContribution[]>;
+  };
   sessionId?: string;
   suggestedTools?: SuggestedTool[];
   visualization?: Visualization;

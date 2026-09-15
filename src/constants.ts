@@ -297,6 +297,35 @@ export const LIMITS = {
   VERIFICATION_TIMEOUT_MS: 10_000,
 } as const;
 
+/**
+ * Every tool exposed by the MCP server. Single source of truth: suggestions
+ * must never reference a tool that does not exist.
+ */
+export const TOOL_NAMES = [
+  'smartthinking',
+  'search',
+  'fetch',
+  'calculate',
+  'protocol',
+  'compute',
+  'claim',
+  'audit',
+  'cas',
+  'math_knowledge',
+  'solve_logic',
+  'solve_math',
+  'web_agent',
+  'web_search',
+  'web_crawl',
+  'research',
+  'critique',
+  'verify',
+  'plan',
+  'session',
+] as const;
+
+export type ToolName = (typeof TOOL_NAMES)[number];
+
 export const SIMILARITY_THRESHOLDS = {
   EXACT_MATCH: 0.95,
   HIGH: 0.8,

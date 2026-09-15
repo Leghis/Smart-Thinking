@@ -165,13 +165,13 @@ export function determineVerificationRequirements(content: string): Verification
 
   if (matches(content, PATTERNS.MATH_CALCULATION) || matches(content, PATTERNS.MATHEMATICAL_PROOF)) {
     result.needsMathCheck = true;
-    addTool('calculator');
+    addTool('calculate');
     result.reasons.push('Contient des calculs ou preuves mathématiques');
   }
 
   if (matches(content, PATTERNS.SOURCE_REFERENCE)) {
     result.needsSourceCheck = true;
-    addTool('source_check');
+    addTool('verify');
     result.reasons.push('Contient des références à des sources');
   }
 

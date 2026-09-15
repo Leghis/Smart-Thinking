@@ -9,6 +9,7 @@ import { SessionStore } from '../session-store';
 import { VerificationMemory } from '../verification-memory';
 import { Visualizer } from '../visualizer';
 import { SearchService } from '../search/search-service';
+import { WebCreditLedger } from '../search/web-budget';
 import { VerificationService } from '../services/verification-service';
 import { loadRuntimeConfig, type RuntimeConfig } from '../config';
 import { configureLogger, createLogger } from '../utils/logger';
@@ -28,6 +29,7 @@ export interface SmartThinkingEnvironment {
   verificationService: VerificationService;
   sessionStore: SessionStore;
   searchService: SearchService;
+  webCredits: WebCreditLedger;
   assist: AssistClient;
   claims: ClaimLedger;
   orchestrator: ReasoningOrchestrator;
@@ -87,6 +89,7 @@ export function createEnvironment(options: EnvironmentOptions = {}): SmartThinki
     defaultDepth: runtime.search.searchDepth,
     timeoutMs: runtime.search.requestTimeoutMs,
   });
+  const webCredits = new WebCreditLedger(runtime.search.webCreditBudget);
 
   const assist = createAssistClient();
   const claims = new ClaimLedger();
@@ -133,6 +136,7 @@ export function createEnvironment(options: EnvironmentOptions = {}): SmartThinki
     verificationService,
     sessionStore,
     searchService,
+    webCredits,
     assist,
     claims,
     orchestrator,

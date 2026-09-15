@@ -23,6 +23,8 @@ export interface RuntimeConfig {
     searchDepth: SearchDepth;
     cacheTtlMs: number;
     requestTimeoutMs: number;
+    /** Max web credits a single session may spend (web_search/web_agent/...). */
+    webCreditBudget: number;
   };
   persistence: {
     /** Optional override for the data directory (useful for tests and portable runs). */
@@ -50,6 +52,13 @@ function parseSearchDepth(raw: string | undefined): SearchDepth {
   return (raw ?? '').toLowerCase() === 'advanced' ? 'advanced' : 'basic';
 }
 
+const DEFAULT_WEB_CREDIT_BUDGET = 25;
+
+function parseWebCreditBudget(raw: string | undefined): number {
+  const value = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_WEB_CREDIT_BUDGET;
+}
+
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): RuntimeConfig {
   const fallbackLevel: LogLevel = env.NODE_ENV === 'test' ? 'silent' : 'info';
   const fallbackFormat = env.NODE_ENV === 'production' ? 'json' : 'pretty';
@@ -65,6 +74,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
       searchDepth: parseSearchDepth(env.SMART_THINKING_SEARCH_DEPTH),
       cacheTtlMs: CACHE_TTL_MS.SEARCH,
       requestTimeoutMs: LIMITS.WEB_REQUEST_TIMEOUT_MS,
+      webCreditBudget: parseWebCreditBudget(env.SMART_THINKING_WEB_CREDIT_BUDGET),
     },
     persistence: {
       dataDir: env.SMART_THINKING_DATA_DIR?.trim() || undefined,
