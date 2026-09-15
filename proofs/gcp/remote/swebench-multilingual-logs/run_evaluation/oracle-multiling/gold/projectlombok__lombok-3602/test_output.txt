@@ -1,0 +1,474 @@
++ cd /testbed
++ git config --global --add safe.directory /testbed
++ git status
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   AUTHORS
+	modified:   buildScripts/tests.ant.xml
+	modified:   src/core/lombok/bytecode/FixedClassWriter.java
+	modified:   src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+	modified:   src/core/lombok/bytecode/SneakyThrowsRemover.java
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
++ git -c core.fileMode=false diff f3a4b1b4151a9dd1646f1b170c17f5f29903f45a
+commit f3a4b1b4151a9dd1646f1b170c17f5f29903f45a
+Merge: 1eae01f3 de4f6023
+Author: Rawi01 <Rawi01@users.noreply.github.com>
+Date:   Sat Feb 3 00:35:33 2024 +0100
+
+    Merge pull request #3600 from Rawi01/eclipse-dependency-download-with-version-support
+    
+    Fix broken eclipse-I tasks
+
+diff --git a/AUTHORS b/AUTHORS
+index b291072f..71131764 100755
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -34,6 +34,7 @@ Mateusz Matela <mateusz.matela@gmail.com>
+ Michael Dardis <git@md-5.net>
+ Michael Ernst <mernst@alum.mit.edu>
+ Michiel Verheul <cheelio@gmail.com>
++Ole Ludwig <o.ludwig@wtnet.de>
+ Pascal Bihler <pascal@qfs.de>
+ Peter Grant <petercgrant@users.noreply.github.com>
+ Philipp Eichhorn <peichhor@web.de>
+diff --git a/buildScripts/tests.ant.xml b/buildScripts/tests.ant.xml
+index ade6fbff..1b4c3e32 100644
+--- a/buildScripts/tests.ant.xml
++++ b/buildScripts/tests.ant.xml
+@@ -342,4 +342,16 @@ This buildfile is part of projectlombok.org. It takes care of compiling and runn
+ 	
+ 	<target name="test" depends="test.javacCurrent, test.eclipse-202212" description="runs the tests against the default JVM, javac, and eclipse" />
+ 	<target name="test.broad" depends="test.javac8, test.javac17, test.javac20, test.eclipse-oxygen, test.eclipse-202212, test.eclipse-202006-jdk8" description="runs the tests against the default JVM, javac, and eclipse" />
++<target name="test.instance" depends="test.compile, test.formatter.compile" description="Runs test cases for the swe-bench instance">
++      <junit printsummary="yes" fork="true" forkmode="once" haltonfailure="no">
++        <formatter classname="lombok.ant.SimpleTestFormatter" usefile="false" unless="tests.quiet" />
++        <classpath location="build/ant" />
++        <classpath refid="cp.test" />
++        <classpath refid="cp.stripe" />
++        <classpath refid="packing.basedirs.path" />
++        <classpath location="build/tests" />
++        <classpath location="build/teststubs" />
++        <test name="lombok.bytecode.TestPostCompiler" />
++      </junit>
++    </target>
+ </project>
+diff --git a/src/core/lombok/bytecode/FixedClassWriter.java b/src/core/lombok/bytecode/FixedClassWriter.java
+index f18dc3a4..6d86fe9d 100644
+--- a/src/core/lombok/bytecode/FixedClassWriter.java
++++ b/src/core/lombok/bytecode/FixedClassWriter.java
+@@ -28,6 +28,10 @@ class FixedClassWriter extends ClassWriter {
+ 	FixedClassWriter(ClassReader classReader, int flags) {
+ 		super(classReader, flags);
+ 	}
++
++	FixedClassWriter(int flags) {
++		super(flags);
++	}
+ 	
+ 	@Override protected String getCommonSuperClass(String type1, String type2) {
+ 		//By default, ASM will attempt to live-load the class types, which will fail if meddling with classes in an
+@@ -40,4 +44,4 @@ class FixedClassWriter extends ClassWriter {
+ 			return "java/lang/Object";
+ 		}
+ 	}
+-}
+\ No newline at end of file
++}
+diff --git a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+index 8ae7af5b..654a308a 100644
+--- a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
++++ b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+@@ -44,7 +44,7 @@ public class PreventNullAnalysisRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new FixedClassWriter(reader, 0);
++		ClassWriter writer = new FixedClassWriter(0);
+ 		
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+ 		
+diff --git a/src/core/lombok/bytecode/SneakyThrowsRemover.java b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+index ea1c3cec..b716245d 100644
+--- a/src/core/lombok/bytecode/SneakyThrowsRemover.java
++++ b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+@@ -46,7 +46,7 @@ public class SneakyThrowsRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new ClassWriter(reader, 0);
++		ClassWriter writer = new ClassWriter(0);
+ 
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+ 		
++ git checkout f3a4b1b4151a9dd1646f1b170c17f5f29903f45a test/bytecode/src/lombok/bytecode/TestPostCompiler.java
+Updated 0 paths from b97f4767
++ rm -f test/bytecode/resource/PostCompilePreventNullAnalysis.java
++ git apply -v -
+Checking patch test/bytecode/resource/PostCompilePreventNullAnalysis.java...
+Checking patch test/bytecode/src/lombok/bytecode/TestPostCompiler.java...
+Applied patch test/bytecode/resource/PostCompilePreventNullAnalysis.java cleanly.
+Applied patch test/bytecode/src/lombok/bytecode/TestPostCompiler.java cleanly.
++ ant test.compile
+Buildfile: /testbed/build.xml
+
+-ipp.download:
+
+-ipp.load:
+
+-ipp.redownload:
+
+ipp.setup:
+
+ivy.config:
+[ivy:configure] :: Apache Ivy 2.5.0 - 20191020104435 :: https://ant.apache.org/ivy/ ::
+[ivy:configure] :: loading settings :: file = /testbed/buildScripts/ivysettings.xml
+
+deps.jdk6-runtime:
+
+deps.jdk8-runtime:
+
+deps.jdk-runtime:
+
+deps:
+[ivy:resolve] :: resolving dependencies :: projectlombok.org#lombok;working@34194fbdc6f1
+[ivy:resolve] 	confs: [javac6, javac8, ecj8, build, eclipse-oxygen, mapstruct, sources, stripe, buildtools, test]
+[ivy:resolve] 	found net.java.openjdk.custom#javac6;1.6.0.18 in projectLocalRepo
+[ivy:resolve] 	found net.java.openjdk.custom#javac8;1.8.0 in projectLocalRepo
+[ivy:resolve] 	found org.eclipse.jdt.core.compiler#ecj;4.4.2 in maven-repo2
+[ivy:resolve] 	found org.projectlombok#lombok.patcher;0.50 in projectLocalRepo
+[ivy:resolve] 	found zwitserloot.com#cmdreader;1.2 in projectLocalRepo
+[ivy:resolve] 	found org.apache.ant#ant;1.10.5 in maven-repo2
+[ivy:resolve] 	found org.apache.ant#ant-launcher;1.10.5 in maven-repo2
+[ivy:resolve] 	found org.apache.ant#ant-junit;1.10.5 in maven-repo2
+[ivy:resolve] 	found junit#junit;4.12 in maven-repo2
+[ivy:resolve] 	found org.hamcrest#hamcrest-core;1.3 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.runtime;3.13.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jdt#org.eclipse.jdt.core;3.13.102 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jdt#org.eclipse.jdt.ui;3.13.100 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.common;3.9.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.registry;3.7.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.app;1.3.400 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.resources;3.12.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.contenttype;3.6.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.jobs;3.9.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.osgi;3.12.100 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.text;3.6.100 in maven-repo2
+[ivy:resolve] 	found org.mapstruct#mapstruct-processor;1.3.1.Final in maven-repo2
+[ivy:resolve] 	found junit#junit;4.13.2 in maven-repo2
+[ivy:resolve] 	found log4j#log4j;1.2.17 in maven-repo2
+[ivy:resolve] 	found org.apache.logging.log4j#log4j-api;2.17.1 in maven-repo2
+[ivy:resolve] 	found commons-logging#commons-logging;1.2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.8.0-beta2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-ext;1.8.0-beta2 in maven-repo2
+[ivy:resolve] 	found org.jboss.logging#jboss-logging;3.3.0.Final in maven-repo2
+[ivy:resolve] 	found com.google.flogger#flogger;0.2 in maven-repo2
+[ivy:resolve] 	found com.google.guava#guava;18.0 in maven-repo2
+[ivy:resolve] 	found com.hierynomus#sshj;0.26.0 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.7 in maven-repo2
+[ivy:resolve] 	found org.bouncycastle#bcprov-jdk15on;1.60 in maven-repo2
+[ivy:resolve] 	found org.bouncycastle#bcpkix-jdk15on;1.60 in maven-repo2
+[ivy:resolve] 	found com.jcraft#jzlib;1.1.3 in maven-repo2
+[ivy:resolve] 	found net.i2p.crypto#eddsa;0.2.0 in maven-repo2
+[ivy:resolve] 	found projectlombok.org#markdownj;1.02b4 in projectLocalRepo
+[ivy:resolve] 	found de.java2html#java2html;5.0 in maven-repo2
+[ivy:resolve] 	found org.freemarker#freemarker;2.3.28 in maven-repo2
+[ivy:resolve] 	found com.sparkjava#spark-core;2.9.2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.25 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-server;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found javax.servlet#javax.servlet-api;3.1.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-http;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-util;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-io;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-webapp;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-xml;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-servlet;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-security;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-server;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-common;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-api;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-client;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-client;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-servlet;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#s3;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-xml-protocol;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-query-protocol;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#protocol-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#sdk-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#annotations;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#http-client-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#utils;2.19.29 in maven-repo2
+[ivy:resolve] 	found org.reactivestreams#reactive-streams;1.0.3 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.30 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#metrics-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#endpoints-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#profiles;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#regions;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#json-utils;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#third-party-jackson-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#auth;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.eventstream#eventstream;1.0.1 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#arns;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#apache-client;2.19.29 in maven-repo2
+[ivy:resolve] 	found org.apache.httpcomponents#httpclient;4.5.13 in maven-repo2
+[ivy:resolve] 	found org.apache.httpcomponents#httpcore;4.4.13 in maven-repo2
+[ivy:resolve] 	found commons-codec#commons-codec;1.11 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#netty-nio-client;2.19.29 in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec-http;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-common;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-buffer;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-resolver;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-handler;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport-native-unix-common;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec-http2;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport-classes-epoll;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found com.sun.xml.bind#jaxb-impl;2.3.9 in maven-repo2
+[ivy:resolve] 	found jakarta.xml.bind#jakarta.xml.bind-api;2.3.3 in maven-repo2
+[ivy:resolve] 	found com.sun.activation#jakarta.activation;1.2.2 in maven-repo2
+[ivy:resolve] 	found com.google.code.findbugs#jsr305;3.0.1 in maven-repo2
+[ivy:resolve] 	found com.google.code.findbugs#findbugs;3.0.1 in maven-repo2
+[ivy:resolve] 	found org.springframework#spring-core;5.3.4 in maven-repo2
+[ivy:resolve] 	found com.fasterxml.jackson.core#jackson-databind;2.10.0 in maven-repo2
+[ivy:resolve] 	found com.fasterxml.jackson.core#jackson-annotations;2.10.0 in maven-repo2
+[ivy:resolve] :: resolution report :: resolve 6437ms :: artifacts dl 212ms
+[ivy:resolve] 	:: evicted modules:
+[ivy:resolve] 	org.slf4j#slf4j-api;1.7.7 by [org.slf4j#slf4j-api;1.7.25] in [buildtools]
+[ivy:resolve] 	org.slf4j#slf4j-api;1.7.25 by [org.slf4j#slf4j-api;1.7.30] in [buildtools]
+	---------------------------------------------------------------------
+	|                  |            modules            ||   artifacts   |
+	|       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+	---------------------------------------------------------------------
+	|      javac6      |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|      javac8      |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|       ecj8       |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|       build      |   7   |   0   |   0   |   0   ||   7   |   0   |
+	|  eclipse-oxygen  |   11  |   0   |   0   |   0   ||   11  |   0   |
+	|     mapstruct    |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|      sources     |   9   |   0   |   0   |   0   ||   9   |   0   |
+	|      stripe      |   2   |   0   |   0   |   0   ||   2   |   0   |
+	|    buildtools    |   65  |   0   |   0   |   2   ||   63  |   0   |
+	|       test       |   15  |   0   |   0   |   0   ||   15  |   0   |
+	---------------------------------------------------------------------
+[ivy:retrieve] :: retrieving :: projectlombok.org#lombok
+[ivy:retrieve] 	confs: [javac6, javac8, ecj8, build, eclipse-oxygen, mapstruct, sources, stripe, buildtools, test]
+[ivy:retrieve] 	0 artifacts copied, 111 already retrieved (0kB/163ms)
+
+-autoclean.check:
+
+autoclean:
+
+-setup.build:
+
+version:
+     [echo] Lombok version: 1.18.31 (v1.18.31 "Edgy Guinea Pig")
+
+create.spiProcessor:
+      [jar] Building jar: /testbed/dist/spiProcessor.jar
+
+create.mavenEcjBootstrapAgent:
+
+compile:
+   [delete] Deleting: /testbed/build/lombok-main/META-INF/services/javax.annotation.processing.Processor
+[compile:javac] Compiling 5 source files to /testbed/build/lombok-main
+[compile:javac] Compiling 1 source file to /testbed/build/lombok-main8
+
+test.compile:
+[compile:javac] Compiling 1 source file to /testbed/build/tests
+
+BUILD SUCCESSFUL
+Total time: 29 seconds
++ : '>>>>> Start Test Output'
++ cat
++ ant test.instance
+Buildfile: /testbed/build.xml
+
+-ipp.download:
+
+-ipp.load:
+
+-ipp.redownload:
+
+ipp.setup:
+
+ivy.config:
+[ivy:configure] :: Apache Ivy 2.5.0 - 20191020104435 :: https://ant.apache.org/ivy/ ::
+[ivy:configure] :: loading settings :: file = /testbed/buildScripts/ivysettings.xml
+
+deps.jdk6-runtime:
+
+deps.jdk8-runtime:
+
+deps.jdk-runtime:
+
+deps:
+[ivy:resolve] :: resolving dependencies :: projectlombok.org#lombok;working@34194fbdc6f1
+[ivy:resolve] 	confs: [javac6, javac8, ecj8, build, eclipse-oxygen, mapstruct, sources, stripe, buildtools, test]
+[ivy:resolve] 	found net.java.openjdk.custom#javac6;1.6.0.18 in projectLocalRepo
+[ivy:resolve] 	found net.java.openjdk.custom#javac8;1.8.0 in projectLocalRepo
+[ivy:resolve] 	found org.eclipse.jdt.core.compiler#ecj;4.4.2 in maven-repo2
+[ivy:resolve] 	found org.projectlombok#lombok.patcher;0.50 in projectLocalRepo
+[ivy:resolve] 	found zwitserloot.com#cmdreader;1.2 in projectLocalRepo
+[ivy:resolve] 	found org.apache.ant#ant;1.10.5 in maven-repo2
+[ivy:resolve] 	found org.apache.ant#ant-launcher;1.10.5 in maven-repo2
+[ivy:resolve] 	found org.apache.ant#ant-junit;1.10.5 in maven-repo2
+[ivy:resolve] 	found junit#junit;4.12 in maven-repo2
+[ivy:resolve] 	found org.hamcrest#hamcrest-core;1.3 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.runtime;3.13.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jdt#org.eclipse.jdt.core;3.13.102 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jdt#org.eclipse.jdt.ui;3.13.100 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.common;3.9.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.registry;3.7.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.equinox.app;1.3.400 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.resources;3.12.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.contenttype;3.6.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.core.jobs;3.9.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.osgi;3.12.100 in maven-repo2
+[ivy:resolve] 	found org.eclipse.platform#org.eclipse.text;3.6.100 in maven-repo2
+[ivy:resolve] 	found org.mapstruct#mapstruct-processor;1.3.1.Final in maven-repo2
+[ivy:resolve] 	found junit#junit;4.13.2 in maven-repo2
+[ivy:resolve] 	found log4j#log4j;1.2.17 in maven-repo2
+[ivy:resolve] 	found org.apache.logging.log4j#log4j-api;2.17.1 in maven-repo2
+[ivy:resolve] 	found commons-logging#commons-logging;1.2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.8.0-beta2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-ext;1.8.0-beta2 in maven-repo2
+[ivy:resolve] 	found org.jboss.logging#jboss-logging;3.3.0.Final in maven-repo2
+[ivy:resolve] 	found com.google.flogger#flogger;0.2 in maven-repo2
+[ivy:resolve] 	found com.google.guava#guava;18.0 in maven-repo2
+[ivy:resolve] 	found com.hierynomus#sshj;0.26.0 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.7 in maven-repo2
+[ivy:resolve] 	found org.bouncycastle#bcprov-jdk15on;1.60 in maven-repo2
+[ivy:resolve] 	found org.bouncycastle#bcpkix-jdk15on;1.60 in maven-repo2
+[ivy:resolve] 	found com.jcraft#jzlib;1.1.3 in maven-repo2
+[ivy:resolve] 	found net.i2p.crypto#eddsa;0.2.0 in maven-repo2
+[ivy:resolve] 	found projectlombok.org#markdownj;1.02b4 in projectLocalRepo
+[ivy:resolve] 	found de.java2html#java2html;5.0 in maven-repo2
+[ivy:resolve] 	found org.freemarker#freemarker;2.3.28 in maven-repo2
+[ivy:resolve] 	found com.sparkjava#spark-core;2.9.2 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.25 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-server;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found javax.servlet#javax.servlet-api;3.1.0 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-http;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-util;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-io;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-webapp;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-xml;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-servlet;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-security;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-server;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-common;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-api;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-client;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty#jetty-client;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found org.eclipse.jetty.websocket#websocket-servlet;9.4.30.v20200611 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#s3;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-xml-protocol;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-query-protocol;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#protocol-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#sdk-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#annotations;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#http-client-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#utils;2.19.29 in maven-repo2
+[ivy:resolve] 	found org.reactivestreams#reactive-streams;1.0.3 in maven-repo2
+[ivy:resolve] 	found org.slf4j#slf4j-api;1.7.30 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#metrics-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#endpoints-spi;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#profiles;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#aws-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#regions;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#json-utils;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#third-party-jackson-core;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#auth;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.eventstream#eventstream;1.0.1 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#arns;2.19.29 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#apache-client;2.19.29 in maven-repo2
+[ivy:resolve] 	found org.apache.httpcomponents#httpclient;4.5.13 in maven-repo2
+[ivy:resolve] 	found org.apache.httpcomponents#httpcore;4.4.13 in maven-repo2
+[ivy:resolve] 	found commons-codec#commons-codec;1.11 in maven-repo2
+[ivy:resolve] 	found software.amazon.awssdk#netty-nio-client;2.19.29 in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec-http;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-common;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-buffer;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-resolver;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-handler;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport-native-unix-common;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-codec-http2;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found io.netty#netty-transport-classes-epoll;4.1.86.Final in maven-repo2
+[ivy:resolve] 	found com.sun.xml.bind#jaxb-impl;2.3.9 in maven-repo2
+[ivy:resolve] 	found jakarta.xml.bind#jakarta.xml.bind-api;2.3.3 in maven-repo2
+[ivy:resolve] 	found com.sun.activation#jakarta.activation;1.2.2 in maven-repo2
+[ivy:resolve] 	found com.google.code.findbugs#jsr305;3.0.1 in maven-repo2
+[ivy:resolve] 	found com.google.code.findbugs#findbugs;3.0.1 in maven-repo2
+[ivy:resolve] 	found org.springframework#spring-core;5.3.4 in maven-repo2
+[ivy:resolve] 	found com.fasterxml.jackson.core#jackson-databind;2.10.0 in maven-repo2
+[ivy:resolve] 	found com.fasterxml.jackson.core#jackson-annotations;2.10.0 in maven-repo2
+[ivy:resolve] :: resolution report :: resolve 10449ms :: artifacts dl 431ms
+[ivy:resolve] 	:: evicted modules:
+[ivy:resolve] 	org.slf4j#slf4j-api;1.7.7 by [org.slf4j#slf4j-api;1.7.25] in [buildtools]
+[ivy:resolve] 	org.slf4j#slf4j-api;1.7.25 by [org.slf4j#slf4j-api;1.7.30] in [buildtools]
+	---------------------------------------------------------------------
+	|                  |            modules            ||   artifacts   |
+	|       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+	---------------------------------------------------------------------
+	|      javac6      |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|      javac8      |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|       ecj8       |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|       build      |   7   |   0   |   0   |   0   ||   7   |   0   |
+	|  eclipse-oxygen  |   11  |   0   |   0   |   0   ||   11  |   0   |
+	|     mapstruct    |   1   |   0   |   0   |   0   ||   1   |   0   |
+	|      sources     |   9   |   0   |   0   |   0   ||   9   |   0   |
+	|      stripe      |   2   |   0   |   0   |   0   ||   2   |   0   |
+	|    buildtools    |   65  |   0   |   0   |   2   ||   63  |   0   |
+	|       test       |   15  |   0   |   0   |   0   ||   15  |   0   |
+	---------------------------------------------------------------------
+[ivy:retrieve] :: retrieving :: projectlombok.org#lombok
+[ivy:retrieve] 	confs: [javac6, javac8, ecj8, build, eclipse-oxygen, mapstruct, sources, stripe, buildtools, test]
+[ivy:retrieve] 	0 artifacts copied, 111 already retrieved (0kB/404ms)
+
+-autoclean.check:
+
+autoclean:
+
+-setup.build:
+
+version:
+     [echo] Lombok version: 1.18.31 (v1.18.31 "Edgy Guinea Pig")
+
+create.spiProcessor:
+      [jar] Building jar: /testbed/dist/spiProcessor.jar
+
+create.mavenEcjBootstrapAgent:
+
+compile:
+   [delete] Deleting: /testbed/build/lombok-main/META-INF/services/javax.annotation.processing.Processor
+[compile:javac] Compiling 2 source files to /testbed/build/lombok-main
+[compile:javac] Compiling 1 source file to /testbed/build/lombok-main8
+
+test.compile:
+
+test.formatter.compile:
+    [mkdir] Created dir: /testbed/build/ant
+[compile:javac] Compiling 1 source file to /testbed/build/ant
+
+test.instance:
+    [junit] Running lombok.bytecode.TestPostCompiler
+    [junit] [PASS] testPostCompilerPreventNullAnalysis(lombok.bytecode.TestPostCompiler)
+    [junit] [PASS] testPostCompilerSneakyThrows(lombok.bytecode.TestPostCompiler)
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.183 sec
+
+BUILD SUCCESSFUL
+Total time: 34 seconds
+>>>>> Test Exit Code: 0
++ SWEBENCH_TEST_EXIT_CODE=0
++ : '>>>>> End Test Output'
++ echo '>>>>> Test Exit Code: 0'
++ git checkout f3a4b1b4151a9dd1646f1b170c17f5f29903f45a test/bytecode/src/lombok/bytecode/TestPostCompiler.java
+Updated 1 path from b97f4767
++ rm -f test/bytecode/resource/PostCompilePreventNullAnalysis.java

@@ -1,0 +1,63 @@
+root@4732801849eb:/app# bash /tests/run-tests.sh; tmux wait -S done
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [338 kB]
+Fetched 9376 kB in 2s (3817 kB/s)
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+curl is already the newest version (7.88.1-10+deb12u15).
+0 upgraded, 0 newly installed, 0 to remove and 67 not upgraded.
+downloading uv 0.12.14 x86_64-unknown-linux-gnu
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Initialized project `app`
+Using CPython 3.11.11 interpreter at: /usr/local/bin/python3.11
+Creating virtual environment at: .venv
+Resolved 7 packages in 276ms
+      Built app @ file:///app
+Prepared 6 packages in 296ms
+Installed 6 packages in 40ms
+ + app==0.1.0 (from file:///app)
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+Resolved 14 packages in 456ms
+      Built app @ file:///app
+Prepared 8 packages in 790ms
+Uninstalled 1 package in 1ms
+Installed 8 packages in 214ms
+ ~ app==0.1.0 (from file:///app)
+ + boto3==1.43.94
+ + botocore==1.43.94
+ + jmespath==1.1.0
+ + python-dateutil==2.9.0.post0
+ + s3transfer==0.19.2
+ + six==1.17.0
+ + urllib3==2.7.0
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.11.11, pytest-9.1.1, pluggy-1.6.0
+rootdir: /tests
+collected 2 items
+
+../tests/test_outputs.py ..                                                                                                                              [100%]
+
+============================================================================ PASSES ============================================================================
+=================================================================== short test summary info ====================================================================
+PASSED ../tests/test_outputs.py::test_bucket_exists
+PASSED ../tests/test_outputs.py::test_bucket_public_access
+====================================================================== 2 passed in 1.63s =======================================================================
+root@4732801849eb:/app#

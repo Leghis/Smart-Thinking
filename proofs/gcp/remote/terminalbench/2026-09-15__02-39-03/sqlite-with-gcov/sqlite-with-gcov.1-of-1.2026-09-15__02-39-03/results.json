@@ -1,0 +1,22 @@
+{
+    "id": "c2ec960c-f86f-4a46-bdea-c49b83261959",
+    "trial_name": "sqlite-with-gcov.1-of-1.2026-09-15__02-39-03",
+    "task_id": "sqlite-with-gcov",
+    "instruction": "Compile SQLite in /app/sqlite with gcov instrumentation and make it available in the PATH.",
+    "is_resolved": true,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_sqlite_compiled": "passed",
+        "test_sqlite_in_path": "passed",
+        "test_gcov_enabled": "passed"
+    },
+    "recording_path": "2026-09-15__02-39-03/sqlite-with-gcov/sqlite-with-gcov.1-of-1.2026-09-15__02-39-03/sessions/agent.cast",
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "trial_started_at": "2026-09-15T02:47:31.611741+00:00",
+    "trial_ended_at": "2026-09-15T02:49:51.717503+00:00",
+    "agent_started_at": "2026-09-15T02:47:39.072091+00:00",
+    "agent_ended_at": "2026-09-15T02:49:25.772840+00:00",
+    "test_started_at": "2026-09-15T02:49:29.453664+00:00",
+    "test_ended_at": "2026-09-15T02:49:39.888461+00:00"
+}

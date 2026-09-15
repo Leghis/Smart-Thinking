@@ -1,0 +1,79 @@
++ cd /testbed
++ git config --global --add safe.directory /testbed
++ git status
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   lib/fluent/plugin/output.rb
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
+commit a60603346483da721799ccb3faebcbdd757c5f16
+Merge: c297456e 667d7e39
+Author: Takuro Ashie <ashie@clear-code.com>
+Date:   Wed Jan 19 15:31:55 2022 +0900
+
+    Merge pull request #3604 from fluent/separate-error-class-on-not-found-plugin
+    
+    Use more concrete error class on plugin not found
+
++ git -c core.fileMode=false diff a60603346483da721799ccb3faebcbdd757c5f16
+diff --git a/lib/fluent/plugin/output.rb b/lib/fluent/plugin/output.rb
+index 34e31ec8..83625948 100644
+--- a/lib/fluent/plugin/output.rb
++++ b/lib/fluent/plugin/output.rb
+@@ -1275,11 +1275,15 @@ module Fluent
+ 
+           unless @retry
+             @retry = retry_state(@buffer_config.retry_randomize)
+-            if error
+-              log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
+-              log.warn_backtrace error.backtrace
++            if @retry.limit?
++              # @retry_max_times == 0, fail imediately by the following block
++            else
++              if error
++                log.warn "failed to flush the buffer.", retry_times: @retry.steps, next_retry_time: @retry.next_time.round, chunk: chunk_id_hex, error: error
++                log.warn_backtrace error.backtrace
++              end
++              return
+             end
+-            return
+           end
+ 
+           # @retry exists
++ git checkout a60603346483da721799ccb3faebcbdd757c5f16 test/plugin/test_output_as_buffered_retries.rb
+Updated 0 paths from dcde6eee
++ git apply -v -
+Checking patch test/plugin/test_output_as_buffered_retries.rb...
+Applied patch test/plugin/test_output_as_buffered_retries.rb cleanly.
++ : '>>>>> Start Test Output'
++ bundle exec ruby test/plugin/test_output_as_buffered_retries.rb -v -n /retry_max_times/
++ cat
+/testbed/lib/fluent/compat/parser.rb:28: warning: csv was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 3.4.0.
+You can add csv to your Gemfile or gemspec to silence this warning.
+Loaded suite test/plugin/test_output_as_buffered_retries
+Started
+BufferedOutputRetryTest: 
+  bufferd output for retries with periodical retry: 
+    test: Do not retry when retry_max_times is 0:	.: (0.179636)
+    test: retry_max_times can limit maximum times for retries:	.: (11.184089)
+  buffered output configured as retry_forever: 
+    test: retry_timeout and retry_max_times will be ignored if retry_forever is true for exponential backoff:	.: (15.203990)
+    test: retry_timeout and retry_max_times will be ignored if retry_forever is true for periodical retries:	.: (15.256345)
+  buffered output for retries with exponential backoff: 
+    test: output plugin give retries up by retry_max_times, and clear queue in buffer:	.: (11.231702)
+
+Finished in 53.061912434 seconds.
+-------------------------------------------------------------------------------
+5 tests, 174 assertions, 0 failures, 0 errors, 0 pendings, 0 omissions, 0 notifications
+100% passed
+-------------------------------------------------------------------------------
+0.09 tests/s, 3.28 assertions/s
+>>>>> Test Exit Code: 0
++ SWEBENCH_TEST_EXIT_CODE=0
++ : '>>>>> End Test Output'
++ echo '>>>>> Test Exit Code: 0'
++ git checkout a60603346483da721799ccb3faebcbdd757c5f16 test/plugin/test_output_as_buffered_retries.rb
+Updated 1 path from dcde6eee

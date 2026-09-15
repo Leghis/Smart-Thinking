@@ -1,0 +1,55 @@
+2026-09-15 02:35:57,046 - INFO - Image not found locally, attempting to pull...
+2026-09-15 02:36:02,508 - INFO - Creating container for google__gson-1093...
+2026-09-15 02:36:03,526 - INFO - Container for google__gson-1093 created: 5865b04563ac11bb175bb27d1d15aae8b810094e7bc9777e0f5a58767c9b16a5
+2026-09-15 02:36:03,898 - INFO - Container for google__gson-1093 started: 5865b04563ac11bb175bb27d1d15aae8b810094e7bc9777e0f5a58767c9b16a5
+2026-09-15 02:36:03,899 - INFO - Intermediate patch for google__gson-1093 written to logs/run_evaluation/oracle-multiling/gold/google__gson-1093/patch.diff, now applying to container...
+2026-09-15 02:36:04,155 - INFO - >>>>> Applied Patch:
+Checking patch gson/src/main/java/com/google/gson/stream/JsonWriter.java...
+Applied patch gson/src/main/java/com/google/gson/stream/JsonWriter.java cleanly.
+
+2026-09-15 02:36:04,389 - INFO - Git diff before:
+diff --git a/gson/src/main/java/com/google/gson/stream/JsonWriter.java b/gson/src/main/java/com/google/gson/stream/JsonWriter.java
+index e2fc1961..8148816c 100644
+--- a/gson/src/main/java/com/google/gson/stream/JsonWriter.java
++++ b/gson/src/main/java/com/google/gson/stream/JsonWriter.java
+@@ -491,10 +491,10 @@ public class JsonWriter implements Closeable, Flushable {
+    * @return this writer.
+    */
+   public JsonWriter value(double value) throws IOException {
+-    if (Double.isNaN(value) || Double.isInfinite(value)) {
++    writeDeferredName();
++    if (!lenient && (Double.isNaN(value) || Double.isInfinite(value))) {
+       throw new IllegalArgumentException("Numeric values must be finite, but was " + value);
+     }
+-    writeDeferredName();
+     beforeValue();
+     out.append(Double.toString(value));
+     return this;
+2026-09-15 02:36:04,393 - INFO - Eval script for google__gson-1093 written to logs/run_evaluation/oracle-multiling/gold/google__gson-1093/eval.sh; copying to container...
+2026-09-15 02:38:20,681 - INFO - Test runtime: 136.05 seconds
+2026-09-15 02:38:20,682 - INFO - Test output for google__gson-1093 written to logs/run_evaluation/oracle-multiling/gold/google__gson-1093/test_output.txt
+2026-09-15 02:38:21,013 - INFO - Git diff after:
+diff --git a/gson/src/main/java/com/google/gson/stream/JsonWriter.java b/gson/src/main/java/com/google/gson/stream/JsonWriter.java
+index e2fc1961..8148816c 100644
+--- a/gson/src/main/java/com/google/gson/stream/JsonWriter.java
++++ b/gson/src/main/java/com/google/gson/stream/JsonWriter.java
+@@ -491,10 +491,10 @@ public class JsonWriter implements Closeable, Flushable {
+    * @return this writer.
+    */
+   public JsonWriter value(double value) throws IOException {
+-    if (Double.isNaN(value) || Double.isInfinite(value)) {
++    writeDeferredName();
++    if (!lenient && (Double.isNaN(value) || Double.isInfinite(value))) {
+       throw new IllegalArgumentException("Numeric values must be finite, but was " + value);
+     }
+-    writeDeferredName();
+     beforeValue();
+     out.append(Double.toString(value));
+     return this;
+2026-09-15 02:38:21,013 - INFO - Grading answer for google__gson-1093...
+2026-09-15 02:38:21,017 - INFO - report: {'google__gson-1093': {'patch_is_None': False, 'patch_exists': True, 'patch_successfully_applied': True, 'resolved': True, 'infra_failure': False, 'tests_status': {'FAIL_TO_PASS': {'success': ['com.google.gson.stream.JsonWriterTest#testNonFiniteDoublesWhenLenient'], 'failure': []}, 'PASS_TO_PASS': {'success': ['com.google.gson.stream.JsonWriterTest#testNonFiniteBoxedDoublesWhenLenient', 'com.google.gson.stream.JsonWriterTest#testNonFiniteDoubles', 'com.google.gson.stream.JsonWriterTest#testNonFiniteBoxedDoubles', 'com.google.gson.stream.JsonWriterTest#testDoubles'], 'failure': []}, 'FAIL_TO_FAIL': {'success': [], 'failure': []}, 'PASS_TO_FAIL': {'success': [], 'failure': []}}}}
+Result for google__gson-1093: resolved: True
+2026-09-15 02:38:21,019 - INFO - Attempting to stop container sweb.eval.google__gson-1093.oracle-multiling...
+2026-09-15 02:38:38,838 - INFO - Container sweb.eval.google__gson-1093.oracle-multiling stopped successfully.
+2026-09-15 02:38:38,838 - INFO - Attempting to remove container sweb.eval.google__gson-1093.oracle-multiling...
+2026-09-15 02:38:39,094 - INFO - Container sweb.eval.google__gson-1093.oracle-multiling removed successfully.

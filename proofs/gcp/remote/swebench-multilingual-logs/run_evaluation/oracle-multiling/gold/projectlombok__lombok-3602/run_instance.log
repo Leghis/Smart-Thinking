@@ -1,0 +1,187 @@
+2026-09-15 02:38:39,120 - INFO - Image not found locally, attempting to pull...
+2026-09-15 02:39:06,548 - INFO - Creating container for projectlombok__lombok-3602...
+2026-09-15 02:39:16,511 - INFO - Container for projectlombok__lombok-3602 created: 34194fbdc6f185d4496257d8f6a97edbb7b51ab358d008f4b5f8ed6d0f9f0c5a
+2026-09-15 02:39:17,184 - INFO - Container for projectlombok__lombok-3602 started: 34194fbdc6f185d4496257d8f6a97edbb7b51ab358d008f4b5f8ed6d0f9f0c5a
+2026-09-15 02:39:17,185 - INFO - Intermediate patch for projectlombok__lombok-3602 written to logs/run_evaluation/oracle-multiling/gold/projectlombok__lombok-3602/patch.diff, now applying to container...
+2026-09-15 02:39:17,818 - INFO - >>>>> Applied Patch:
+Checking patch AUTHORS...
+Checking patch src/core/lombok/bytecode/FixedClassWriter.java...
+Checking patch src/core/lombok/bytecode/PreventNullAnalysisRemover.java...
+Checking patch src/core/lombok/bytecode/SneakyThrowsRemover.java...
+Applied patch AUTHORS cleanly.
+Applied patch src/core/lombok/bytecode/FixedClassWriter.java cleanly.
+Applied patch src/core/lombok/bytecode/PreventNullAnalysisRemover.java cleanly.
+Applied patch src/core/lombok/bytecode/SneakyThrowsRemover.java cleanly.
+
+2026-09-15 02:39:18,609 - INFO - Git diff before:
+diff --git a/AUTHORS b/AUTHORS
+index b291072f..71131764 100755
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -34,6 +34,7 @@ Mateusz Matela <mateusz.matela@gmail.com>
+ Michael Dardis <git@md-5.net>
+ Michael Ernst <mernst@alum.mit.edu>
+ Michiel Verheul <cheelio@gmail.com>
++Ole Ludwig <o.ludwig@wtnet.de>
+ Pascal Bihler <pascal@qfs.de>
+ Peter Grant <petercgrant@users.noreply.github.com>
+ Philipp Eichhorn <peichhor@web.de>
+diff --git a/buildScripts/tests.ant.xml b/buildScripts/tests.ant.xml
+index ade6fbff..1b4c3e32 100644
+--- a/buildScripts/tests.ant.xml
++++ b/buildScripts/tests.ant.xml
+@@ -342,4 +342,16 @@ This buildfile is part of projectlombok.org. It takes care of compiling and runn
+ 	
+ 	<target name="test" depends="test.javacCurrent, test.eclipse-202212" description="runs the tests against the default JVM, javac, and eclipse" />
+ 	<target name="test.broad" depends="test.javac8, test.javac17, test.javac20, test.eclipse-oxygen, test.eclipse-202212, test.eclipse-202006-jdk8" description="runs the tests against the default JVM, javac, and eclipse" />
++<target name="test.instance" depends="test.compile, test.formatter.compile" description="Runs test cases for the swe-bench instance">
++      <junit printsummary="yes" fork="true" forkmode="once" haltonfailure="no">
++        <formatter classname="lombok.ant.SimpleTestFormatter" usefile="false" unless="tests.quiet" />
++        <classpath location="build/ant" />
++        <classpath refid="cp.test" />
++        <classpath refid="cp.stripe" />
++        <classpath refid="packing.basedirs.path" />
++        <classpath location="build/tests" />
++        <classpath location="build/teststubs" />
++        <test name="lombok.bytecode.TestPostCompiler" />
++      </junit>
++    </target>
+ </project>
+diff --git a/src/core/lombok/bytecode/FixedClassWriter.java b/src/core/lombok/bytecode/FixedClassWriter.java
+index f18dc3a4..6d86fe9d 100644
+--- a/src/core/lombok/bytecode/FixedClassWriter.java
++++ b/src/core/lombok/bytecode/FixedClassWriter.java
+@@ -28,6 +28,10 @@ class FixedClassWriter extends ClassWriter {
+ 	FixedClassWriter(ClassReader classReader, int flags) {
+ 		super(classReader, flags);
+ 	}
++
++	FixedClassWriter(int flags) {
++		super(flags);
++	}
+ 	
+ 	@Override protected String getCommonSuperClass(String type1, String type2) {
+ 		//By default, ASM will attempt to live-load the class types, which will fail if meddling with classes in an
+@@ -40,4 +44,4 @@ class FixedClassWriter extends ClassWriter {
+ 			return "java/lang/Object";
+ 		}
+ 	}
+-}
+\ No newline at end of file
++}
+diff --git a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+index 8ae7af5b..654a308a 100644
+--- a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
++++ b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+@@ -44,7 +44,7 @@ public class PreventNullAnalysisRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new FixedClassWriter(reader, 0);
++		ClassWriter writer = new FixedClassWriter(0);
+ 		
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+ 		
+diff --git a/src/core/lombok/bytecode/SneakyThrowsRemover.java b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+index ea1c3cec..b716245d 100644
+--- a/src/core/lombok/bytecode/SneakyThrowsRemover.java
++++ b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+@@ -46,7 +46,7 @@ public class SneakyThrowsRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new ClassWriter(reader, 0);
++		ClassWriter writer = new ClassWriter(0);
+ 
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+2026-09-15 02:39:18,613 - INFO - Eval script for projectlombok__lombok-3602 written to logs/run_evaluation/oracle-multiling/gold/projectlombok__lombok-3602/eval.sh; copying to container...
+2026-09-15 02:40:26,399 - INFO - Test runtime: 67.46 seconds
+2026-09-15 02:40:26,400 - INFO - Test output for projectlombok__lombok-3602 written to logs/run_evaluation/oracle-multiling/gold/projectlombok__lombok-3602/test_output.txt
+2026-09-15 02:40:26,489 - INFO - Git diff after:
+diff --git a/AUTHORS b/AUTHORS
+index b291072f..71131764 100755
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -34,6 +34,7 @@ Mateusz Matela <mateusz.matela@gmail.com>
+ Michael Dardis <git@md-5.net>
+ Michael Ernst <mernst@alum.mit.edu>
+ Michiel Verheul <cheelio@gmail.com>
++Ole Ludwig <o.ludwig@wtnet.de>
+ Pascal Bihler <pascal@qfs.de>
+ Peter Grant <petercgrant@users.noreply.github.com>
+ Philipp Eichhorn <peichhor@web.de>
+diff --git a/buildScripts/tests.ant.xml b/buildScripts/tests.ant.xml
+index ade6fbff..1b4c3e32 100644
+--- a/buildScripts/tests.ant.xml
++++ b/buildScripts/tests.ant.xml
+@@ -342,4 +342,16 @@ This buildfile is part of projectlombok.org. It takes care of compiling and runn
+ 	
+ 	<target name="test" depends="test.javacCurrent, test.eclipse-202212" description="runs the tests against the default JVM, javac, and eclipse" />
+ 	<target name="test.broad" depends="test.javac8, test.javac17, test.javac20, test.eclipse-oxygen, test.eclipse-202212, test.eclipse-202006-jdk8" description="runs the tests against the default JVM, javac, and eclipse" />
++<target name="test.instance" depends="test.compile, test.formatter.compile" description="Runs test cases for the swe-bench instance">
++      <junit printsummary="yes" fork="true" forkmode="once" haltonfailure="no">
++        <formatter classname="lombok.ant.SimpleTestFormatter" usefile="false" unless="tests.quiet" />
++        <classpath location="build/ant" />
++        <classpath refid="cp.test" />
++        <classpath refid="cp.stripe" />
++        <classpath refid="packing.basedirs.path" />
++        <classpath location="build/tests" />
++        <classpath location="build/teststubs" />
++        <test name="lombok.bytecode.TestPostCompiler" />
++      </junit>
++    </target>
+ </project>
+diff --git a/src/core/lombok/bytecode/FixedClassWriter.java b/src/core/lombok/bytecode/FixedClassWriter.java
+index f18dc3a4..6d86fe9d 100644
+--- a/src/core/lombok/bytecode/FixedClassWriter.java
++++ b/src/core/lombok/bytecode/FixedClassWriter.java
+@@ -28,6 +28,10 @@ class FixedClassWriter extends ClassWriter {
+ 	FixedClassWriter(ClassReader classReader, int flags) {
+ 		super(classReader, flags);
+ 	}
++
++	FixedClassWriter(int flags) {
++		super(flags);
++	}
+ 	
+ 	@Override protected String getCommonSuperClass(String type1, String type2) {
+ 		//By default, ASM will attempt to live-load the class types, which will fail if meddling with classes in an
+@@ -40,4 +44,4 @@ class FixedClassWriter extends ClassWriter {
+ 			return "java/lang/Object";
+ 		}
+ 	}
+-}
+\ No newline at end of file
++}
+diff --git a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+index 8ae7af5b..654a308a 100644
+--- a/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
++++ b/src/core/lombok/bytecode/PreventNullAnalysisRemover.java
+@@ -44,7 +44,7 @@ public class PreventNullAnalysisRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new FixedClassWriter(reader, 0);
++		ClassWriter writer = new FixedClassWriter(0);
+ 		
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+ 		
+diff --git a/src/core/lombok/bytecode/SneakyThrowsRemover.java b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+index ea1c3cec..b716245d 100644
+--- a/src/core/lombok/bytecode/SneakyThrowsRemover.java
++++ b/src/core/lombok/bytecode/SneakyThrowsRemover.java
+@@ -46,7 +46,7 @@ public class SneakyThrowsRemover implements PostCompilerTransformation {
+ 		byte[] fixedByteCode = fixJSRInlining(original);
+ 		
+ 		ClassReader reader = new ClassReader(fixedByteCode);
+-		ClassWriter writer = new ClassWriter(reader, 0);
++		ClassWriter writer = new ClassWriter(0);
+ 
+ 		final AtomicBoolean changesMade = new AtomicBoolean();
+2026-09-15 02:40:26,490 - INFO - Grading answer for projectlombok__lombok-3602...
+2026-09-15 02:40:26,491 - INFO - report: {'projectlombok__lombok-3602': {'patch_is_None': False, 'patch_exists': True, 'patch_successfully_applied': True, 'resolved': True, 'infra_failure': False, 'tests_status': {'FAIL_TO_PASS': {'success': ['testPostCompilerPreventNullAnalysis(lombok.bytecode.TestPostCompiler)', 'testPostCompilerSneakyThrows(lombok.bytecode.TestPostCompiler)'], 'failure': []}, 'PASS_TO_PASS': {'success': [], 'failure': []}, 'FAIL_TO_FAIL': {'success': [], 'failure': []}, 'PASS_TO_FAIL': {'success': [], 'failure': []}}}}
+Result for projectlombok__lombok-3602: resolved: True
+2026-09-15 02:40:26,491 - INFO - Attempting to stop container sweb.eval.projectlombok__lombok-3602.oracle-multiling...
+2026-09-15 02:40:45,064 - INFO - Container sweb.eval.projectlombok__lombok-3602.oracle-multiling stopped successfully.
+2026-09-15 02:40:45,064 - INFO - Attempting to remove container sweb.eval.projectlombok__lombok-3602.oracle-multiling...
+2026-09-15 02:40:45,180 - INFO - Container sweb.eval.projectlombok__lombok-3602.oracle-multiling removed successfully.

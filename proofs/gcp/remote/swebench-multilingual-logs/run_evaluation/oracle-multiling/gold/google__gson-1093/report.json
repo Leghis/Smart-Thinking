@@ -1,0 +1,34 @@
+{
+    "google__gson-1093": {
+        "patch_is_None": false,
+        "patch_exists": true,
+        "patch_successfully_applied": true,
+        "resolved": true,
+        "infra_failure": false,
+        "tests_status": {
+            "FAIL_TO_PASS": {
+                "success": [
+                    "com.google.gson.stream.JsonWriterTest#testNonFiniteDoublesWhenLenient"
+                ],
+                "failure": []
+            },
+            "PASS_TO_PASS": {
+                "success": [
+                    "com.google.gson.stream.JsonWriterTest#testNonFiniteBoxedDoublesWhenLenient",
+                    "com.google.gson.stream.JsonWriterTest#testNonFiniteDoubles",
+                    "com.google.gson.stream.JsonWriterTest#testNonFiniteBoxedDoubles",
+                    "com.google.gson.stream.JsonWriterTest#testDoubles"
+                ],
+                "failure": []
+            },
+            "FAIL_TO_FAIL": {
+                "success": [],
+                "failure": []
+            },
+            "PASS_TO_FAIL": {
+                "success": [],
+                "failure": []
+            }
+        }
+    }
+}

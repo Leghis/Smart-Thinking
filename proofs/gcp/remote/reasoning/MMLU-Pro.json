@@ -1,0 +1,482 @@
+[
+  {
+    "id": "MMLUPro-70",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "I",
+    "baseline": {
+      "text": "Les organismes de régulation publicitaire exigent généralement que les publicités ne doivent pas encourager des pratiques dangereuses (unsafe practices), causer une détresse inutile (unnecessary distress) ou la peur (fear), et ne doivent pas causer une offense grave (serious offence).  \nLa seule option qui correspond à cette combinaison est la I.\n\nANSWER: I",
+      "toolCalls": 0,
+      "latencyMs": 1334,
+      "inputTokens": 216,
+      "outputTokens": 84,
+      "extracted": "I",
+      "correct": true
+    },
+    "tool": {
+      "text": "Les sources confirment la formulation standard des codes de régulation publicitaire (ASA, CAP Code, ICC) :\n\n- **« encourage unsafe practices »** — les publicités ne doivent pas encourager des pratiques dangereuses/à risque (règle 4.5 du CAP Code, règle 3.24 du code irlandais, règle 1(e) du code néo-zélandais).\n- **« cause unnecessary distress or fear »** — elles ne doivent pas causer de détresse ou de peur injustifiée (règle 4.2 du CAP Code : « must not cause fear or distress without justifiable reason »).\n- **« serious offence »** — elles ne doivent pas causer d'offense grave (règle 4.1 : « serious or widespread offence »).\n\nCela correspond exactement à l'option **I** : *Unsafe practices, Distress, Fear, Serious*.\n\nVérification des autres options : « Safe practices » est l'inverse de ce qui est exigé (A, C, D, F, G éliminées) ; « Joy » (B) et « Wants » (C, E, H) ne figurent pas dans ces règles ; « Trivial » (A, B, C, D, H) ne correspond pas à la notion d'offense *grave*.\n\nANSWER: I",
+      "toolCalls": 2,
+      "latencyMs": 6725,
+      "inputTokens": 17533,
+      "outputTokens": 532,
+      "extracted": "I",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-71",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "F",
+    "baseline": {
+      "text": "La question porte sur les devoirs fiduciaires des dirigeants d’entreprise.  \n\nEn droit des sociétés, les managers doivent agir dans l’intérêt des **actionnaires** (shareholders), même si certaines théories contemporaines évoquent les parties prenantes (stakeholders). Les deux devoirs fiduciaires classiques sont le **devoir de diligence** (duty of care and skill) et le **devoir de loyauté** (duty of loyalty), qui implique de ne pas agir dans son propre intérêt (self-interest).  \n\nParmi les options, celle qui correspond à « shareholders » et aux deux devoirs corrects est : **Shareholders, Care and Skill, Diligence**.  \n\nCela correspond à l’option **F**.  \n\nANSWER: F",
+      "toolCalls": 0,
+      "latencyMs": 1793,
+      "inputTokens": 225,
+      "outputTokens": 171,
+      "extracted": "F",
+      "correct": true
+    },
+    "tool": {
+      "text": "## Analyse\n\n**1. Envers qui les managers doivent-ils agir ?**\nLa formulation « Managers are entrusted to run the company in the best interest of ___ » renvoie au modèle classique de la **primauté actionnariale** (*shareholder primacy*) : les dirigeants sont mandatés pour gérer la société dans l'intérêt des **actionnaires** (shareholders). C'est la conception traditionnelle du droit des sociétés (common law, Delaware, UK).\n\n**2. Quels sont les deux devoirs fiduciaires ?**\nLes dirigeants ont :\n- un **devoir d'agir pour le bénéfice de la société** (duty to act for the benefit of the company / duty of loyalty) ;\n- un **devoir de soin et de compétence** (*duty of care and skill*) ;\n- un **devoir de diligence** (*duty of diligence*).\n\nLa formulation « care, skill and diligence » est la terminologie standard (Companies Act 2006 UK, Corporations Act australien, CBCA canadien).\n\n**3. Élimination des options**\n- Toute option contenant **« Self-interest »** comme *devoir* est fausse : l'intérêt personnel est précisément ce qu'un dirigeant doit **éviter** (conflit d'intérêts), ce n'est pas un devoir. → élimine A, B, C, G, I.\n- Les options désignant **Customers / Employees / Stakeholders** comme bénéficiaires ne correspondent pas à la formulation classique « best interest of shareholders ». → élimine D, E, H, J.\n- Reste **F : Shareholders, Care and Skill, Diligence** — parfaitement cohérent.\n\n**Réponse :** les managers agissent dans l'intérêt des **actionnaires**, avec un devoir de **soin et de compétence** (care and skill) et un devoir de **diligence**.\n\nANSWER: F",
+      "toolCalls": 3,
+      "latencyMs": 18177,
+      "inputTokens": 35879,
+      "outputTokens": 1483,
+      "extracted": "F",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-72",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "J",
+    "baseline": {
+      "text": "La question porte sur les enjeux liés au *downsizing* (réduction des effectifs).  \n\n- Le premier enjeu mentionné est celui de la **privacy** (vie privée) : les employés ont le droit de savoir s’ils sont licenciés, ce qui relève de la politique d’information de l’entreprise.  \n- Le second enjeu concerne l’**autonomy** (autonomie), notamment la compensation (indemnité) reçue lors d’un licenciement.  \n\nLa seule option qui correspond à cette combinaison est **D** : Down, Privacy, Autonomy, Benefit.  \n\nANSWER: D",
+      "toolCalls": 0,
+      "latencyMs": 1805,
+      "inputTokens": 237,
+      "outputTokens": 144,
+      "extracted": "D",
+      "correct": false
+    },
+    "tool": {
+      "text": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"web_search\">\n<｜｜DSML｜｜ parameter name=\"maxResults\" string=\"false\">5</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"query\" string=\"true\">\"downsizing\" \"privacy\" \"autonomy\" \"benefit package\" \"redundant\" \"information policy\" business ethics quiz</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+      "toolCalls": 16,
+      "latencyMs": 168609,
+      "inputTokens": 327711,
+      "outputTokens": 36395,
+      "extracted": "",
+      "correct": false
+    }
+  },
+  {
+    "id": "MMLUPro-73",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "C",
+    "baseline": {
+      "text": "La question porte sur une approche qui situe la moralité au-delà de la rationalité, dans un élan émotionnel vers autrui.  \nL’éthique du care (ou éthique de la sollicitude) met l’accent sur les relations, l’émotion et la responsabilité envers autrui, plutôt que sur des principes rationnels abstraits.  \nLes autres options reposent davantage sur la raison, le devoir, les conséquences ou des principes universels.  \n\nANSWER: H",
+      "toolCalls": 0,
+      "latencyMs": 1596,
+      "inputTokens": 143,
+      "outputTokens": 116,
+      "extracted": "H",
+      "correct": false
+    },
+    "tool": {
+      "text": "**Analyse**\n\nLa phrase à compléter décrit une théorie qui **situe la morale au-delà de la rationalité**, dans un **« élan moral » (moral impulse) émotionnel** dirigé vers autrui.\n\n- **Éthique du care (H)** : met bien l'accent sur la relation et l'émotion, mais son vocabulaire central est celui du *care* / de la sollicitude relationnelle, non de l'« impulsion morale » pré-rationnelle.\n- **Éthique postmoderne (C)** : c'est la formulation de **Zygmunt Bauman** (*Postmodern Ethics*, 1993). Bauman soutient que la morale **précède** la rationalité et toute codification éthique : elle naît d'une **impulsion morale émotionnelle, pré-sociale et pré-rationnelle** envers l'Autre (héritage de Levinas). Il critique précisément les éthiques rationnelles (kantienne, utilitariste) qui prétendent fonder la morale sur la raison.\n\nL'expression exacte « moral impulse » et l'idée d'une morale **hors de la sphère de la rationalité** renvoient donc à l'éthique postmoderne de Bauman.\n\nANSWER: C",
+      "toolCalls": 1,
+      "latencyMs": 6486,
+      "inputTokens": 16328,
+      "outputTokens": 725,
+      "extracted": "C",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-74",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "G",
+    "baseline": {
+      "text": "Les différences clés entre la finance islamique et la finance conventionnelle incluent :\n\n1. **Interdiction de percevoir et de payer des intérêts** (riba), ce qui exclut immédiatement les options commençant par « Profit » (F et I).\n2. **Interdiction de l’incertitude excessive** (gharar) et des **transactions spéculatives** (maysir), ce qui élimine les options mentionnant « Certain » ou « Assured » à la place de « Uncertain » et « Speculative ».\n3. **Interdiction des investissements illicites** (haram) et **exigence que tous les produits financiers soient adossés à des actifs tangibles**, ce qui exclut les options mentionnant des actifs intangibles ou une combinaison tangible/intangible.\n\nEn croisant ces critères, la seule option correcte est :\n\n**G. Interest, Uncertain, Speculative, Tangible assets**\n\nANSWER: G",
+      "toolCalls": 0,
+      "latencyMs": 1997,
+      "inputTokens": 239,
+      "outputTokens": 217,
+      "extracted": "G",
+      "correct": true
+    },
+    "tool": {
+      "text": "Les sources confirment les principes fondamentaux. Analysons les blancs :\n\n1. **Interdiction de percevoir/payer** → **Interest** (riba/intérêt) — toutes les options commencent par \"Interest\" sauf F et I (\"Profit\"), qui sont donc éliminées.\n2. **Interdiction de transactions** → **Uncertain** (gharar) **et Speculative** (maysir) — cela élimine A, D, H, J (qui disent \"Certain\").\n3. **Adossés à des** → **Tangible assets** (actifs tangibles) — la finance islamique exige un sous-jacent réel/tangible, pas intangible.\n\nCela laisse **G : Interest, Uncertain, Speculative, Tangible assets**.\n\nVérification : la finance islamique interdit le riba (intérêt), le gharar (incertitude excessive) et le maysir (spéculation/jeu), et exige que les produits soient adossés à des actifs tangibles (or, marchandises, immobilier, etc.), ce qui exclut les produits purement intangibles/spéculatifs.\n\nANSWER: G",
+      "toolCalls": 2,
+      "latencyMs": 6063,
+      "inputTokens": 17710,
+      "outputTokens": 480,
+      "extracted": "G",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-75",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "A",
+    "baseline": {
+      "text": "La segmentation organisationnelle (ou segmentation B2B) repose sur des critères objectifs et observables qui décrivent l’entreprise cliente. Les trois grands groupes de critères généralement retenus sont :\n\n1. **La taille de l’organisation** (effectifs, chiffre d’affaires, volume d’achat, etc.)  \n2. **Le type d’industrie** (secteur d’activité, code NACE/SIC, etc.)  \n3. **La localisation géographique** (zone de chalandise, région, pays, etc.)\n\nParmi les options proposées, seule l’option **A** correspond à ces trois groupes : taille, type d’industrie et localisation géographique. Les autres options introduisent des critères qui ne font pas partie des trois grands groupes classiques (âge de l’entreprise, base de clientèle, revenu annuel, stratégie, genre, nombre de succursales, nombre d’employés, ou des critères propres au B2C comme la psychographie).\n\nANSWER: A",
+      "toolCalls": 0,
+      "latencyMs": 2118,
+      "inputTokens": 192,
+      "outputTokens": 225,
+      "extracted": "A",
+      "correct": true
+    },
+    "tool": {
+      "text": "## Réponse\n\n**Analyse de la question**\n\nLa question porte sur la segmentation des **marchés organisationnels (B2B)**, et plus précisément sur les critères regroupés sous l'étiquette « caractéristiques organisationnelles » (*organizational characteristics*).\n\n**Vérification effectuée**\n\nLes sources de référence en marketing (Lumen Learning – *Principles of Marketing*, Wikipedia – *Market segmentation*, ainsi que les guides de segmentation B2B) convergent vers la même triade :\n\n| Critère | Contenu |\n|---|---|\n| **Taille de l'organisation** (*organizational size*) | grand / moyen / petit, mesuré par le chiffre d'affaires, le nombre d'employés, la portée géographique |\n| **Type d'industrie** (*industry type*) | secteur d'activité : manufacture, commerce de détail, hôtellerie, éducation, technologie, santé, gouvernement, services professionnels… |\n| **Localisation géographique** (*geographical location*) | pays, région, État, ville, zone, code postal |\n\nCitation clé (Lumen Learning) : « *Organization size: segmentation according to large, medium, and small customers…; Geography: organizing segments based on geographic location; Industry: segmenting by the industrial sector an organization operates within.* »\n\n**Élimination des autres options**\n\n- **B, C, D, H, J** : l'âge de l'entreprise, la base de clientèle, le chiffre d'affaires annuel, le nombre de succursales et le nombre d'employés sont soit des sous-mesures de la taille, soit des critères secondaires — pas les trois grands groupes.\n- **G** : le genre est un critère démographique **B2C**, non applicable aux organisations.\n- **I** : psychographie, acheteur et comportement relèvent des critères **individuels/consommateur**, pas des caractéristiques organisationnelles.\n\n**Conclusion** : la seule option correspondant exactement à la triade canonique est la **A**.\n\nANSWER: A",
+      "toolCalls": 7,
+      "latencyMs": 27106,
+      "inputTokens": 69370,
+      "outputTokens": 1302,
+      "extracted": "A",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-76",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "D",
+    "baseline": {
+      "text": "Pine et Gilmore (1999) définissent quatre domaines d’expérience à partir de deux dimensions :  \n1. **La participation du client** (participation passive vs active)  \n2. **La relation avec l’environnement** (absorption vs immersion)\n\nLa bonne réponse est donc celle qui associe **customer participation** et **environmental relationship**.\n\nANSWER: D",
+      "toolCalls": 0,
+      "latencyMs": 1392,
+      "inputTokens": 166,
+      "outputTokens": 81,
+      "extracted": "D",
+      "correct": true
+    },
+    "tool": {
+      "text": "**Vérification effectuée.** Les sources confirment le modèle des « quatre royaumes de l'expérience » (4E) de Pine & Gilmore (1999), *The Experience Economy* :\n\n- **Dimension 1 — Customer participation** : participation active ↔ passive du client (le client affecte ou non la performance).\n- **Dimension 2 — Environmental relationship** (aussi appelée « connection ») : absorption ↔ immersion (l'expérience entre dans le client, ou le client entre dans l'expérience).\n\nLe croisement de ces deux axes produit les quatre royaumes : *entertainment*, *educational*, *escapist* et *esthetic*. La formulation exacte de l'article original de la *Harvard Business Review* (« Welcome to the Experience Economy ») est bien : « The second dimension of experience describes the connection, or environmental relationship, that unites customers with the event or performance. »\n\nCela correspond donc à l'option **D** (customer participation and environmental relationship).\n\nANSWER: D",
+      "toolCalls": 2,
+      "latencyMs": 8298,
+      "inputTokens": 17293,
+      "outputTokens": 434,
+      "extracted": "D",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-77",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "J",
+    "baseline": {
+      "text": "La question porte sur les méthodes de recherche qui utilisent des questions prédéterminées et standardisées posées à un grand nombre de répondants.  \nCe type de méthode correspond aux enquêtes par questionnaire, souvent associées à une approche quantitative, car les réponses sont recueillies de manière structurée et analysées statistiquement.  \nParmi les options proposées, « Quantitative » (J) est la catégorie qui correspond le mieux à cette description.\n\nANSWER: J",
+      "toolCalls": 0,
+      "latencyMs": 1447,
+      "inputTokens": 127,
+      "outputTokens": 105,
+      "extracted": "J",
+      "correct": true
+    },
+    "tool": {
+      "text": "Cette question porte sur les méthodes de recherche en sciences sociales. Analysons les options.\n\nLa question décrit des méthodes conçues pour **susciter des réponses à des questions prédéterminées et standardisées auprès de nombreux répondants**. C'est la définition classique des **enquêtes par sondage (survey research)**, qui relèvent de l'approche **quantitative**.\n\nVérifions chaque option :\n- **A. Non-probability** : type d'échantillonnage, pas une méthode de collecte de données.\n- **B. Cross-sectional** : désigne un design temporel (une seule mesure dans le temps), pas la standardisation des questions.\n- **C. Qualitative** : vise des données non standardisées, approfondies, souvent auprès de peu de participants.\n- **D. Ethnographic** : observation immersive, non standardisée.\n- **E. Longitudinal** : design temporel (mesures répétées), pas la standardisation.\n- **F. Experimental** : manipule une variable pour établir la causalité, pas centré sur des questions standardisées à grande échelle.\n- **G. Probability** : type d'échantillonnage.\n- **H. Observational** : observation, pas de questions posées.\n- **I. Case Study** : étude approfondie d'un cas unique.\n- **J. Quantitative** : approche qui utilise des instruments standardisés (questionnaires à questions fermées) administrés à de nombreux répondants pour produire des données numériques analysables statistiquement. ✔\n\nLa réponse est **J. Quantitative**.\n\nANSWER: J",
+      "toolCalls": 0,
+      "latencyMs": 2654,
+      "inputTokens": 7033,
+      "outputTokens": 347,
+      "extracted": "J",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-78",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "E",
+    "baseline": {
+      "text": "La stratégie consistant à fixer un prix bas par rapport à la concurrence afin de gagner des parts de marché est appelée **prix de pénétration** (penetration pricing). Elle vise à attirer rapidement les clients, à augmenter le volume de ventes et à dissuader l’entrée de nouveaux concurrents.\n\nANSWER: E",
+      "toolCalls": 0,
+      "latencyMs": 1488,
+      "inputTokens": 140,
+      "outputTokens": 76,
+      "extracted": "E",
+      "correct": true
+    },
+    "tool": {
+      "text": "**Analyse de la question**\n\nLa question décrit une stratégie où l'entreprise fixe un **prix bas par rapport à la concurrence** dans le but de **gagner des parts de marché** (conquérir rapidement un marché).\n\nExamen des options :\n\n- **A. Captive product pricing** : prix bas sur le produit principal, marges élevées sur les consommables obligatoires (ex. rasoirs/lames). Non.\n- **B. High-low pricing** : alternance de prix élevés et de promotions fortes. Non.\n- **C. Price skimming** : prix **élevé** au lancement, puis baisse progressive. C'est l'inverse. Non.\n- **D. Value added pricing** : justifier un prix plus élevé par des services/avantages ajoutés. Non.\n- **E. Penetration pricing** : prix volontairement **bas** pour pénétrer le marché et **gagner des parts de marché** rapidement. ✔️ Correspond exactement.\n- **F. Premium pricing** : prix élevé pour signaler la qualité. Non.\n- **G. Cost-plus pricing** : prix = coût + marge. Non.\n- **H. Economy pricing** : prix bas en permanence, mais avec peu de marketing et une cible de consommateurs sensibles au prix — l'objectif n'est pas explicitement la conquête de parts de marché. Non.\n- **I. Psychological pricing** : prix à 9,99 € pour un effet psychologique. Non.\n- **J. Competitive pricing** : alignement sur les prix des concurrents, pas en dessous. Non.\n\nLa définition « prix fixé bas relativement à la concurrence pour gagner des parts de marché » est la définition canonique du **prix de pénétration (penetration pricing)**.\n\nANSWER: E",
+      "toolCalls": 1,
+      "latencyMs": 4203,
+      "inputTokens": 15496,
+      "outputTokens": 519,
+      "extracted": "E",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-79",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "F",
+    "baseline": {
+      "text": "La question porte sur une caractéristique des services : une place non vendue avant le départ du train, de l’avion ou le début du film est définitivement perdue. Cela correspond à l’impossibilité de stocker un service pour le vendre plus tard.  \nParmi les options, le terme consacré en marketing des services est la **périssabilité** (perishability), c’est-à-dire le fait qu’un service ne peut pas être conservé en inventaire.\n\nANSWER: F",
+      "toolCalls": 0,
+      "latencyMs": 1724,
+      "inputTokens": 160,
+      "outputTokens": 111,
+      "extracted": "F",
+      "correct": true
+    },
+    "tool": {
+      "text": "Cette question porte sur les caractéristiques distinctives des services en marketing. Analysons les options :\n\n- **Immeasurability** (immesurabilité) : difficulté à mesurer les services — non pertinent ici.\n- **Impalpability** (impalpabilité) : synonyme d'intangibilité — non pertinent.\n- **Variability** (variabilité) : qualité variable des services — non pertinent.\n- **Non-storability** (non-stockabilité) : proche, mais le terme standard est « perishability ».\n- **Indivisibility** (indivisibilité) : production et consommation simultanées — non pertinent.\n- **Perishability** (périssabilité) : un service ne peut être stocké ; une place non vendue avant le départ est perdue à jamais — **c'est exactement le cas décrit**.\n- **Non-recoverability** : terme non standard en marketing des services.\n- **Inseparability** (inséparabilité) : production/consommation liées — non pertinent.\n- **Heterogeneity** (hétérogénéité) : variabilité — non pertinent.\n- **Intangibility** (intangibilité) : absence de substance physique — non pertinent.\n\nLa caractéristique décrite (sièges/places perdues une fois le service consommé ou le moment passé) est la **périssabilité** (perishability), l'une des caractéristiques classiques des services.\n\nANSWER: F",
+      "toolCalls": 0,
+      "latencyMs": 2368,
+      "inputTokens": 7066,
+      "outputTokens": 318,
+      "extracted": "F",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-80",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "E",
+    "baseline": {
+      "text": "La question décrit une entreprise qui réalise un projet complet de recherche marketing, incluant la collecte des données, l’analyse et la rédaction du rapport.  \nCe type de structure correspond à une **agence à service complet** (full-service agency), car elle prend en charge toutes les étapes du projet, contrairement à des sociétés spécialisées dans une seule partie (collecte, analyse, tabulation, etc.).\n\nANSWER: E",
+      "toolCalls": 0,
+      "latencyMs": 1851,
+      "inputTokens": 145,
+      "outputTokens": 95,
+      "extracted": "E",
+      "correct": true
+    },
+    "tool": {
+      "text": "Cette question porte sur la classification des entreprises d'études de marché.\n\nL'énoncé décrit une firme qui réalise un **projet complet** de recherche marketing : collecte des données, analyse **et** reporting. C'est la définition classique d'une entreprise de services complets.\n\n- Une firme de collecte de données (A) ne fait que la collecte.\n- Une firme d'analyse (C) ne fait que l'analyse.\n- Une agence de tabulation (F) ne fait que la tabulation.\n- Une agence de terrain (J) ne fait que la collecte sur le terrain.\n- Une agence de services complets (E) couvre l'ensemble du processus, de la collecte à l'analyse et au rapport.\n\nLa réponse est donc **E. Full-service agency**.\n\nANSWER: E",
+      "toolCalls": 0,
+      "latencyMs": 2081,
+      "inputTokens": 7051,
+      "outputTokens": 180,
+      "extracted": "E",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-81",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "G",
+    "baseline": {
+      "text": "Le macro-environnement marketing externe est généralement analysé à travers des dimensions telles que les facteurs politiques, économiques, socioculturels, technologiques, environnementaux, légaux et globaux. Les conditions météorologiques, les préférences personnelles de l’équipe marketing, le paysage concurrentiel et les réglementations sectorielles ne font pas partie des six dimensions classiques retenues dans les manuels.\n\nParmi les options proposées, celle qui ne constitue pas une dimension habituelle de l’environnement marketing externe est :\n\nANSWER: C",
+      "toolCalls": 0,
+      "latencyMs": 1658,
+      "inputTokens": 134,
+      "outputTokens": 125,
+      "extracted": "C",
+      "correct": false
+    },
+    "tool": {
+      "text": "Cette question porte sur les dimensions de l'environnement marketing externe. Analysons les options.\n\nL'environnement marketing externe est classiquement décomposé en six dimensions (souvent issues du modèle PESTEL ou des analyses macro-environnementales) :\n\n- **Politique** (A) ✓\n- **Économique** (D) ✓\n- **Technologique** (E) ✓\n- **Socio-culturel** (F) ✓\n- **Global** (G) ✓\n- **Écologique/environnemental** (J) ✓\n\nCes six dimensions correspondent au cadre standard (parfois appelé « PESTEL » ou les six forces de l'environnement externe).\n\nLes autres options :\n- **B. Weather conditions** (conditions météo) : ce n'est pas une dimension standard de l'environnement marketing externe.\n- **C. Personal preferences of the marketing team** : c'est un facteur **interne**, pas externe.\n- **H. Competitive landscape** : relève de l'environnement concurrentiel (micro-environnement), pas des six dimensions macro.\n- **I. Industry regulations** : peut se rattacher au politique/légal.\n\nLa question demande ce qui **n'est pas** inclus dans les six dimensions. L'option la plus clairement hors sujet et non listée parmi les six dimensions canoniques est **C**, car les préférences personnelles de l'équipe marketing sont un facteur **interne** à l'entreprise, et non une dimension de l'environnement externe.\n\nCependant, « Weather conditions » (B) n'est pas non plus une dimension standard. Mais la question dit « all of the following except » — une seule réponse. Le facteur qui n'appartient manifestement pas à l'environnement **externe** (car il est interne) est C.\n\nEntre B et C : les conditions météo peuvent être considérées comme faisant partie de l'environnement naturel/écologique externe, tandis que les préférences personnelles de l'équipe marketing sont purement internes. La réponse attendue est donc **C**.\n\nANSWER: C",
+      "toolCalls": 0,
+      "latencyMs": 3274,
+      "inputTokens": 7040,
+      "outputTokens": 464,
+      "extracted": "C",
+      "correct": false
+    }
+  },
+  {
+    "id": "MMLUPro-82",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "J",
+    "baseline": {
+      "text": "La question porte sur le terme désignant le type de biais de décision fondé sur des « règles empiriques » ou raccourcis mentaux.  \nLes heuristiques sont précisément ces règles simples et approximatives utilisées pour prendre des décisions rapidement, souvent sources de biais cognitifs.  \nParmi les options, « Heuristics » correspond à cette notion générale.\n\nANSWER: J",
+      "toolCalls": 0,
+      "latencyMs": 1945,
+      "inputTokens": 138,
+      "outputTokens": 84,
+      "extracted": "J",
+      "correct": true
+    },
+    "tool": {
+      "text": "**Analyse**\n\nLa question porte sur le terme désignant le type de biais de décision fondé sur des « règles de pouce » (*rules of thumb*).\n\n- Les **heuristiques** (option J) sont précisément définies comme des raccourcis mentaux ou « règles de pouce » que l'esprit utilise pour simplifier le jugement et la prise de décision (Tversky & Kahneman).\n- Les autres options sont des **biais spécifiques** qui résultent souvent de l'usage de ces heuristiques :\n  - *Availability bias* → heuristique de disponibilité\n  - *Representativeness bias* → heuristique de représentativité\n  - *Anchoring bias* → heuristique d'ancrage\n  - *Framing, self-serving, hindsight, over-confidence, confirmation, optimism* → autres biais cognitifs distincts, non définis comme « règles de pouce ».\n\nLe terme générique correspondant à « rule of thumb » est donc **Heuristics**.\n\nANSWER: J",
+      "toolCalls": 1,
+      "latencyMs": 4079,
+      "inputTokens": 15712,
+      "outputTokens": 451,
+      "extracted": "J",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-83",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "D",
+    "baseline": {
+      "text": "La question porte sur le concept qui garantit qu’une seule personne ne supporte pas toute la charge d’une tâche.  \nCela correspond à la répartition équilibrée du travail entre plusieurs personnes, afin d’éviter la surcharge individuelle.  \n\nParmi les options :  \n- **Workload balancing** (B) désigne précisément l’équilibrage de la charge de travail.  \n- Les autres termes concernent la division, l’organisation, la rotation ou la spécialisation des tâches, mais pas l’équilibrage de la charge.  \n\nANSWER: B",
+      "toolCalls": 0,
+      "latencyMs": 1408,
+      "inputTokens": 133,
+      "outputTokens": 127,
+      "extracted": "B",
+      "correct": false
+    },
+    "tool": {
+      "text": "La recherche confirme la terminologie : l'équilibrage de la charge de travail (« workload balancing ») est précisément la pratique qui consiste à répartir les tâches de façon à ce qu'aucun individu ne supporte à lui seul le poids d'une tâche entière (les sources parlent explicitement de « prevent... concentrated on a single individual » et « no single person becomes a bottleneck »).\n\n**Analyse des options :**\n- **A. Work delegation** — transférer une tâche/autorité à un subordonné ; ne garantit pas en soi la répartition de la charge.\n- **B. Workload balancing** — répartir la charge de travail entre les personnes/équipes pour éviter qu'un seul individu porte tout le fardeau. ✔\n- **C. Work distribution** — proche, mais désigne l'acte d'assigner les tâches, pas la garantie d'équilibre.\n- **D. Work specialisation** — division en tâches spécialisées ; peut au contraire concentrer la charge.\n- **E. Work rotation** — alternance des postes ; vise la polyvalence, pas l'équilibre de charge.\n- **F. Work redundancy** — duplication de fonctions pour la fiabilité/sécurité.\n- **G. Work shift** — plage horaire de travail.\n- **H. Work division** — découpage des tâches (division du travail).\n- **I. Work schedule** — planification temporelle.\n- **J. Work design** — conception des postes et tâches.\n\nLa formulation « ensuring that one individual does not carry the burden of a whole work task » correspond exactement à l'équilibrage de la charge de travail.\n\nANSWER: B",
+      "toolCalls": 3,
+      "latencyMs": 12334,
+      "inputTokens": 26230,
+      "outputTokens": 762,
+      "extracted": "B",
+      "correct": false
+    }
+  },
+  {
+    "id": "MMLUPro-84",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "F",
+    "baseline": {
+      "text": "La théorie selon laquelle les personnes choisissent leur comportement en fonction de leurs valeurs et croyances est la théorie de l’expectation (ou théorie des attentes). Elle met l’accent sur les processus cognitifs, les attentes et les valeurs personnelles pour expliquer la motivation et l’action.\n\nANSWER: F",
+      "toolCalls": 0,
+      "latencyMs": 1356,
+      "inputTokens": 136,
+      "outputTokens": 68,
+      "extracted": "F",
+      "correct": true
+    },
+    "tool": {
+      "text": "La théorie de l'expectation (Expectancy Theory), développée notamment par Victor Vroom, repose précisément sur ce principe : l'individu opère un choix conscient de comportement en fonction de ses croyances (attentes : « si je fais X, j'obtiendrai Y ») et de ses valeurs (valence attribuée aux résultats). Le comportement est modélisé comme le produit de l'expectance, de l'instrumentalité et de la valence.\n\nLes autres options sont moins pertinentes :\n- **Social Learning** (Bandura) : apprentissage par observation et modelage.\n- **Contingency** : efficacité du leadership selon la situation.\n- **Operant Conditioning** (Skinner) : renforcement des comportements par conséquentces.\n- **Evolutionary** : comportements issus de la sélection naturelle.\n- **Classical** (Pavlov) : conditionnement par association de stimuli.\n- **Psychoanalytic** (Freud) : pulsions inconscientes.\n- **Instrumental** : proche de l'opérant, axé sur les conséquences.\n- **Cognitive Dissonance** (Festinger) : réduction de l'inconfort entre cognitions.\n- **Humanistic** (Rogers, Maslow) : croissance personnelle et libre arbitre, mais sans le cadre « valeurs/croyances » propre à l'expectation-valeur.\n\nANSWER: F",
+      "toolCalls": 1,
+      "latencyMs": 6516,
+      "inputTokens": 16371,
+      "outputTokens": 758,
+      "extracted": "F",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-85",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "J",
+    "baseline": {
+      "text": "La communication latérale (ou horizontale) dans une organisation désigne les échanges d’informations entre des personnes ou des services situés au même niveau hiérarchique, mais appartenant à des départements ou fonctions différents. Elle ne suit donc pas la voie hiérarchique verticale (ascendante ou descendante) et ne se limite pas à un seul service. Elle permet la coordination, la résolution de problèmes et le partage d’informations entre pairs.\n\nParmi les options proposées :\n- A, B, C, D, E sont trop restrictives ou incorrectes.\n- F et G décrivent une communication verticale.\n- H est vraie pour toute communication, mais ne définit pas spécifiquement la communication latérale.\n- I décrit une communication diagonale.\n- J correspond exactement à la définition : l’information circule entre différents départements et fonctions.\n\nANSWER: J",
+      "toolCalls": 0,
+      "latencyMs": 1582,
+      "inputTokens": 164,
+      "outputTokens": 194,
+      "extracted": "J",
+      "correct": true
+    },
+    "tool": {
+      "text": "**Analyse**\n\nLa communication **latérale** (ou horizontale) désigne les échanges d'informations entre des personnes ou des unités situées **au même niveau hiérarchique**, mais appartenant à des services, départements ou fonctions différents. Elle ne suit donc pas la voie verticale (ascendante ou descendante) ni la voie diagonale.\n\nExamen des options :\n- **A** – Faux : la communication ne se limite pas aux réunions officielles.\n- **B** – Faux : c'est une restriction, pas une communication latérale.\n- **C** – Faux : cela concerne les parties prenantes externes.\n- **D** – Faux : cela décrit une communication centralisée via le dirigeant.\n- **E** – Faux : les annonces publiques relèvent de la communication descendante/institutionnelle.\n- **F** – Faux : c'est la communication ascendante (vers le haut).\n- **G** – Faux : c'est la communication descendante (vers le bas).\n- **H** – Faux : le caractère bidirectionnel n'est pas propre à la communication latérale.\n- **I** – Faux : c'est la communication diagonale (entre niveaux hiérarchiques différents).\n- **J** – **Correct** : l'information circule entre différents départements et fonctions, c'est-à-dire entre pairs de même niveau.\n\nANSWER: J",
+      "toolCalls": 1,
+      "latencyMs": 4205,
+      "inputTokens": 15589,
+      "outputTokens": 475,
+      "extracted": "J",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-86",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "F",
+    "baseline": {
+      "text": "Pour évaluer l’option call avec un arbre binomial (CRR) sur 10 mois, pas mensuel :\n\n- \\( S_0 = 12 \\)\n- \\( K = 14 \\)\n- \\( T = 10/12 = 0{,}8333 \\) an\n- \\( \\sigma = 0{,}20 \\)\n- \\( r = 0{,}10 \\)\n- \\( \\Delta t = 1/12 \\)\n\nParamètres CRR :\n\\[\nu = e^{\\sigma \\sqrt{\\Delta t}} = e^{0{,}20 \\sqrt{1/12}} \\approx 1{,}05943\n\\]\n\\[\nd = 1/u \\approx 0{,}94390\n\\]\n\\[\np = \\frac{e^{r\\Delta t} - d}{u-d}\n\\]\n\\[\ne^{0{,}10/12} \\approx 1{,}008368\n\\]\n\\[\np = \\frac{1{,}008368 - 0{,}94390}{1{,}05943 - 0{,}94390} \\approx 0{,}558\n\\]\n\nOn construit l’arbre à 10 pas, puis on actualise les valeurs de l’option.\n\nLe calcul donne une valeur d’environ **0,44 $** par action.  \nMais les choix proposés sont 42, 44, 45, 46, 48, 50, 51, 53, 55, 60.  \nCela suggère que les réponses sont peut-être exprimées en cents ou qu’il y a une erreur d’échelle.  \nSi la valeur est 0,44 $, cela correspond à **44** dans la liste.\n\nDonc la réponse la plus cohérente est :\n\nANSWER: D",
+      "toolCalls": 0,
+      "latencyMs": 2524,
+      "inputTokens": 229,
+      "outputTokens": 386,
+      "extracted": "D",
+      "correct": false
+    },
+    "tool": {
+      "text": "## Résolution\n\n**Paramètres de l'arbre binomial (Cox-Ross-Rubinstein), pas mensuel dt = 1/12 :**\n\n- σ√dt = 0,20 × √(1/12) = 0,057735\n- u = e^0,057735 = **1,059431**\n- d = 1/u = **0,943903**\n- e^(r·dt) = e^0,008333 = 1,008368\n- p = (1,008368 − 0,943903)/(1,059431 − 0,943903) = **0,558**\n- Facteur d'actualisation = e^(−0,008333) = **0,991701**\n\n**Payoffs terminaux** (S_T = 12·u^j·d^(10−j), max(S_T − 14, 0)) :\n- j=10 : S=21,38 → 7,38\n- j=9 : S=19,04 → 5,04\n- j=8 : S=16,97 → 2,97\n- j=7 : S=15,12 → 1,12\n- j≤6 : S<14 → 0\n\n**Induction rétrograde** (V = 0,991701 × [0,558·V_haut + 0,442·V_bas]) sur les 10 niveaux :\n\n| Niveau | Valeurs (nœuds hauts) |\n|--------|----------------------|\n| 10 | 7,38 ; 5,04 ; 2,97 ; 1,12 ; 0… |\n| 9 | 6,29 ; 4,09 ; 2,13 ; 0,62 ; 0… |\n| 8 | 5,28 ; 3,20 ; 1,45 ; 0,34 ; 0… |\n| 7 | 4,32 ; 2,41 ; 0,96 ; 0,19 ; 0… |\n| 6 | 3,45 ; 1,75 ; 0,61 ; 0,11 ; 0… |\n| 5 | 2,68 ; 1,24 ; 0,39 ; 0,06 ; 0… |\n| 4 | 2,02 ; 0,85 ; 0,24 ; 0,03 ; 0 |\n| 3 | 1,49 ; 0,58 ; 0,15 ; 0,02 |\n| 2 | 1,08 ; 0,39 ; 0,09 |\n| 1 | 0,77 ; 0,25 |\n| **0** | **0,535** |\n\n**Prix du call ≈ 0,535 $.**\n\n**Remarque importante :** le prix théorique correct est ≈ **0,53 $**, ce qui est très inférieur à toutes les valeurs proposées (42–60). Les choix de réponse sont manifestement exprimés dans une autre unité (probablement en **cents**, ou l'énoncé a été transcrit avec une échelle différente). Le résultat 0,535 $ correspond directement à **53** (0,535 × 100 ≈ 53,5), soit l'option **F**.\n\nANSWER: F",
+      "toolCalls": 15,
+      "latencyMs": 32802,
+      "inputTokens": 122726,
+      "outputTokens": 4788,
+      "extracted": "F",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-87",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "A",
+    "baseline": {
+      "text": "Pour qu’un individu avec une fonction d’utilité logarithmique accepte un pari, l’utilité espérée du pari doit être au moins égale à l’utilité de ne pas parier.\n\nSoit :\n\n- Richesse initiale : \\( W_0 = 1\\,000\\,000 \\)\n- Mise : \\( 100\\,000 \\)\n- Pari à somme nulle : s’il gagne, il gagne \\(100\\,000\\) ; s’il perd, il perd \\(100\\,000\\).\n- Probabilité de gain : \\( p \\)\n\nS’il ne parie pas :  \n\\( U_{\\text{non}} = \\ln(1\\,000\\,000) \\)\n\nS’il parie :  \n- Gain : richesse \\(= 1\\,100\\,000\\), utilité \\(= \\ln(1\\,100\\,000)\\)  \n- Perte : richesse \\(= 900\\,000\\), utilité \\(= \\ln(900\\,000)\\)\n\nUtilité espérée :  \n\\[\np \\ln(1\\,100\\,000) + (1-p)\\ln(900\\,000)\n\\]\n\nCondition d’acceptation :\n\\[\np \\ln(1\\,100\\,000) + (1-p)\\ln(900\\,000) \\ge \\ln(1\\,000\\,000)\n\\]\n\nDonc :\n\\[\np [\\ln(1\\,100\\,000) - \\ln(900\\,000)] \\ge \\ln(1\\,000\\,000) - \\ln(900\\,000)\n\\]\n\n\\[\np \\ge \\frac{\\ln(1\\,000\\,000/900\\,000)}{\\ln(1\\,100\\,000/900\\,000)}\n= \\frac{\\ln(10/9)}{\\ln(11/9)}\n\\]\n\nCalcul :\n\\[\n\\ln(10/9) \\approx 0.1053605\n\\]\n\\[\n\\ln(11/9) \\approx 0.2006707\n\\]\n\\[\np \\ge \\frac{0.1053605}{0.2006707} \\approx 0.525\n\\]\n\nLa probabilité minimale est donc environ \\(0.525\\).\n\nANSWER: A",
+      "toolCalls": 0,
+      "latencyMs": 2563,
+      "inputTokens": 190,
+      "outputTokens": 461,
+      "extracted": "A",
+      "correct": true
+    },
+    "tool": {
+      "text": "Le calcul est confirmé : p ≈ 0,5250.\n\n**Raisonnement :**\n\nGeorge a une utilité logarithmique U(W) = ln(W), richesse initiale W₀ = 1 000 000 $.\n\n- **S'il ne parie pas** : utilité = ln(1 000 000).\n- **S'il parie 100 000 $ à cote égale** :\n  - Victoire (probabilité p) : richesse = 1 100 000 → ln(1 100 000)\n  - Défaite (probabilité 1−p) : richesse = 900 000 → ln(900 000)\n\nLa probabilité minimale est celle qui rend le pari indifférent (utilité espérée = utilité sans pari) :\n\np·ln(1 100 000) + (1−p)·ln(900 000) = ln(1 000 000)\n\np·[ln(1 100 000) − ln(900 000)] = ln(1 000 000) − ln(900 000)\n\np = ln(10/9) / ln(11/9) = 0,1053605 / 0,2006707 ≈ **0,525**\n\nGeorge doit donc croire que la probabilité de victoire des Bulls est d'au moins **52,5 %** pour accepter ce pari.\n\nANSWER: A",
+      "toolCalls": 6,
+      "latencyMs": 15805,
+      "inputTokens": 62965,
+      "outputTokens": 1064,
+      "extracted": "A",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-88",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "B",
+    "baseline": {
+      "text": "Pour résoudre ce problème, il faut calculer l’investissement moyen pondéré de chaque associé sur l’année, puis répartir le bénéfice net proportionnellement à ces moyennes.\n\n**Étape 1 – Calcul des investissements pondérés par le temps**\n\nOn découpe l’année en périodes selon les changements de capital :\n\n- **1er janvier – 30 avril** : 4 mois  \n- **1er mai – 31 août** : 4 mois  \n- **1er septembre – 31 octobre** : 2 mois  \n- **1er novembre – 31 décembre** : 2 mois  \n\n**Alcott :**\n- 1er janv. – 30 avr. : 4 000 × 4 = 16 000  \n- 1er mai – 31 août : (4 000 + 2 000) = 6 000 × 4 = 24 000  \n- 1er sept. – 31 oct. : (6 000 − 500) = 5 500 × 2 = 11 000  \n- 1er nov. – 31 déc. : (5 500 + 2 000) = 7 500 × 2 = 15 000  \n\nTotal pondéré Alcott = 16 000 + 24 000 + 11 000 + 15 000 = **66 000**\n\n**Buxton :**\n- 1er janv. – 30 avr. : 5 000 × 4 = 20 000  \n- 1er mai – 31 août : (5 000 + 1 750) = 6 750 × 4 = 27 000  \n- 1er sept. – 31 oct. : 6 750 × 2 = 13 500  \n- 1er nov. – 31 déc. : (6 750 + 2 000) = 8 750 × 2 = 17 500  \n\nTotal pondéré Buxton = 20 000 + 27 000 + 13 500 + 17 500 = **78 000**\n\n**Étape 2 – Répartition du bénéfice**\n\nTotal pondéré = 66 000 + 78 000 = 144 000\n\nPart d’Alcott = \\( 8\\,736 \\times \\frac{66\\,000}{144\\,000} \\)  \n= \\( 8\\,736 \\times \\frac{11}{24} \\)  \n= \\( 8\\,736 \\div 24 \\times 11 \\)  \n= 364 × 11 = **4 004**\n\nPart de Buxton = \\( 8\\,736 \\times \\frac{78\\,000}{144\\,000} \\)  \n= \\( 8\\,736 \\times \\frac{13}{24} \\)  \n= 364 × 13 = **4 732**\n\n**Vérification** : 4 004 + 4 732 = 8 736 ✔\n\nCela correspond à l’option **B**.\n\nANSWER: B",
+      "toolCalls": 0,
+      "latencyMs": 2946,
+      "inputTokens": 398,
+      "outputTokens": 656,
+      "extracted": "B",
+      "correct": true
+    },
+    "tool": {
+      "text": "Les calculs sont confirmés : Alcott = 4 004 $ et Buxton = 4 732 $, ce qui correspond à l'option B.\n\n**Résolution détaillée**\n\nOn calcule l'investissement moyen pondéré (montant × nombre de mois de présence) pour chaque partenaire.\n\n**Alcott :**\n- 1er janv. → 1er mai (4 mois) : 4 000 × 4 = 16 000\n- 1er mai → 1er sept. (4 mois) : 6 000 × 4 = 24 000\n- 1er sept. → 1er nov. (2 mois) : 5 500 × 2 = 11 000\n- 1er nov. → 31 déc. (2 mois) : 7 500 × 2 = 15 000\n- **Total = 66 000**\n\n**Buxton :**\n- 1er janv. → 1er mai (4 mois) : 5 000 × 4 = 20 000\n- 1er mai → 1er sept. (4 mois) : 6 750 × 4 = 27 000\n- 1er sept. → 1er nov. (2 mois) : 6 750 × 2 = 13 500\n- 1er nov. → 31 déc. (2 mois) : 8 750 × 2 = 17 500\n- **Total = 78 000**\n\n**Total général = 66 000 + 78 000 = 144 000**\n\n**Répartition du profit (8 736 $) :**\n- Alcott : 8 736 × 66 000 / 144 000 = **4 004 $**\n- Buxton : 8 736 × 78 000 / 144 000 = **4 732 $**\n\nVérification : 4 004 + 4 732 = 8 736 ✓\n\nANSWER: B",
+      "toolCalls": 3,
+      "latencyMs": 10819,
+      "inputTokens": 21530,
+      "outputTokens": 967,
+      "extracted": "B",
+      "correct": true
+    }
+  },
+  {
+    "id": "MMLUPro-89",
+    "suite": "MMLU-Pro",
+    "kind": "letter",
+    "expected": "D",
+    "baseline": {
+      "text": "Pour trouver l’inventaire final avec la méthode de la marge brute :\n\n1. **Coût des marchandises disponibles à la vente**  \n   Inventaire initial + Achats  \n   = 30 000 + 87 500 = **117 500 $**\n\n2. **Marge brute estimée**  \n   Taux de marge brute = 40 % des ventes nettes  \n   Marge brute = 0,40 × 102 000 = **40 800 $**\n\n3. **Coût des marchandises vendues estimé**  \n   Ventes nettes − Marge brute  \n   = 102 000 − 40 800 = **61 200 $**\n\n4. **Inventaire final estimé**  \n   Coût des marchandises disponibles − Coût des marchandises vendues  \n   = 117 500 − 61 200 = **56 300 $**\n\nCela correspond à l’option **D**.\n\nANSWER: D",
+      "toolCalls": 0,
+      "latencyMs": 1556,
+      "inputTokens": 202,
+      "outputTokens": 209,
+      "extracted": "D",
+      "correct": true
+    },
+    "tool": {
+      "text": "**Méthode du taux de marge brute (gross profit method)**\n\n1. **Marge brute** = 40 % × ventes nettes = 0,40 × 102 000 = **40 800 $**\n2. **Coût des marchandises vendues (COGS)** = Ventes nettes − Marge brute = 102 000 − 40 800 = **61 200 $**\n3. **Marchandises disponibles à la vente** = Stock initial + Achats = 30 000 + 87 500 = **117 500 $**\n4. **Stock final** = Marchandises disponibles − COGS = 117 500 − 61 200 = **56 300 $**\n\nLe stock final est donc de **56 300 $**, ce qui correspond à l'option **D**.\n\nANSWER: D",
+      "toolCalls": 2,
+      "latencyMs": 2987,
+      "inputTokens": 14374,
+      "outputTokens": 282,
+      "extracted": "D",
+      "correct": true
+    }
+  }
+]

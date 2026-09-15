@@ -1,0 +1,40 @@
+root@a592280b8509:/app# ls -l process_data.sh; tmux wait -S done
+-rw-r--r-- 1 root root 49 Sep 15 02:36 process_data.sh
+root@a592280b8509:/app# chmod +x process_data.sh; tmux wait -S done
+root@a592280b8509:/app# ./process_data.sh; tmux wait -S done
+Data processed successfully!
+root@a592280b8509:/app#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

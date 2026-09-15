@@ -1,0 +1,75 @@
+root@c23b5d925783:/app/dclm# bash /tests/run-tests.sh; tmux wait -S done
+Hit:1 http://deb.debian.org/debian bookworm InRelease
+Hit:2 http://deb.debian.org/debian bookworm-updates InRelease
+Hit:3 http://deb.debian.org/debian-security bookworm-security InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following additional packages will be installed:
+  libcurl4
+The following NEW packages will be installed:
+  curl libcurl4
+0 upgraded, 2 newly installed, 0 to remove and 45 not upgraded.
+Need to get 708 kB of archives.
+After this operation, 1361 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian bookworm/main amd64 libcurl4 amd64 7.88.1-10+deb12u15 [392 kB]
+Get:2 http://deb.debian.org/debian bookworm/main amd64 curl amd64 7.88.1-10+deb12u15 [316 kB]
+Fetched 708 kB in 0s (11.8 MB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+Selecting previously unselected package libcurl4:amd64.
+(Reading database ... 11227 files and directories currently installed.)
+Preparing to unpack .../libcurl4_7.88.1-10+deb12u15_amd64.deb ...
+Unpacking libcurl4:amd64 (7.88.1-10+deb12u15) ...
+Selecting previously unselected package curl.
+Preparing to unpack .../curl_7.88.1-10+deb12u15_amd64.deb ...
+Unpacking curl (7.88.1-10+deb12u15) ...
+Setting up libcurl4:amd64 (7.88.1-10+deb12u15) ...
+Setting up curl (7.88.1-10+deb12u15) ...
+Processing triggers for libc-bin (2.36-9+deb12u9) ...
+downloading uv 0.12.14 x86_64-unknown-linux-gnu
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Initialized project `dclm`
+Using CPython 3.13.1 interpreter at: /usr/local/bin/python3.13
+Creating virtual environment at: .venv
+Resolved 7 packages in 223ms
+      Built dclm @ file:///app/dclm
+Prepared 6 packages in 181ms
+Installed 6 packages in 34ms
+ + dclm==0.1.0 (from file:///app/dclm)
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+Resolved 10 packages in 171ms
+      Built dclm @ file:///app/dclm
+Prepared 4 packages in 67ms
+Uninstalled 1 package in 3ms
+Installed 4 packages in 17ms
+ ~ dclm==0.1.0 (from file:///app/dclm)
+ + gitdb==4.0.12
+ + gitpython==3.1.62
+ + smmap==5.0.3
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.13.1, pytest-9.1.1, pluggy-1.6.0
+rootdir: /tests
+collected 3 items
+
+../../tests/test_outputs.py ...                                                                                                                          [100%]
+
+============================================================================ PASSES ============================================================================
+=================================================================== short test summary info ====================================================================
+PASSED ../../tests/test_outputs.py::test_removal_of_secret_information
+PASSED ../../tests/test_outputs.py::test_correct_replacement_of_secret_information
+PASSED ../../tests/test_outputs.py::test_no_other_files_changed
+====================================================================== 3 passed in 1.55s =======================================================================
+root@c23b5d925783:/app/dclm#

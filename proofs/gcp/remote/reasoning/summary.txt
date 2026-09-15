@@ -1,0 +1,6 @@
+AIME 2025: baseline 73.3% (22/30) vs tool 73.3% (22/30) | latence 16217->65828ms | tokens 128499->3792057
+MMLU-Pro: baseline 75.0% (15/20) vs tool 85.0% (17/20) | latence 1804->17280ms | tokens 7449->893733
+HMMT 2025: baseline 33.3% (10/30) vs tool 43.3% (13/30) | latence 22505->135052ms | tokens 176455->5104912
+SimpleQA: baseline 50.0% (15/30) vs tool 83.3% (25/30) | latence 1034->10667ms | tokens 3339->1242085
+LiveCodeBench: baseline 90.0% (18/20) vs tool 100.0% (20/20) | latence 5227->38740ms | tokens 34034->730601
+TOTAL: baseline 61.5% vs tool 74.6%

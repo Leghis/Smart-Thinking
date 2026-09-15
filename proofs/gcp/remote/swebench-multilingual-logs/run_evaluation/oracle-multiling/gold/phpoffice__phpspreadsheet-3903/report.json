@@ -1,0 +1,40 @@
+{
+    "phpoffice__phpspreadsheet-3903": {
+        "patch_is_None": false,
+        "patch_exists": true,
+        "patch_successfully_applied": true,
+        "resolved": true,
+        "infra_failure": false,
+        "tests_status": {
+            "FAIL_TO_PASS": {
+                "success": [
+                    "String Helper > Issue 3900"
+                ],
+                "failure": []
+            },
+            "PASS_TO_PASS": {
+                "success": [
+                    "String Helper > Get is iconv enabled",
+                    "String Helper > Get decimal separator",
+                    "String Helper > Set decimal separator",
+                    "String Helper > Get thousands separator",
+                    "String Helper > Set thousands separator",
+                    "String Helper > Get currency code",
+                    "String Helper > Set currency code",
+                    "String Helper > Control character p h p 2 o o x m l",
+                    "String Helper > Control character o o x m l 2 p h p",
+                    "String Helper > S y l kto u t f 8"
+                ],
+                "failure": []
+            },
+            "FAIL_TO_FAIL": {
+                "success": [],
+                "failure": []
+            },
+            "PASS_TO_FAIL": {
+                "success": [],
+                "failure": []
+            }
+        }
+    }
+}

@@ -1,0 +1,20 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Using gold predictions - ignoring predictions_path
+Running 8 instances...
+  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [01:16<08:56, 76.58s/it]1 ran successfully, 0 failed:  12%|█▎        | 1/8 [01:16<08:56, 76.60s/it]1 ran successfully, 0 failed:  25%|██▌       | 2/8 [02:06<06:18, 63.06s/it]2 ran successfully, 0 failed:  25%|██▌       | 2/8 [02:06<06:18, 63.06s/it]2 ran successfully, 0 failed:  38%|███▊      | 3/8 [03:23<05:39, 67.99s/it]3 ran successfully, 0 failed:  38%|███▊      | 3/8 [03:23<05:39, 67.99s/it]3 ran successfully, 0 failed:  50%|█████     | 4/8 [04:41<04:41, 70.49s/it]4 ran successfully, 0 failed:  50%|█████     | 4/8 [04:41<04:41, 70.49s/it]4 ran successfully, 0 failed:  62%|██████▎   | 5/8 [04:48<02:52, 57.64s/it]5 ran successfully, 0 failed:  62%|██████▎   | 5/8 [04:48<02:52, 57.64s/it]5 ran successfully, 0 failed:  75%|███████▌  | 6/8 [05:46<01:55, 57.67s/it]6 ran successfully, 0 failed:  75%|███████▌  | 6/8 [05:46<01:55, 57.67s/it]6 ran successfully, 0 failed:  88%|████████▊ | 7/8 [06:28<00:55, 55.43s/it]7 ran successfully, 0 failed:  88%|████████▊ | 7/8 [06:28<00:55, 55.43s/it]7 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]8 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]8 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]
+[WARNING] Maven log parser: 1 test(s) had no BUILD result: ['org.apache.druid.query.aggregation.post.ArithmeticPostAggregatorTest#testPow']
+[WARNING] Maven log parser: 1 test(s) had no BUILD result: ['org.apache.druid.query.aggregation.post.ArithmeticPostAggregatorTest#testPow']
+All instances run.
+Total instances: 8
+Instances submitted: 8
+Instances completed: 8
+Instances incomplete: 0
+Instances resolved: 7
+Instances unresolved: 1
+Instances with likely infrastructure failures: 0
+Instances with ambiguous failures: 0
+Instances with empty patches: 0
+Instances with errors: 0
+Unstopped containers: 0
+Unremoved images: 8
+Report written to /home/leghis/bench-results/gold.oracle-multiling.json

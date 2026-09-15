@@ -1,0 +1,38 @@
+{
+    "laravel__framework-51890": {
+        "patch_is_None": false,
+        "patch_exists": true,
+        "patch_successfully_applied": true,
+        "resolved": true,
+        "infra_failure": false,
+        "tests_status": {
+            "FAIL_TO_PASS": {
+                "success": [
+                    "Validation Validator > Translated attributes can be missing"
+                ],
+                "failure": []
+            },
+            "PASS_TO_PASS": {
+                "success": [
+                    "Validation Validator > Empty existing attributes are validated",
+                    "Validation Validator > Nested attributes are replaced in dimensions",
+                    "Validation Validator > Attribute names are replaced",
+                    "Validation Validator > Attribute names are replaced in arrays",
+                    "Validation Validator > Inline attribute names are replaced in arrays from nested rules",
+                    "Validation Validator > Translated attribute names are replaced in arrays from nested rules",
+                    "Validation Validator > Displayable attributes are replaced in custom replacers",
+                    "Validation Validator > Get leading explicit attribute path"
+                ],
+                "failure": []
+            },
+            "FAIL_TO_FAIL": {
+                "success": [],
+                "failure": []
+            },
+            "PASS_TO_FAIL": {
+                "success": [],
+                "failure": []
+            }
+        }
+    }
+}

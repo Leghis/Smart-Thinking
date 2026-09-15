@@ -1,0 +1,13 @@
+                                                                                
+ Usage: tb datasets [OPTIONS] COMMAND [ARGS]...                                 
+                                                                                
+ Manage datasets.                                                               
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ list      List all datasets in the registry.                                 │
+│ download  Download a dataset from the registry.                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

@@ -1,0 +1,59 @@
+2026-09-15 02:37:14,918 - INFO - Image not found locally, attempting to pull...
+2026-09-15 02:37:54,376 - INFO - Creating container for laravel__framework-51890...
+2026-09-15 02:38:03,462 - INFO - Container for laravel__framework-51890 created: 1de857d3f56587db63a5f54e8c9c7c29504043fffb18f3326e80fce750aaaee0
+2026-09-15 02:38:04,187 - INFO - Container for laravel__framework-51890 started: 1de857d3f56587db63a5f54e8c9c7c29504043fffb18f3326e80fce750aaaee0
+2026-09-15 02:38:04,187 - INFO - Intermediate patch for laravel__framework-51890 written to logs/run_evaluation/oracle-multiling/gold/laravel__framework-51890/patch.diff, now applying to container...
+2026-09-15 02:38:05,333 - INFO - >>>>> Applied Patch:
+Checking patch src/Illuminate/Validation/Concerns/FormatsMessages.php...
+Applied patch src/Illuminate/Validation/Concerns/FormatsMessages.php cleanly.
+
+2026-09-15 02:38:08,139 - INFO - Git diff before:
+diff --git a/src/Illuminate/Validation/Concerns/FormatsMessages.php b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+index c03e2636a5..4fc6c1fa48 100644
+--- a/src/Illuminate/Validation/Concerns/FormatsMessages.php
++++ b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+@@ -305,9 +305,11 @@ public function getDisplayableAttribute($attribute)
+      */
+     protected function getAttributeFromTranslations($name)
+     {
+-        return $this->getAttributeFromLocalArray(
+-            $name, Arr::dot((array) $this->translator->get('validation.attributes'))
+-        );
++        if (! is_array($attributes = $this->translator->get('validation.attributes'))) {
++            return null;
++        }
++
++        return $this->getAttributeFromLocalArray($name, Arr::dot($attributes));
+     }
+ 
+     /**
+2026-09-15 02:38:08,139 - INFO - Eval script for laravel__framework-51890 written to logs/run_evaluation/oracle-multiling/gold/laravel__framework-51890/eval.sh; copying to container...
+2026-09-15 02:38:12,017 - INFO - Test runtime: 3.21 seconds
+2026-09-15 02:38:12,018 - INFO - Test output for laravel__framework-51890 written to logs/run_evaluation/oracle-multiling/gold/laravel__framework-51890/test_output.txt
+2026-09-15 02:38:12,531 - INFO - Git diff after:
+diff --git a/src/Illuminate/Validation/Concerns/FormatsMessages.php b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+index c03e2636a5..4fc6c1fa48 100644
+--- a/src/Illuminate/Validation/Concerns/FormatsMessages.php
++++ b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+@@ -305,9 +305,11 @@ public function getDisplayableAttribute($attribute)
+      */
+     protected function getAttributeFromTranslations($name)
+     {
+-        return $this->getAttributeFromLocalArray(
+-            $name, Arr::dot((array) $this->translator->get('validation.attributes'))
+-        );
++        if (! is_array($attributes = $this->translator->get('validation.attributes'))) {
++            return null;
++        }
++
++        return $this->getAttributeFromLocalArray($name, Arr::dot($attributes));
+     }
+ 
+     /**
+2026-09-15 02:38:12,531 - INFO - Grading answer for laravel__framework-51890...
+2026-09-15 02:38:12,532 - INFO - report: {'laravel__framework-51890': {'patch_is_None': False, 'patch_exists': True, 'patch_successfully_applied': True, 'resolved': True, 'infra_failure': False, 'tests_status': {'FAIL_TO_PASS': {'success': ['Validation Validator > Translated attributes can be missing'], 'failure': []}, 'PASS_TO_PASS': {'success': ['Validation Validator > Empty existing attributes are validated', 'Validation Validator > Nested attributes are replaced in dimensions', 'Validation Validator > Attribute names are replaced', 'Validation Validator > Attribute names are replaced in arrays', 'Validation Validator > Inline attribute names are replaced in arrays from nested rules', 'Validation Validator > Translated attribute names are replaced in arrays from nested rules', 'Validation Validator > Displayable attributes are replaced in custom replacers', 'Validation Validator > Get leading explicit attribute path'], 'failure': []}, 'FAIL_TO_FAIL': {'success': [], 'failure': []}, 'PASS_TO_FAIL': {'success': [], 'failure': []}}}}
+Result for laravel__framework-51890: resolved: True
+2026-09-15 02:38:12,533 - INFO - Attempting to stop container sweb.eval.laravel__framework-51890.oracle-multiling...
+2026-09-15 02:38:32,703 - INFO - Container sweb.eval.laravel__framework-51890.oracle-multiling stopped successfully.
+2026-09-15 02:38:32,703 - INFO - Attempting to remove container sweb.eval.laravel__framework-51890.oracle-multiling...
+2026-09-15 02:38:32,867 - INFO - Container sweb.eval.laravel__framework-51890.oracle-multiling removed successfully.

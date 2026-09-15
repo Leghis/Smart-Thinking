@@ -1,0 +1,27 @@
+Starting harness run
+Run ID: 2026-09-15__02-39-03
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+Docker buildx is not available. For better build cache cleanup, consider installing Docker buildx: https://docs.docker.com/buildx/working-with-buildx/
+  Running tasks (10/10, Accuracy: 80.00%) - Last: sqlite-with-gcov ✓ ━━ 100% 0:…
+
+Results Summary:
++-------------------+---------+
+| Metric            | Value   |
++===================+=========+
+| Resolved Trials   | 8       |
++-------------------+---------+
+| Unresolved Trials | 2       |
++-------------------+---------+
+| Accuracy          | 80.00%  |
++-------------------+---------+
+
+Results written to 
+/home/leghis/bench-results/terminalbench/2026-09-15__02-39-03/results.json

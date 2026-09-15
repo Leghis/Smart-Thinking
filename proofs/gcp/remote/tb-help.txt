@@ -1,0 +1,17 @@
+                                                                                
+ Usage: tb [OPTIONS] COMMAND [ARGS]...                                          
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.      │
+│ --show-completion             Show completion for the current shell, to copy │
+│                               it or customize the installation.              │
+│ --help                        Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ run       Run the terminal-bench harness (alias for `tb runs create`)        │
+│ tasks     Manage tasks.                                                      │
+│ datasets  Manage datasets.                                                   │
+│ runs      Manage runs.                                                       │
+│ cache     Cache management commands.                                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

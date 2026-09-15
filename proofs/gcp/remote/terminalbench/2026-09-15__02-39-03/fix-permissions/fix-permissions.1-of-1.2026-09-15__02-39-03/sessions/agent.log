@@ -1,0 +1,14 @@
+[?2004hroot@a592280b8509:/app# asciinema rec --stdin /logs/agent.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@a592280b8509:/app# clear
+[?2004l[H[J[3J[?2004hroot@a592280b8509:/app# ls -l process_data.sh; tmux wait -S done
+[?2004l-rw-r--r-- 1 root root 49 Sep 15 02:36 process_data.sh
+[?2004hroot@a592280b8509:/app# chmod +x process_data.sh; tmux wait -S done
+[?2004l[?2004hroot@a592280b8509:/app# ./process_data.sh; tmux wait -S done
+[?2004lData processed successfully!
+[?2004hroot@a592280b8509:/app# [?2004l
+exit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent.cast[0m
+[?2004hroot@a592280b8509:/app# 

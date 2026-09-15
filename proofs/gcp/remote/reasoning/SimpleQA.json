@@ -1,0 +1,722 @@
+[
+  {
+    "id": "SimpleQA-0",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Two",
+    "baseline": {
+      "text": "Ernest Moloto and Ellen Kuzwayo had no children together.  \nANSWER: 0",
+      "toolCalls": 0,
+      "latencyMs": 930,
+      "inputTokens": 78,
+      "outputTokens": 19,
+      "extracted": "0",
+      "correct": false
+    },
+    "tool": {
+      "text": "Multiple independent sources confirm the answer.\n\n**Answer:** Ellen Kuzwayo and her first husband, Ernest Moloto (married 1941, divorced 1947), had **two children** — both sons: Matshwene Everington Moloto (b. 1942, later deceased) and Bakone Justice Moloto. (Her third son, Godfrey Kuzwayo, was from her second marriage to Godfrey Kuzwayo.)\n\nSources: Wikipedia (Ellen Kuzwayo); South African History Online (Ernest Sedumedi Moloto; Nnoseng Ellen Kate Khuzwayo); Encyclopedia.com; The Independent obituary.\n\nANSWER: Two children (two sons: Everington and Bakone Justice Moloto).",
+      "toolCalls": 3,
+      "latencyMs": 12001,
+      "inputTokens": 36773,
+      "outputTokens": 370,
+      "extracted": "** Ellen Kuzwayo and her first husband, Ernest Moloto (married 1941, divorced 1947), had **two children** — both sons: Matshwene Everington Moloto (b. 1942, later deceased) and Bakone Justice Moloto. (Her third son, Godfrey Kuzwayo, was from her second marriage to Godfrey Kuzwayo.)",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-1",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "5",
+    "baseline": {
+      "text": "Based on the paper, the right-side plot of Figure 9 uses k = 4.\n\nANSWER: 4",
+      "toolCalls": 0,
+      "latencyMs": 1079,
+      "inputTokens": 110,
+      "outputTokens": 23,
+      "extracted": "4",
+      "correct": false
+    },
+    "tool": {
+      "text": "I found the answer directly in the paper's Figure 9 caption.\n\nThe caption of Figure 9 in the paper states: \"On the right: assignment of clusters to individual contexts by the Partitioning Around Medoids algorithm with **k=5**.\"\n\nThis is confirmed by both the arXiv version (arxiv.org/html/2012.04946v3) and the PMC version (PMC9536326), which both show the caption with k=5.\n\nANSWER: k = 5",
+      "toolCalls": 2,
+      "latencyMs": 6975,
+      "inputTokens": 18832,
+      "outputTokens": 243,
+      "extracted": "k = 5",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-2",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Barbara Liskov",
+    "baseline": {
+      "text": "Barbara Liskov was the second woman to receive the Turing Award, in 2008.\nANSWER: Barbara Liskov",
+      "toolCalls": 0,
+      "latencyMs": 927,
+      "inputTokens": 75,
+      "outputTokens": 25,
+      "extracted": "Barbara Liskov",
+      "correct": true
+    },
+    "tool": {
+      "text": "The Turing Award's second woman recipient was Barbara Liskov (2008), after Frances Allen (2006).\n\nANSWER: Barbara Liskov",
+      "toolCalls": 0,
+      "latencyMs": 1595,
+      "inputTokens": 6989,
+      "outputTokens": 29,
+      "extracted": "Barbara Liskov",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-3",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "June 17, 2021",
+    "baseline": {
+      "text": "The New York City Department of Parks and Recreation renamed Railroad Park in Queens for Gwen Ifill on September 9, 2017.\n\nANSWER: September 9, 2017",
+      "toolCalls": 0,
+      "latencyMs": 1269,
+      "inputTokens": 91,
+      "outputTokens": 36,
+      "extracted": "September 9, 2017",
+      "correct": false
+    },
+    "tool": {
+      "text": "The QNS article (published June 17, 2021) confirms the renaming was announced \"yesterday\" (Wednesday, June 16, 2021). This aligns with the NYC Parks press release dated Wednesday, June 16, 2021.\n\n## Answer\n\nThe New York City Department of Parks and Recreation announced the renaming of Railroad Park in Queens to **Gwen Ifill Park** on **Wednesday, June 16, 2021**. The renaming was part of a broader initiative to rename 16 park spaces across the city in honor of the Black experience, announced by NYC Parks Commissioner Mitchell J. Silver and Mayor Bill de Blasio. The park, a 16-acre natural area in Jamaica, Queens, was renamed for Ifill, the pioneering journalist born in Jamaica, Queens, who was the first African American woman to anchor a nationally televised U.S. public affairs program (*Washington Week in Review*) and later co-anchored PBS NewsHour.\n\nSources:\n- NYC Parks official press release, \"NYC PARKS RE/NAMES 16 SITES IN HONOR OF THE BLACK EXPERIENCE IN NYC\" (dated Wednesday, June 16, 2021): https://www.nycgovparks.org/parks/gwen-ifill-park/pressrelease/21858\n- QNS, \"Parks in Queens Renamed in Honor of Famous African Americans–Including Gwen Ifill and Malcolm X\" (June 17, 2021): https://qns.com/2021/06/parks-in-queens-renamed-in-honor-of-famous-african-americans-including-gwen-ifill-and-malcolm-x\n- NYC Parks, Gwen Ifill Park page: https://www.nycgovparks.org/parks/gwen-ifill-park\n\nANSWER: June 16, 2021",
+      "toolCalls": 9,
+      "latencyMs": 26474,
+      "inputTokens": 113309,
+      "outputTokens": 1397,
+      "extracted": "June 16, 2021",
+      "correct": false
+    }
+  },
+  {
+    "id": "SimpleQA-4",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "2000",
+    "baseline": {
+      "text": "Doug Aitken received the Aldrich Award in 2000.\n\nANSWER: 2000",
+      "toolCalls": 0,
+      "latencyMs": 1188,
+      "inputTokens": 85,
+      "outputTokens": 20,
+      "extracted": "2000",
+      "correct": true
+    },
+    "tool": {
+      "text": "Multiple authoritative sources (Wikipedia, 303 Gallery, Fabric Workshop and Museum) confirm Doug Aitken received the Aldrich Award in 2000.\n\nANSWER: 2000",
+      "toolCalls": 2,
+      "latencyMs": 4877,
+      "inputTokens": 19109,
+      "outputTokens": 155,
+      "extracted": "2000",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-5",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Bill Carrigan",
+    "baseline": {
+      "text": "Bill Carrigan was the first Red Sox manager to win two World Series, in 1915 and 1916.  \nANSWER: Bill Carrigan",
+      "toolCalls": 0,
+      "latencyMs": 949,
+      "inputTokens": 77,
+      "outputTokens": 30,
+      "extracted": "Bill Carrigan",
+      "correct": true
+    },
+    "tool": {
+      "text": "The first Red Sox manager to win two World Series was **Bill Carrigan**, who won back-to-back titles in 1915 and 1916 (Terry Francona later matched this with 2004 and 2007).\n\nANSWER: Bill Carrigan (1915 and 1916)",
+      "toolCalls": 2,
+      "latencyMs": 7211,
+      "inputTokens": 18841,
+      "outputTokens": 243,
+      "extracted": "Bill Carrigan (1915 and 1916)",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-6",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "\"The Anatomy of the Tongue in Cheek\"",
+    "baseline": {
+      "text": "The song \"May the Horse Be with You\" appears on Relient K's album *The Anatomy of the Tongue in Cheek*.\n\nANSWER: The Anatomy of the Tongue in Cheek",
+      "toolCalls": 0,
+      "latencyMs": 1234,
+      "inputTokens": 83,
+      "outputTokens": 40,
+      "extracted": "The Anatomy of the Tongue in Cheek",
+      "correct": true
+    },
+    "tool": {
+      "text": "The song originally appears on Relient K's 2001 album *The Anatomy of the Tongue in Cheek* (track 12), and it was later included on the 2010 compilation *The First Three Gears (2000–2003)*.\n\nANSWER: *The Anatomy of the Tongue in Cheek* (2001)",
+      "toolCalls": 2,
+      "latencyMs": 4514,
+      "inputTokens": 16723,
+      "outputTokens": 200,
+      "extracted": "*The Anatomy of the Tongue in Cheek* (2001)",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-7",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "1994",
+    "baseline": {
+      "text": "1994\n\nANSWER: 1994",
+      "toolCalls": 0,
+      "latencyMs": 1045,
+      "inputTokens": 86,
+      "outputTokens": 8,
+      "extracted": "1994",
+      "correct": true
+    },
+    "tool": {
+      "text": "The evidence is now consistent across multiple sources.\n\n**Answer:** Oliviero Diliberto was first elected as a Member of Parliament (deputy) for the Communist Refoundation Party (Rifondazione Comunista) in **1994**, in the XII legislature, elected in the Iglesias constituency (Sardinia). He had joined Rifondazione in 1991 when the PCI dissolved, and served as a deputy for four consecutive legislatures until 2008 (later under the Party of Italian Communists, which he co-founded in 1998).\n\nSources:\n- Italian Wikipedia, \"Oliviero Diliberto\" — mandate 15 April 1994 – 28 April 2008; parliamentary group Rifondazione Comunista (1994–1998); \"deputato della Repubblica dal 1994, per quattro legislature fino al 2008.\"\n- Treccani Encyclopedia — \"Deputato dal 1994 al 2008.\"\n- Il Giornale — \"Nel 1994 viene eletto per la prima volta in Parlamento.\"\n\nANSWER: 1994",
+      "toolCalls": 4,
+      "latencyMs": 11644,
+      "inputTokens": 29148,
+      "outputTokens": 488,
+      "extracted": "** Oliviero Diliberto was first elected as a Member of Parliament (deputy) for the Communist Refoundation Party (Rifondazione Comunista) in **1994**, in the XII legislature, elected in the Iglesias constituency (Sardinia). He had joined Rifondazione in 1991 when the PCI dissolved, and served as a deputy for four consecutive legislatures until 2008 (later under the Party of Italian Communists, which he co-founded in 1998).",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-8",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "1956",
+    "baseline": {
+      "text": "San Pedro de Urabá, Antioquia, Colombia was founded in 1958.\n\nANSWER: 1958",
+      "toolCalls": 0,
+      "latencyMs": 719,
+      "inputTokens": 85,
+      "outputTokens": 24,
+      "extracted": "1958",
+      "correct": false
+    },
+    "tool": {
+      "text": "**San Pedro de Urabá, Antioquia, Colombia** was founded in **1956** (by the brothers Pedro, Agustín and Octavio Cuadrado). It was later elevated to the status of municipality on 28 November 1977 (some sources say 1978).\n\nSources: [Wikipedia (es) – San Pedro de Urabá](https://es.wikipedia.org/wiki/San_Pedro_de_Urab%C3%A1), [FamilySearch Wiki](https://www.familysearch.org/es/wiki/San_Pedro_de_Urab%C3%A1,_Urab%C3%A1,_Antioquia,_Colombia_-_Genealog%C3%ADa), [Comfenalco Antioquia – Infolocal](https://infolocal.comfenalcoantioquia.com/index.php/sanpedrodeuraba)\n\nANSWER: 1956",
+      "toolCalls": 2,
+      "latencyMs": 7411,
+      "inputTokens": 18755,
+      "outputTokens": 344,
+      "extracted": "1956",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-9",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "1996",
+    "baseline": {
+      "text": "1999\n\nANSWER: 1999",
+      "toolCalls": 0,
+      "latencyMs": 1180,
+      "inputTokens": 84,
+      "outputTokens": 8,
+      "extracted": "1999",
+      "correct": false
+    },
+    "tool": {
+      "text": "The official Kaki Tree Project website states: \"In 1996, the first planting of the project took place at the former Ryuhoku Elementary School.\" Miyajima's own site also dates the project \"1996–\". (The 1995 exhibition where saplings were first displayed was the precursor, and the mother tree's seedlings were produced in 1994, but the first actual planting was 1996.)\n\nANSWER: 1996",
+      "toolCalls": 3,
+      "latencyMs": 8140,
+      "inputTokens": 34244,
+      "outputTokens": 314,
+      "extracted": "1996",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-10",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "2004.",
+    "baseline": {
+      "text": "Gustav Mahler was inducted into the Classical Music Hall of Fame in 1997.\n\nANSWER: 1997",
+      "toolCalls": 0,
+      "latencyMs": 969,
+      "inputTokens": 81,
+      "outputTokens": 25,
+      "extracted": "1997",
+      "correct": false
+    },
+    "tool": {
+      "text": "**Short answer:** There is no record of Gustav Mahler being inducted into a \"Classical Music Hall of Fame.\" The main such institution, the **American Classical Music Hall of Fame and Museum** (Cincinnati, founded 1996, first inductees 1998), has never inducted Mahler — its full inductee lists from 1998 through 2020 contain no Mahler. The only \"Hall of Fame\" tied to Mahler is the **Classic FM Hall of Fame**, a UK radio listener poll of favorite classical works, where his symphonies appear as ranked entries (e.g., Symphony No. 5), not as a personal induction.\n\nSo the premise of the question appears to be false — Mahler was not inducted into a Classical Music Hall of Fame in any year.\n\nANSWER: No such induction occurred — Gustav Mahler was never inducted into a Classical Music Hall of Fame (the American Classical Music Hall of Fame has no Mahler in its inductee lists, 1998–2020).",
+      "toolCalls": 7,
+      "latencyMs": 25011,
+      "inputTokens": 93835,
+      "outputTokens": 914,
+      "extracted": "** There is no record of Gustav Mahler being inducted into a \"Classical Music Hall of Fame.\" The main such institution, the **American Classical Music Hall of Fame and Museum** (Cincinnati, founded 1996, first inductees 1998), has never inducted Mahler — its full inductee lists from 1998 through 2020 contain no Mahler. The only \"Hall of Fame\" tied to Mahler is the **Classic FM Hall of Fame**, a UK radio listener poll of favorite classical works, where his symphonies appear as ranked entries (e.g., Symphony No. 5), not as a personal induction.",
+      "correct": false
+    }
+  },
+  {
+    "id": "SimpleQA-11",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Alexander Manning",
+    "baseline": {
+      "text": "The last mayor of Toronto elected by the council in 1873 was Alexander Manning.  \nANSWER: Alexander Manning",
+      "toolCalls": 0,
+      "latencyMs": 995,
+      "inputTokens": 85,
+      "outputTokens": 22,
+      "extracted": "Alexander Manning",
+      "correct": true
+    },
+    "tool": {
+      "text": "The search results already confirm the answer clearly. From 1867 to 1873, Toronto mayors were elected by council rather than by popular vote. The last mayor elected by council in that period was **Alexander Manning**, who served in 1873. After 1873, mayors were directly elected by popular vote.\n\nANSWER: Alexander Manning",
+      "toolCalls": 3,
+      "latencyMs": 8036,
+      "inputTokens": 31367,
+      "outputTokens": 288,
+      "extracted": "Alexander Manning",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-12",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Burke Mountain Academy",
+    "baseline": {
+      "text": "Dartmouth College\n\nANSWER: Dartmouth College",
+      "toolCalls": 0,
+      "latencyMs": 904,
+      "inputTokens": 78,
+      "outputTokens": 9,
+      "extracted": "Dartmouth College",
+      "correct": false
+    },
+    "tool": {
+      "text": "The 2014 graduation was from Burke Mountain Academy (a high school/prep academy in Vermont), not a college. She graduated from Dartmouth College in 2019.\n\nSince the question asks about 2014, the answer is Burke Mountain Academy.\n\nANSWER: Burke Mountain Academy (Vermont) — she graduated from there in 2014; her college degree came from Dartmouth College in 2019.",
+      "toolCalls": 2,
+      "latencyMs": 4994,
+      "inputTokens": 17043,
+      "outputTokens": 172,
+      "extracted": "Burke Mountain Academy (Vermont) — she graduated from there in 2014; her college degree came from Dartmouth College in 2019.",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-13",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Himani Mukherjee",
+    "baseline": {
+      "text": "A. N. Ray's wife was Rani Ray.\n\nANSWER: Rani Ray",
+      "toolCalls": 0,
+      "latencyMs": 808,
+      "inputTokens": 84,
+      "outputTokens": 17,
+      "extracted": "Rani Ray",
+      "correct": false
+    },
+    "tool": {
+      "text": "The search quota is exhausted. Based on the sources I retrieved, no reliable source names A. N. Ray's wife. The only \"answer\" I saw (\"Vani Ray\") came from Tavily's synthesized answer field, which is unreliable — the word \"Vani\" on the Supreme Court page is actually an accessibility/language widget, not a person's name. I could not corroborate any name.\n\nGiven the instruction to commit to a best answer, I'll note the honest state: the wife's name is not documented in the accessible sources. The most commonly circulated (though unverified) name associated with him is \"Vani Ray,\" but I cannot confirm it.\n\n**Summary of findings:**\n- A. N. Ray (Ajit Nath Ray, 1912–2009) was confirmed as the 14th Chief Justice of India (1973–1977) by Wikipedia and the Supreme Court of India's official site.\n- Neither the Wikipedia article, the Supreme Court of India biography, nor the Supreme Court Observer profile names his wife.\n- The only name surfaced (\"Vani Ray\") came from an AI-generated search summary and appears to be a hallucination (the \"Vani\" on the Supreme Court page is a text-to-speech/accessibility feature, not a person).\n\nI could not verify a reliable answer. My best (unverified) answer is Vani Ray, but I flag low confidence.\n\nANSWER: Vani Ray (unverified — no reliable source confirms the name)",
+      "toolCalls": 8,
+      "latencyMs": 22551,
+      "inputTokens": 80636,
+      "outputTokens": 871,
+      "extracted": "Vani Ray (unverified — no reliable source confirms the name)",
+      "correct": false
+    }
+  },
+  {
+    "id": "SimpleQA-14",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "July 26, 2021",
+    "baseline": {
+      "text": "Aaron Leo Brody died on July 1, 2009.\n\nANSWER: July 1, 2009",
+      "toolCalls": 0,
+      "latencyMs": 1121,
+      "inputTokens": 96,
+      "outputTokens": 23,
+      "extracted": "July 1, 2009",
+      "correct": false
+    },
+    "tool": {
+      "text": "Aaron Leo Brody (August 23, 1930 – July 26, 2021), the American food scientist who received the Institute of Food Technologists' Industrial Achievement Award in 1964, died on **July 26, 2021**, in Peachtree Corners, Georgia, at age 90.\n\nSources:\n- Wikipedia, \"Aaron L. Brody\": https://en.wikipedia.org/wiki/Aaron_L._Brody\n- Atlanta Journal-Constitution obituary (via Legacy.com): https://www.legacy.com/us/obituaries/atlanta/name/aaron-brody-obituary?id=20745423\n- Atlanta Jewish Times obituary: https://www.atlantajewishtimes.com/obituary-dr-aaron-l-brody\n- Wikidata (Q42665753): date of death 26 July 2021\n\nANSWER: July 26, 2021",
+      "toolCalls": 3,
+      "latencyMs": 8060,
+      "inputTokens": 31162,
+      "outputTokens": 398,
+      "extracted": "July 26, 2021",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-15",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "June 2019",
+    "baseline": {
+      "text": "Khusro Bakhtiar announced this in **September 2019**.  \nANSWER: September 2019",
+      "toolCalls": 0,
+      "latencyMs": 972,
+      "inputTokens": 124,
+      "outputTokens": 22,
+      "extracted": "September 2019",
+      "correct": true
+    },
+    "tool": {
+      "text": "The evidence is consistent: Dawn (published June 22, 2019) and APP (dated June 21, 2019) both report Khusro Bakhtiar saying the government was considering establishing a Pak-China business council to promote the private sector's role in CPEC, at the CPEC Forum-2019 in Islamabad on Friday, June 21, 2019.\n\nANSWER: June 2019 (specifically, he made the statement on 21 June 2019, at the CPEC Forum-2019 in Islamabad).",
+      "toolCalls": 4,
+      "latencyMs": 7558,
+      "inputTokens": 34123,
+      "outputTokens": 406,
+      "extracted": "June 2019 (specifically, he made the statement on 21 June 2019, at the CPEC Forum-2019 in Islamabad).",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-16",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "John Cundall",
+    "baseline": {
+      "text": "The church of St. John the Baptist in Leamington Spa, built 1877–1878, was designed by John Cundall.  \nANSWER: John Cundall",
+      "toolCalls": 0,
+      "latencyMs": 1236,
+      "inputTokens": 94,
+      "outputTokens": 37,
+      "extracted": "John Cundall",
+      "correct": true
+    },
+    "tool": {
+      "text": "The evidence is consistent across multiple sources.\n\n**John Cundall** of Leamington was the architect. The church of St John the Baptist in Leamington Spa (Tachbrook Street) was built 1877–78 to his designs — confirmed by Historic England's Grade II listing (\"Architect John Cundall of Leamington\"), Wikipedia, and Pevsner's *Buildings of England: Warwickshire*, which calls it Cundall's \"best work.\" Cundall was a prolific local architect who also designed Leamington Town Hall, St Paul's Church, and Warwick School.\n\nANSWER: John Cundall (of Leamington)",
+      "toolCalls": 2,
+      "latencyMs": 5639,
+      "inputTokens": 20120,
+      "outputTokens": 274,
+      "extracted": "John Cundall (of Leamington)",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-17",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "October 1990",
+    "baseline": {
+      "text": "Kristen Nygaard was awarded the Norbert Wiener Prize in **June 1990**.\n\nANSWER: June 1990",
+      "toolCalls": 0,
+      "latencyMs": 906,
+      "inputTokens": 80,
+      "outputTokens": 24,
+      "extracted": "June 1990",
+      "correct": true
+    },
+    "tool": {
+      "text": "Kristen Nygaard received the Norbert Wiener Award for Social and Professional Responsibility (from Computer Professionals for Social Responsibility) in **October 1990**.\n\nSources: Wikipedia (\"In October 1990, Computer Professionals for Social Responsibility awarded him its Norbert Wiener Award for Social and Professional Responsibility\"), MacTutor History of Mathematics (\"awarded the Norbert Wiener Prize in October 1990\"), and Britannica (\"In 1990 Nygaard won the Norbert Wiener Prize\").\n\nANSWER: October 1990",
+      "toolCalls": 2,
+      "latencyMs": 7510,
+      "inputTokens": 18244,
+      "outputTokens": 188,
+      "extracted": "October 1990",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-18",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "March 1958.",
+    "baseline": {
+      "text": "George Avakian left Columbia Records in 1958.\n\nANSWER: 1958",
+      "toolCalls": 0,
+      "latencyMs": 1073,
+      "inputTokens": 81,
+      "outputTokens": 17,
+      "extracted": "1958",
+      "correct": true
+    },
+    "tool": {
+      "text": "I have sufficient converging evidence from multiple authoritative sources.\n\n**Answer:** George Avakian left Columbia Records in **March 1958**.\n\nEvidence:\n- The New York Public Library Archives (George Avakian and Anahid Ajemian papers) states: \"In March 1958, Avakian left Columbia to become vice president in charge of New York operations for the independent World Pacific Records.\"\n- Avakian himself, in an oral history (Old New York Stories), said: \"as my birthday approached on March 15, 1958 I decided I would go with Dick Bock's proposition.\"\n- Wikipedia and WBGO both confirm he departed Columbia in 1958 (after a 12-year run) to join Richard Bock's Pacific Jazz/World Pacific label.\n\n(Note: DownBeat's profile loosely says \"by the fall of 1957\" and \"until early 1958,\" but the specific, dated sources — the NYPL archive and Avakian's own account — pinpoint March 1958.)\n\nANSWER: March 1958",
+      "toolCalls": 6,
+      "latencyMs": 11833,
+      "inputTokens": 52431,
+      "outputTokens": 663,
+      "extracted": "** George Avakian left Columbia Records in **March 1958**.",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-19",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Carlos Alconada Aramburu",
+    "baseline": {
+      "text": "Raúl Alfonsín's first Minister of Education was Carlos Alconada Aramburú.\n\nANSWER: Carlos Alconada Aramburú",
+      "toolCalls": 0,
+      "latencyMs": 886,
+      "inputTokens": 77,
+      "outputTokens": 28,
+      "extracted": "Carlos Alconada Aramburú",
+      "correct": true
+    },
+    "tool": {
+      "text": "Verified across multiple sources (Casa Rosada official presidential archive, Spanish Wikipedia, La Nación): Raúl Alfonsín's first Minister of Education and Justice was **Carlos Alconada Aramburú**, who served from December 10, 1983 to June 21, 1986. (Note: at the time, education and justice were combined in a single ministry.)\n\nANSWER: Carlos Alconada Aramburú (Minister of Education and Justice, from December 10, 1983 to June 21, 1986).",
+      "toolCalls": 2,
+      "latencyMs": 5464,
+      "inputTokens": 17549,
+      "outputTokens": 282,
+      "extracted": "Carlos Alconada Aramburú (Minister of Education and Justice, from December 10, 1983 to June 21, 1986).",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-20",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "August 30, 1787",
+    "baseline": {
+      "text": "Anna Catharina Bischoff died on 30 August 1787.\nANSWER: 30 August 1787",
+      "toolCalls": 0,
+      "latencyMs": 1404,
+      "inputTokens": 81,
+      "outputTokens": 23,
+      "extracted": "30 August 1787",
+      "correct": true
+    },
+    "tool": {
+      "text": "Wikipedia's opening line gives her dates as (23 March 1719 – 30 August 1787). Note that some sources describe 30 August 1787 as her burial date, but the widely cited death date is 30 August 1787.\n\nAnna Catharina Bischoff (the \"Lady of the Barfüsser Church,\" identified in 2018 as an ancestor of Boris Johnson) died on **30 August 1787** in Basel, Switzerland. She was born on 23 March 1719 in Strasbourg.\n\nSources:\n- Wikipedia, \"Anna Catharina Bischoff\": https://en.wikipedia.org/wiki/Anna_Catharina_Bischoff\n- Natural History Museum Basel: https://www.nmbs.ch/en/exhibitions/retrospect/anna-catharina-bischoff.html\n- The Guardian: https://www.theguardian.com/politics/2018/jan/25/remains-in-europe-mummified-woman-in-basel-is-boris-johnsons-ancestor\n\nANSWER: 30 August 1787",
+      "toolCalls": 3,
+      "latencyMs": 7739,
+      "inputTokens": 30044,
+      "outputTokens": 426,
+      "extracted": "30 August 1787",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-21",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Carnegie Mellon University",
+    "baseline": {
+      "text": "Andrea Arpaci-Dusseau earned her bachelor's degree from Carnegie Mellon University in 1991.\nANSWER: Carnegie Mellon University",
+      "toolCalls": 0,
+      "latencyMs": 1537,
+      "inputTokens": 87,
+      "outputTokens": 26,
+      "extracted": "Carnegie Mellon University",
+      "correct": true
+    },
+    "tool": {
+      "text": "Andrea Arpaci-Dusseau earned her bachelor's degree (B.S. in Computer Engineering) from **Carnegie Mellon University** in 1991. This is confirmed by her Wikipedia entry, her official CV (pages.cs.wisc.edu), and other biographical sources.\n\nANSWER: Carnegie Mellon University",
+      "toolCalls": 2,
+      "latencyMs": 5580,
+      "inputTokens": 18133,
+      "outputTokens": 180,
+      "extracted": "Carnegie Mellon University",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-22",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Penalties",
+    "baseline": {
+      "text": "Solicitation of advice by Secretary of Agriculture\n\nANSWER: Solicitation of advice by Secretary of Agriculture",
+      "toolCalls": 0,
+      "latencyMs": 1232,
+      "inputTokens": 106,
+      "outputTokens": 20,
+      "extracted": "Solicitation of advice by Secretary of Agriculture",
+      "correct": false
+    },
+    "tool": {
+      "text": "The search results confirm this clearly. Multiple authoritative sources (the U.S. Code on uscode.house.gov, the Senate's FIFRA PDF, and Cornell's LII) all show that 7 U.S.C. § 136l corresponds to Section 14 of FIFRA, and its title is \"Penalties.\"\n\nANSWER: Penalties",
+      "toolCalls": 2,
+      "latencyMs": 5774,
+      "inputTokens": 18326,
+      "outputTokens": 205,
+      "extracted": "Penalties",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-23",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "30 January 2007",
+    "baseline": {
+      "text": "The Codex Arundel was made available in the British Library’s “Turning the Pages” 2.0 format on January 30, 2007.\n\nANSWER: January 30, 2007",
+      "toolCalls": 0,
+      "latencyMs": 993,
+      "inputTokens": 117,
+      "outputTokens": 43,
+      "extracted": "January 30, 2007",
+      "correct": true
+    },
+    "tool": {
+      "text": "Based on my research, here is my answer.\n\nThe Codex Arundel was digitized and made available in the British Library's \"Turning the Pages\" 2.0 format alongside the Codex Leicester at the UK launch of Windows Vista and the 2007 Microsoft Office System, held at the British Library. Wikipedia's \"Turning the Pages\" article confirms that version 2.0 was developed in January 2007 and that \"the Codex Leicester, along with Codex Arundel, were two of the first books to be made available in the 2.0 format,\" citing Bill Gates' remarks at that British Library launch event. That launch event took place on 30 January 2007.\n\nANSWER: 30 January 2007",
+      "toolCalls": 14,
+      "latencyMs": 22341,
+      "inputTokens": 100995,
+      "outputTokens": 1684,
+      "extracted": "30 January 2007",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-24",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Varahagiri Venkata Giri",
+    "baseline": {
+      "text": "V. V. Giri was the 4th Indian president elected after independence.  \nANSWER: V. V. Giri",
+      "toolCalls": 0,
+      "latencyMs": 937,
+      "inputTokens": 81,
+      "outputTokens": 26,
+      "extracted": "V. V. Giri",
+      "correct": false
+    },
+    "tool": {
+      "text": "**Answer:** V. V. Giri (Varahagiri Venkata Giri) was the 4th President of India, elected in 1969.\n\nThe order of India's presidents after independence (Republic from 1950):\n1. Rajendra Prasad (1950–1962)\n2. Sarvepalli Radhakrishnan (1962–1967)\n3. Zakir Husain (1967–1969)\n4. **V. V. Giri** (1969–1974)\n\n(Note: I was unable to run a live web verification — the search tool returned no server-side results — so this is based on established historical record.)\n\nANSWER: V. V. Giri",
+      "toolCalls": 1,
+      "latencyMs": 3396,
+      "inputTokens": 14260,
+      "outputTokens": 262,
+      "extracted": "** V. V. Giri (Varahagiri Venkata Giri) was the 4th President of India, elected in 1969.",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-25",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "April 5, 2011",
+    "baseline": {
+      "text": "Twitter tested a new homepage and began phasing out \"Old Twitter\" on April 5, 2019.\n\nANSWER: April 5, 2019",
+      "toolCalls": 0,
+      "latencyMs": 1054,
+      "inputTokens": 87,
+      "outputTokens": 32,
+      "extracted": "April 5, 2019",
+      "correct": false
+    },
+    "tool": {
+      "text": "I found the exact statement in the Wikipedia \"History of Twitter\" article:\n\n> \"On **April 5, 2011**, Twitter tested a new homepage and phased out the 'Old Twitter'.\"\n\nThis is corroborated by the surrounding context (the \"New Twitter\" rollout of 2010–2011 and the subsequent reintroduction of the new homepage on April 20, 2011).\n\nANSWER: April 5, 2011",
+      "toolCalls": 7,
+      "latencyMs": 8658,
+      "inputTokens": 48943,
+      "outputTokens": 565,
+      "extracted": "April 5, 2011",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-26",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Jongsong",
+    "baseline": {
+      "text": "Nanda Devi is the tenth highest mountain in India.  \nANSWER: Nanda Devi",
+      "toolCalls": 0,
+      "latencyMs": 1006,
+      "inputTokens": 75,
+      "outputTokens": 17,
+      "extracted": "Nanda Devi",
+      "correct": false
+    },
+    "tool": {
+      "text": "Based on Wikipedia's list of highest major summits in India (ranked by height, with ≥500 m prominence), the ranking is:\n\n1. Kangchenjunga – 8,586 m\n2. Nanda Devi – 7,816 m\n3. Kamet – 7,756 m\n4. Saltoro Kangri (K10) – 7,742 m\n5. Saser Kangri I (K22) – 7,672 m\n6. Mamostong Kangri (K35) – 7,516 m\n7. Saser Kangri II E – 7,513 m\n8. Saser Kangri III – 7,495 m\n9. Teram Kangri I – 7,462 m\n10. **Jongsong Peak – 7,462 m** (Sikkim, Kangchenjunga Himalaya)\n\nSo the tenth highest mountain in India is **Jongsong Peak** (7,462 m), in Sikkim. Note that it ties in height with Teram Kangri I (also 7,462 m), which is ranked just above it; the ordering between these two is essentially a tie, so some lists may swap them.\n\nANSWER: Jongsong Peak (7,462 m), in Sikkim — tied in height with Teram Kangri I (7,462 m), which is ranked just above it.",
+      "toolCalls": 6,
+      "latencyMs": 9474,
+      "inputTokens": 40098,
+      "outputTokens": 687,
+      "extracted": "Jongsong Peak (7,462 m), in Sikkim — tied in height with Teram Kangri I (7,462 m), which is ranked just above it.",
+      "correct": true
+    }
+  },
+  {
+    "id": "SimpleQA-27",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "July",
+    "baseline": {
+      "text": "February\n\nANSWER: February",
+      "toolCalls": 0,
+      "latencyMs": 654,
+      "inputTokens": 97,
+      "outputTokens": 5,
+      "extracted": "February",
+      "correct": false
+    },
+    "tool": {
+      "text": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://en.wikipedia.org/wiki/Nina_(schooner_yacht)</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"maxChars\" string=\"false\">6000</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://en.wikipedia.org/wiki/Nina_(1928_yacht)</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"maxChars\" string=\"false\">6000</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+      "toolCalls": 20,
+      "latencyMs": 28823,
+      "inputTokens": 112632,
+      "outputTokens": 1405,
+      "extracted": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://en.wikipedia.org/wiki/Nina_(schooner_yacht)</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"maxChars\" string=\"false\">6000</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://en.wikipedia.org/wiki/Nina_(1928_yacht)</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"maxChars\" string=\"false\">6000</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+      "correct": false
+    }
+  },
+  {
+    "id": "SimpleQA-28",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "Petr Vaníček",
+    "baseline": {
+      "text": "The recipient of the John Tuzo Wilson Medal in 1996 was Robert (Bob) D. Hyndman.  \nANSWER: Robert D. Hyndman",
+      "toolCalls": 0,
+      "latencyMs": 783,
+      "inputTokens": 82,
+      "outputTokens": 34,
+      "extracted": "Robert D. Hyndman",
+      "correct": false
+    },
+    "tool": {
+      "text": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://cgu-ugc.ca/awards/j-tuzo-wilson-medal/recipients/</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://cgu-ugc.ca/awards/j-tuzo-wilson-medal/previous-recipients/</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+      "toolCalls": 18,
+      "latencyMs": 27161,
+      "inputTokens": 119939,
+      "outputTokens": 1259,
+      "extracted": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://cgu-ugc.ca/awards/j-tuzo-wilson-medal/recipients/</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n<｜｜DSML｜｜ invoke name=\"fetch\">\n<｜｜DSML｜｜ parameter name=\"id\" string=\"true\">https://cgu-ugc.ca/awards/j-tuzo-wilson-medal/previous-recipients/</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+      "correct": false
+    }
+  },
+  {
+    "id": "SimpleQA-29",
+    "suite": "SimpleQA",
+    "kind": "short",
+    "expected": "2 December 2023",
+    "baseline": {
+      "text": "Vanessa Hudgens married Cole Tucker on December 2, 2023.  \nANSWER: December 2, 2023",
+      "toolCalls": 0,
+      "latencyMs": 1018,
+      "inputTokens": 83,
+      "outputTokens": 26,
+      "extracted": "December 2, 2023",
+      "correct": true
+    },
+    "tool": {
+      "text": "The search provider is unavailable (quota exceeded), so I'll rely on my knowledge.\n\nVanessa Hudgens and Cole Tucker got married in Tulum, Mexico. Multiple outlets (Vogue, People, E! News) reported the wedding took place on **December 2, 2023**. They had gotten engaged in late 2022 (announced February 2023).\n\nANSWER: December 2, 2023",
+      "toolCalls": 2,
+      "latencyMs": 3565,
+      "inputTokens": 14375,
+      "outputTokens": 195,
+      "extracted": "December 2, 2023",
+      "correct": true
+    }
+  }
+]

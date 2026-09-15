@@ -40,3 +40,7 @@ coverage/
 
 package-lock.json
 data
+
+# Preuves de run GCP : conserver les logs du run (normalement ignores par *.log)
+!proofs/gcp/**/*.log
+!proofs/gcp/*.log

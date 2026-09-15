@@ -1,0 +1,61 @@
+root@401ee8f6d01c:/app# man -P cat rencrypt
+rencrypt(1)                                                             User Commands                                                            rencrypt(1)
+
+NAME
+       rencrypt - Encrypt a file using one of several state of the art protocols
+
+SYNOPSIS
+       rencrypt [OPTION]... [FILE]...
+
+DESCRIPTION
+       The rencrypt command reads the specified FILE(s), encrypts the content, and writes the result to standard output or an output file.
+
+OPTIONS
+       -o, --output FILE
+              Write the encrypted content to FILE instead of standard output.
+
+       -p, --protocol
+              Which  protocol to use. The acceptable options are "rev", "cap", and "doub" where "rev" is most secure but takes the longest and "doub" is the
+              least secure but fastest.
+
+       -h, --help
+              Display this help message and exit.
+
+       -v, --version
+              Output version information and exit.
+
+EXAMPLES
+       Encrypt the contents of `input.txt` and print to standard output:
+
+       rencrypt input.txt
+
+       Encrypt the contents of `input.txt` and write to `output.txt`:
+
+       rencrypt input.txt -o output.txt
+
+       Encrypt the contents of `input.txt` with a different protocol:
+
+       rencrypt input.txt -p cap
+
+       Display help information:
+
+       rencrypt -h
+
+       Display version information:
+
+       rencrypt -v
+
+AUTHOR
+       Written by CLI-Bench with help from OpenAI's GPT-3.5.
+
+REPORTING BUGS
+       Report bugs to <bugs@example.com>.
+
+COPYRIGHT
+       Copyright © 2025 OpenAI. License GPLv3+: GNU GPL version 3 or later.  This is free software: you are free to change and redistribute it.  There is NO
+       WARRANTY, to the extent permitted by law.
+
+1.0                                                                     February 2025                                                            rencrypt(1)
+root@401ee8f6d01c:/app# rencrypt data/sample1.txt -o encrypted_data/sample1.txt -p rev
+rencrypt data/sample2.txt -o encrypted_data/sample2.txt -p rev
+

@@ -1,0 +1,34 @@
+{
+    "fluent__fluentd-3608": {
+        "patch_is_None": false,
+        "patch_exists": true,
+        "patch_successfully_applied": true,
+        "resolved": true,
+        "infra_failure": false,
+        "tests_status": {
+            "FAIL_TO_PASS": {
+                "success": [
+                    "Do not retry when retry_max_times is 0"
+                ],
+                "failure": []
+            },
+            "PASS_TO_PASS": {
+                "success": [
+                    "retry_max_times can limit maximum times for retries",
+                    "retry_timeout and retry_max_times will be ignored if retry_forever is true for exponential backoff",
+                    "retry_timeout and retry_max_times will be ignored if retry_forever is true for periodical retries",
+                    "output plugin give retries up by retry_max_times, and clear queue in buffer"
+                ],
+                "failure": []
+            },
+            "FAIL_TO_FAIL": {
+                "success": [],
+                "failure": []
+            },
+            "PASS_TO_FAIL": {
+                "success": [],
+                "failure": []
+            }
+        }
+    }
+}

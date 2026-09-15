@@ -1,67 +1,118 @@
-# Benchmarks officiels DeepSeek — pertinence du MCP Smart-Thinking
+# Benchmarks officiels DeepSeek — pertinence du MCP Smart-Thinking (v13)
 
-Source de la liste : release officielle DeepSeek-V3.2-Exp (github.com/deepseek-ai/DeepSeek-V3.2-Exp), tableau
-« Reasoning Mode w/o Tool Use » + « Agentic Tool Use ». Cadrage : un benchmark publié à la sortie d'un modèle.
+Exécution de référence : nuit du 14→15 septembre 2026, **VM GCP éphémère `e2-standard-4`**
+(projet `beaming-delight-507904-e4`, zone `europe-west1-b`, Ubuntu 24.04, Docker), détruite
+automatiquement à la fin du run. Résultats bruts : `proofs/gcp/remote/`.
 
-## Benchmark mesurés — même modèle (`deepseek-flash`), même jour, A/B sans vs avec MCP
+Conditions : modèle `deepseek-flash` (V4.1 Flash), `thinking: disabled`, `temperature: 0`,
+`max_tokens: 16384` ; **même modèle, même jour, même machine, même harnais** pour les deux
+bras (A/B) ; grading déterministe (comparaison exacte, exécution Docker pour le code).
+Sans MCP = réponse directe. Avec MCP = Smart-Thinking v13, **mode `ultimate` (défaut)**,
+outils MCP appelés librement par le modèle (itérations bornées par le harnais).
 
-| Suite | Tâches | Sans MCP | Avec MCP | Delta | Latence | Statut |
+## 1. Tableau principal — A/B `deepseek-flash` seul vs `deepseek-flash` + MCP
+
+| Benchmark | Tâches | Sans MCP | Avec MCP | Delta | Latence (moy.) | Statut |
 | --- | --- | --- | --- | --- | --- | --- |
-| AIME 2025 | 30 | 66.7 % | **93.3 %** | **+26.6 pts** | 22.4 s → 51.7 s | ✅ mesuré (`scripts/official-bench.cjs`) |
-| MMLU-Pro | 20 | 85.0 % | **90.0 %** | **+5.0 pts** | 2.7 s → 9.4 s | ✅ mesuré |
-| **TOTAL officiel-style** | **50** | **74.0 %** | **92.0 %** | **+18.0 pts** | — | — |
+| AIME 2025 | 30 | 73,3 % (22/30) | 73,3 % (22/30) | **+0,0 pt** | 16,2 s → 65,8 s | ✅ mesuré (GCP) |
+| MMLU-Pro | 20 | 75,0 % (15/20) | 85,0 % (17/20) | **+10,0 pts** | 1,8 s → 17,3 s | ✅ mesuré (GCP) |
+| HMMT 2025 | 30 | 33,3 % (10/30) | 43,3 % (13/30) | **+10,0 pts** | 22,5 s → 135,1 s | ✅ mesuré (GCP) |
+| SimpleQA (Tavily actif) | 30 | 50,0 % (15/30) | 83,3 % (25/30) | **+33,3 pts** | 1,0 s → 10,7 s | ✅ mesuré (GCP) |
+| LiveCodeBench v6 (exécution Docker) | 20 | 90,0 % (18/20) | **100,0 %** (20/20) | **+10,0 pts** | 5,2 s → 38,7 s | ✅ mesuré (GCP) |
+| **TOTAL** | **130** | **61,5 %** (80/130) | **74,6 %** (97/130) | **+13,1 pts** | 10,3 s → 57,4 s | ✅ |
 
-Note de transparence : les chiffres bruts ne reproduisent pas les valeurs publiées par DeepSeek
-(conditions d'évaluation différentes) ; le signal valide est le **delta même modèle / même harnais**.
+Coût en tokens (les deux bras confondus) : 0,35 M → 11,8 M, soit ~34× — le MCP achète ses gains
+en calcul, pas gratuitement.
 
-## Nos séries internes (raisonnement adversarial, juge officiel)
+### Où le MCP fait gagner / perdre (mêmes tâches, deux bras)
 
-| Série | bare | lean | guided | ultimate (défaut) | Statut |
+| Suite | Gains (sans MCP faux → avec MCP juste) | Régressions (sans MCP juste → avec MCP faux) |
+| --- | --- | --- |
+| AIME 2025 | 5 | 5 |
+| MMLU-Pro | 2 | 0 |
+| HMMT 2025 | 4 | 1 |
+| SimpleQA | 10 | 0 |
+| LiveCodeBench | 2 (abc301_c et abc301_f : 1/3 → 3/3 tests) | 0 |
+| **Total** | **23** | **6** |
+
+Le MCP est donc **neutre à fortement positif** partout ; le seul point d'attention est AIME 2025,
+où 5 gains compensent exactement 5 pertes. Vérification faite : ces 5 pertes sont de **vraies
+erreurs de raisonnement** (ex. AIME-9 : réponse 53 au lieu de 81 ; AIME-22 : 600 au lieu de 610),
+pas des artefacts d'extraction — le re-grading via la ligne `ANSWER:` donne exactement les mêmes
+22/30 dans les deux bras.
+
+### Le MCP est-il réellement utilisé ?
+
+Appels d'outils MCP moyens par tâche (0 appel = le modèle a répondu sans outil) :
+
+| Suite | AIME | HMMT | SimpleQA | LiveCodeBench | MMLU-Pro |
 | --- | --- | --- | --- | --- | --- |
-| I — maths | — | 71.1 % | 76.4 % | **78.1 %** (cert 66 %, juge 89.8) | ✅ |
-| II — raisonnement | 93.6 % | 97.9 % | 95.7 % | **96.7 %** | ✅ |
-| III — technique | 85.8 % | 91.7 % | 89.5 % | **92.4 %** | ✅ |
-| Transfert Série III (40 variantes) | — | 95.8 % | — | **97.5 %** | ✅ |
+| Appels MCP moyens | 10,0 | 12,2 | 4,8 | 2,8 | 3,3 |
+| Tâches sans aucun appel | 0/30 | 0/30 | 1/30 | 2/20 | 4/20 |
 
-## Suite complète DeepSeek (catégories à couvrir) et faisabilité
+## 2. Validations de harnais (oracle / gold) — **pas des scores du MCP**
 
-### Reasoning — sans outils
-| Benchmark | Mesure | Faisabilité | Plan |
+Ces trois suites mesurent des **agents de codage/terminal** (édition de fichiers, shell). Le MCP
+Smart-Thinking v13 n'expose **pas** d'outils `read_file`/`edit_file`/`run_shell` : l'y faire
+concourir produirait le score d'un autre agent. Elles ont donc été exécutées en **validation de
+harnais** (prédictions `gold`/`oracle`), pour prouver que la chaîne Docker + harnais fonctionne
+sur GCP — jamais comme performance du MCP.
+
+| Harnais | Jeu | Tâches | Résultat oracle | Échecs infra | Statut |
+| --- | --- | --- | --- | --- | --- |
+| SWE-bench Verified | `SWE-bench/SWE-bench_Verified` | 10 | **10/10 résolues** | 0 | ✅ harnais validé |
+| SWE-bench Multilingual | `SWE-bench/SWE-bench_Multilingual` | 8 | **7/8 résolues** (non résolue : `apache__druid-13704`) | 0 | ✅ harnais validé |
+| Terminal-bench | `terminal-bench-core==0.1.1` | 10 | **8/10 résolues** | 0 | ⚠️ harnais validé avec réserves |
+
+Notes : les 2 échecs Terminal-bench (`hf-model-inference`, `solana-data`) dépendent du réseau
+(téléchargement de modèle, accès RPC) et non du harnais. Une première tentative s'était soldée par
+0/10 à cause de l'absence de `docker compose` v2 dans le paquet `docker.io` d'Ubuntu (corrigé par
+l'installation de `docker-compose-v2`). Détails dans `proofs/gcp/remote/`.
+
+## 3. Benchmarks non mesurés (accès requis)
+
+| Benchmark | Raison | À faire pour le mesurer |
+| --- | --- | --- |
+| GPQA-Diamond | jeu *gated* sur Hugging Face | fournir un `HF_TOKEN` avec accès |
+| Humanity's Last Exam | dataset officiel payant/gated | fournir le dataset |
+| BrowseComp (+ zh) | jeu *gated* | fournir un `HF_TOKEN` avec accès |
+| Codeforces | nécessite un juge d'exécution dédié | infra lourde, hors périmètre v13 |
+| Aider-Polyglot | édition de code multi-fichiers | nécessite des outils code dans le MCP |
+
+## 4. Historique de mesure (transparence)
+
+| Mesure | AIME 2025 | MMLU-Pro | Note |
 | --- | --- | --- | --- |
-| MMLU-Pro | connaissances + raisonnement | ✅ fait | maintenu |
-| AIME 2025 | maths olympiades | ✅ fait | maintenu |
-| HMMT 2025 | maths compétition | ✅ public | à brancher (format numérique) |
-| GPQA-Diamond | sciences doctorat | ⚠️ gated HF | nécessite accès HF |
-| Humanity's Last Exam | raisonnement extrême | ⚠️ gated/payant | nécessite dataset officiel |
-| LiveCodeBench | code (épreuves récentes) | ✅ public | à brancher (exécution) |
-| Codeforces | algorithmique | ⚠️ juge d'exécution requis | infra lourde |
-| Aider-Polyglot | édition de code | ⚠️ harnais dédié | hors périmètre MCP |
+| Harnais local (`scripts/official-bench.cjs`), 14/09 | 66,7 % → 93,3 % (+26,6) | 85,0 % → 90,0 % (+5,0) | premier A/B, 50 tâches |
+| Run GCP n°1, 14/09 18:15–19:17 UTC | 63,3 % → 76,7 % (+13,4) | 75,0 % → 90,0 % (+15,0) | ⚠️ **pollué** par la panne DeepSeek : HMMT amputé de 3 tâches, SimpleQA 30/30 en timeout |
+| **Run GCP n°2 (référence), 15/09 02:32–03:17 UTC** | **73,3 % → 73,3 %** | **75,0 % → 85,0 %** | run complet, API saine, 130 tâches |
 
-### Agentic — avec outils
-| Benchmark | Mesure | Faisabilité | Plan |
-| --- | --- | --- | --- |
-| SimpleQA | factualité / anti-hallucination | ✅ public | à brancher |
-| BrowseComp (+ zh) | recherche web profonde | ⚠️ gated | nécessite dataset officiel |
-| **SWE-bench Verified** | bugs réels (500 instances) | ❌ Docker + harnais + heures de calcul | VM GCP + Docker, jeu réduit (10–20 instances) d'abord |
-| **SWE-bench Multilingual** | idem multi-langages | ❌ idem | après Verified |
-| **Terminal-bench** | tâches terminal sandbox | ⚠️ Docker requis | VM GCP + Docker |
+La variance entre runs sur AIME (de +26,6 à 0 pt) est le principal enseignement de méthode :
+sur 30 tâches, 1 tâche ≈ 3,3 pts ; le delta AIME est donc **bruité**, alors que les gains
+SimpleQA (+33 pts), HMMT (+10), MMLU-Pro (+10) et LiveCodeBench (+10) sont plus robustes.
 
-## Décision (périmètre v13) — choix retenu
+## 5. Reproductibilité
 
-**Périmètre = raisonnement (option B) pour la v13**, car c'est la valeur démontrée du MCP
-(+26.6 AIME, +5 MMLU-Pro, +6.6 Série III, 97.5 transfert). Les suites SWE-bench Verified,
-SWE-bench Multilingual et Terminal-bench mesurent des **agents de codage** (édition de fichiers,
-shell) : les exécuter sans outils code/terminal produirait un score d'un autre agent, pas le nôtre.
-Ajouter `read_file`/`edit_file`/`run_shell` est un chantier produit distinct (sécurité, confinement),
-à planifier après la v13 — il rendra alors SWE-bench/Terminal-bench légitimes.
+```bash
+# 1) provision + run + rapatriement + destruction garantie (trap) en une commande
+DEEPSEEK_API_KEY=... TAVILY_API_KEY=... bash scripts/gcp-bench-run.sh
 
-### Séquence GCP prévue (une traite, avec destruction garantie)
-1. VM `e2-standard-4`, 100 Go SSD, `europe-west1-b` + Docker + Node ; clone git du MCP, `npm ci && npm run build`, install globale depuis git (pas npm).
-2. Suites : **HMMT 2025**, **LiveCodeBench** (exécution sandbox Docker), **SimpleQA** ; A/B `deepseek-flash` seul vs + MCP (mode ultimate), grading déterministe.
-3. `trap` de destruction (VM + disque + règles) en fin de script, vérifié via `gcloud compute instances list`.
-4. Résultats reportés dans ce fichier + commit/push.
+# 2) variante résiliente : run détaché côté VM (survit à une coupure locale), suivi, fetch, cleanup
+bash scripts/gcp-run-attach.sh <nom-vm>
+```
 
-## Infra GCP (prévu, non exécuté)
-- Projet cible : `beaming-delight-507904-e4` (n° 923774092927). La config locale pointait sur `morgram` → à corriger avant toute création.
-- SWE-bench/Terminal-bench : VM GCP + Docker, disque ≥ 100 Go, jeu d'instances réduit, puis suppression de toutes les ressources (VM, disques, règles) après les tests.
-- Aucune ressource GCP n'a été créée à ce stade : rien à supprimer.
+Scripts : `scripts/gcp-bench-run.sh` (provision + trap), `scripts/gcp/remote-run.sh` (orchestration
+dans la VM), `scripts/gcp-remote-bench.cjs` (harnais A/B), `scripts/gcp/swebench.sh`,
+`scripts/gcp/swebench-fixup.sh`, `scripts/gcp/terminalbench.sh` (validations de harnais).
+
+Vérification de fin de run : `gcloud compute instances list` et `gcloud compute disks list`
+doivent être **vides** (constaté après le run de référence).
+
+## 6. Décision de périmètre (v13)
+
+Périmètre retenu = **raisonnement + factualité + code à sortie unique** (AIME, MMLU-Pro, HMMT,
+SimpleQA, LiveCodeBench) : c'est là que la valeur du MCP est démontrée, avec un protocole A/B
+honnête. SWE-bench (Verified, Multilingual) et Terminal-bench restent hors du périmètre de score
+tant que le MCP n'expose pas d'outils fichiers/shell ; ils servent de validation d'infrastructure,
+clairement étiquetée comme telle. Ajouter `read_file` / `edit_file` / `run_shell` est un chantier
+produit distinct (sécurité, confinement), à traiter après la v13.

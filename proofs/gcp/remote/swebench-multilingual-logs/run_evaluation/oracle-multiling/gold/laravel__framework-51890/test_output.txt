@@ -1,0 +1,87 @@
++ cd /testbed
++ git config --global --add safe.directory /testbed
++ git status
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   src/Illuminate/Validation/Concerns/FormatsMessages.php
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
+commit 5ed0ce8bbbc50843f4a63b47ed7004326e546697
+Author: Taylor Otwell <taylor@laravel.com>
+Date:   Mon Jun 24 22:12:30 2024 +0200
+
+    unique array
+
+diff --git a/src/Illuminate/Foundation/Support/Providers/EventServiceProvider.php b/src/Illuminate/Foundation/Support/Providers/EventServiceProvider.php
+index 8fdfe0bacd..599429eaf9 100644
+--- a/src/Illuminate/Foundation/Support/Providers/EventServiceProvider.php
++++ b/src/Illuminate/Foundation/Support/Providers/EventServiceProvider.php
+@@ -176,7 +176,9 @@ protected function discoverEventsWithin()
+      */
+     public static function addEventDiscoveryPaths(array|string $paths)
+     {
+-        static::$eventDiscoveryPaths = array_merge(static::$eventDiscoveryPaths, Arr::wrap($paths));
++        static::$eventDiscoveryPaths = array_values(array_unique(
++            array_merge(static::$eventDiscoveryPaths, Arr::wrap($paths))
++        ));
+     }
+ 
+     /**
++ git -c core.fileMode=false diff 5ed0ce8bbbc50843f4a63b47ed7004326e546697
+diff --git a/src/Illuminate/Validation/Concerns/FormatsMessages.php b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+index c03e2636a5..4fc6c1fa48 100644
+--- a/src/Illuminate/Validation/Concerns/FormatsMessages.php
++++ b/src/Illuminate/Validation/Concerns/FormatsMessages.php
+@@ -305,9 +305,11 @@ public function getDisplayableAttribute($attribute)
+      */
+     protected function getAttributeFromTranslations($name)
+     {
+-        return $this->getAttributeFromLocalArray(
+-            $name, Arr::dot((array) $this->translator->get('validation.attributes'))
+-        );
++        if (! is_array($attributes = $this->translator->get('validation.attributes'))) {
++            return null;
++        }
++
++        return $this->getAttributeFromLocalArray($name, Arr::dot($attributes));
+     }
+ 
+     /**
++ git checkout 5ed0ce8bbbc50843f4a63b47ed7004326e546697 tests/Validation/ValidationValidatorTest.php
+Updated 0 paths from e04df62a38
++ git apply -v -
+Checking patch tests/Validation/ValidationValidatorTest.php...
+Applied patch tests/Validation/ValidationValidatorTest.php cleanly.
++ : '>>>>> Start Test Output'
++ cat
++ vendor/bin/phpunit --testdox --colors=never tests/Validation/ValidationValidatorTest.php --filter attribute
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.16
+Configuration: /testbed/phpunit.xml.dist
+
+.........                                                           9 / 9 (100%)
+
+Time: 00:00.510, Memory: 22.00 MB
+
+Validation Validator (Illuminate\Tests\Validation\ValidationValidator)
+ ✔ Empty existing attributes are validated
+ ✔ Nested attributes are replaced in dimensions
+ ✔ Attribute names are replaced
+ ✔ Attribute names are replaced in arrays
+ ✔ Inline attribute names are replaced in arrays from nested rules
+ ✔ Translated attribute names are replaced in arrays from nested rules
+ ✔ Translated attributes can be missing
+ ✔ Displayable attributes are replaced in custom replacers
+ ✔ Get leading explicit attribute path
+
+OK (9 tests, 48 assertions)
+>>>>> Test Exit Code: 0
++ SWEBENCH_TEST_EXIT_CODE=0
++ : '>>>>> End Test Output'
++ echo '>>>>> Test Exit Code: 0'
++ git checkout 5ed0ce8bbbc50843f4a63b47ed7004326e546697 tests/Validation/ValidationValidatorTest.php
+Updated 1 path from e04df62a38

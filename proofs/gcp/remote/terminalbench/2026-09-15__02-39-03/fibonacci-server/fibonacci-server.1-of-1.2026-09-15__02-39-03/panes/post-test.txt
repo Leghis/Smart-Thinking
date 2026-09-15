@@ -1,0 +1,56 @@
+root@5e271ed1ab92:/app# bash /tests/run-tests.sh; tmux wait -S done
+Hit:1 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:2 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:3 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:4 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+curl is already the newest version (8.5.0-2ubuntu10.13).
+0 upgraded, 0 newly installed, 0 to remove and 59 not upgraded.
+downloading uv 0.12.14 x86_64-unknown-linux-gnu
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+error: Project is already initialized in `/app` (`pyproject.toml` file exists)
+Resolved 14 packages in 316ms
+      Built app @ file:///app
+Prepared 6 packages in 155ms
+Uninstalled 1 package in 1ms
+Installed 6 packages in 37ms
+ ~ app==0.1.0 (from file:///app)
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+Resolved 19 packages in 304ms
+      Built app @ file:///app
+Prepared 6 packages in 71ms
+Uninstalled 1 package in 0.98ms
+Installed 6 packages in 20ms
+ ~ app==0.1.0 (from file:///app)
+ + certifi==2026.7.22
+ + charset-normalizer==3.5.1
+ + idna==3.19
+ + requests==2.34.2
+ + urllib3==2.7.0
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+rootdir: /tests
+collected 6 items
+
+../tests/test_outputs.py ......                                                                                                                          [100%]
+
+============================================================================ PASSES ============================================================================
+=================================================================== short test summary info ====================================================================
+PASSED ../tests/test_outputs.py::test_server_running
+PASSED ../tests/test_outputs.py::test_fibonacci_endpoint_small_numbers
+PASSED ../tests/test_outputs.py::test_fibonacci_large_number
+PASSED ../tests/test_outputs.py::test_negative_number
+PASSED ../tests/test_outputs.py::test_missing_parameter
+PASSED ../tests/test_outputs.py::test_non_integer_parameter
+====================================================================== 6 passed in 0.44s =======================================================================
+root@5e271ed1ab92:/app#
