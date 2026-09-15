@@ -141,7 +141,7 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Qualité & preuves
 
-- 195 tests passent (25 suites), dont un E2E MCP complet via `InMemoryTransport`.
+- 198 tests passent (25 suites), dont un E2E MCP complet via `InMemoryTransport`.
 - Couverture : 82,0 % lignes / 81,1 % statements / 64,8 % branches (base de code élargie : CAS, solveurs, recherche multi-hop).
 - Benchmark reproductible avec et sans Smart-Thinking : `npm run proof`.
 - Vérification honnête : aucun résultat simulé ne peut être présenté comme vérifié ; les modules de vérification ne fabriquent jamais de sources.
@@ -159,3 +159,21 @@ Résultats mesurés (détail complet : [`proofs/RAPPORT-TESTS.md`](proofs/RAPPOR
 
 GSM8K : 96 % → 92 % (une seule tâche perdue, erreur de compréhension d'énoncé). BBH logique et
 tâches dures : 100 % dans les deux conditions (plafond).
+
+### Benchmarks officiels DeepSeek — run GCP complet (v13)
+
+Protocole A/B : même modèle, même jour, même machine, grading déterministe, VM GCP éphémère
+détruite après le run (`e2-standard-4`, Docker). « Avec MCP » = mode `ultimate` (défaut).
+
+| Benchmark | Tâches | Sans MCP | Avec MCP | Delta |
+| --- | ---: | ---: | ---: | ---: |
+| AIME 2025 | 30 | 73,3 % | 73,3 % | +0,0 pt |
+| MMLU-Pro | 20 | 75,0 % | **85,0 %** | **+10,0 pts** |
+| HMMT 2025 | 30 | 33,3 % | **43,3 %** | **+10,0 pts** |
+| SimpleQA (Tavily, factualité) | 30 | 50,0 % | **83,3 %** | **+33,3 pts** |
+| LiveCodeBench v6 (exécution Docker) | 20 | 90,0 % | **100,0 %** | **+10,0 pts** |
+| **Total** | **130** | **61,5 %** | **74,6 %** | **+13,1 pts** |
+
+23 tâches gagnées, 6 perdues ; aucune régression sur MMLU-Pro, SimpleQA et LiveCodeBench.
+Détail, historique des runs et validations d'infrastructure SWE-bench / Terminal-bench :
+[`benchmarks/DEEPSEEK-OFFICIAL-BENCHMARKS.md`](benchmarks/DEEPSEEK-OFFICIAL-BENCHMARKS.md).

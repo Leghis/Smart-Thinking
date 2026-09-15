@@ -42,6 +42,14 @@
     "tavily",
     "web-search"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Leghis/Smart-Thinking.git"
+  },
+  "homepage": "https://github.com/Leghis/Smart-Thinking#readme",
+  "bugs": {
+    "url": "https://github.com/Leghis/Smart-Thinking/issues"
+  },
   "author": "Smart-Thinking Team",
   "license": "MIT",
   "dependencies": {
