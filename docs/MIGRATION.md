@@ -1,6 +1,6 @@
 # Migration du dépôt public
 
-Cette PR est une migration majeure, pas une extension parallèle de la V13.
+La V14 est une migration majeure, pas une extension parallèle de la V13.
 
 | Ancien élément | Nouvelle destination / décision |
 |---|---|
@@ -16,12 +16,14 @@ Cette PR est une migration majeure, pas une extension parallèle de la V13.
 
 ## Ordre de livraison
 
-1. Revoir les deux PR. Le merge du client seul ne rend pas le backend disponible.
-2. Valider le serveur privé en staging avec un projet GCP dédié et des clés neuves.
-3. Exécuter le test inter-dépôts, le doctor et les tests du véritable client hôte.
-4. Fournir endpoint et jetons applicatifs aux utilisateurs de test.
-5. Publier une préversion explicitement, jamais automatiquement depuis cette PR.
-6. Passer au tag stable seulement après les recettes et mesures comparatives.
+1. Déployer le backend de production et ses secrets côté serveur.
+2. Exécuter les tests du noyau, du worker et du véritable client distant.
+3. Valider authentification, isolation des utilisateurs et parcours fournisseurs en production.
+4. Exécuter et publier les mesures comparatives avec leurs limites.
+5. Publier le client stable, puis fournir un jeton individuel et l’endpoint aux utilisateurs.
+
+La livraison du 16 septembre 2026 se fait directement en production, conformément
+à la demande de l’opérateur. Voir [le bilan de version](RELEASE_V14.md).
 
 ## Utilisateurs V13 existants
 

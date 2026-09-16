@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "14.0.0-dev.4",
+  "version": "14.0.0",
   "description": "Authenticated remote MCP client for Smart-Thinking. The reasoning engine runs on the private server.",
   "type": "module",
   "main": "clients/remote-mcp/connection.mjs",
@@ -14,7 +14,6 @@
   "engines": {
     "node": ">=22.16.0"
   },
-  "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -34,6 +33,11 @@
     "doctor": "node clients/remote-mcp/doctor.mjs --allow-network",
     "test:boundary": "node scripts/v14-check-public.mjs",
     "test:pack": "node scripts/v14-test-package.mjs",
-    "check": "npm run build && npm test && npm run test:boundary && npm run test:pack"
+    "check": "npm run build && npm test && npm run test:boundary && npm run test:pack",
+    "prepublishOnly": "npm run check"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
   }
 }

@@ -1,17 +1,24 @@
 # Smart-Thinking V14 — client MCP distant
 
-**Version de développement `14.0.0-dev.4`.** Ce dépôt devient le **client public**
+**Version `14.0.0`.** Ce dépôt contient le **client public**
 de Smart-Thinking. Le serveur V14, les décisions Jev, les preuves, les politiques
 et l'infrastructure GCP sont maintenus séparément dans le dépôt privé autorisé.
 
 > Migration majeure : le point d'entrée `smart-thinking-mcp` ne démarre plus le
 > serveur V13 local. Un endpoint V14 déployé et un jeton applicatif sont requis.
-> Aucun endpoint de production n'est préconfiguré. Le merge ne déploie rien.
+> Endpoint de production : `https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp`.
+> Un jeton individuel délivré par l’opérateur reste obligatoire ; aucun secret fournisseur ne va dans le client.
 
 ## Démarrer
 
 Node.js **22.16.0 ou plus récent**. Aucun module fournisseur ni Python n'est
-nécessaire chez l'utilisateur. Après extraction ou clone de cette branche :
+nécessaire chez l'utilisateur. Pour installer le client publié :
+
+```bash
+npm install -g smart-thinking-mcp@14.0.0
+```
+
+Pour développer depuis les sources :
 
 ```bash
 npm ci
@@ -23,7 +30,7 @@ Configurer une URL fournie par l'opérateur et un **fichier** contenant votre je
 MCP, hors du dépôt. Ce jeton n'est jamais la clé TypeSafe/Jev.
 
 ```bash
-export SMART_THINKING_MCP_URL="https://VOTRE-SERVICE.run.app/mcp"
+export SMART_THINKING_MCP_URL="https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp"
 export SMART_THINKING_MCP_TOKEN_FILE="$HOME/.config/smart-thinking/token"
 # Créer le fichier avec l'outil sécurisé de l'opérateur, puis :
 chmod 600 "$SMART_THINKING_MCP_TOKEN_FILE"
@@ -48,7 +55,7 @@ Le doctor vérifie protocole, catalogue et profil API, **pas** une inférence Je
       "command": "node",
       "args": ["/CHEMIN/Smart-Thinking/bin/smart-thinking.mjs"],
       "env": {
-        "SMART_THINKING_MCP_URL": "https://VOTRE-SERVICE.run.app/mcp",
+        "SMART_THINKING_MCP_URL": "https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp",
         "SMART_THINKING_MCP_TOKEN_FILE": "/CHEMIN/PRIVE/token"
       }
     }
@@ -72,8 +79,7 @@ flowchart LR
 
 Jev aide à interpréter, prioriser et évaluer des passages. Il ne génère pas à lui
 seul les preuves formelles. Les autorisations et budgets ne sont pas confiés au
-modèle. Les gains de qualité ou de coût doivent encore être mesurés avec de vrais
-appels fournisseur ; cette version ne revendique aucun multiplicateur.
+modèle. Les mesures réelles et leurs limites sont publiées dans [le bilan de version](docs/RELEASE_V14.md). Aucun multiplicateur de qualité n’est garanti.
 
 ## Accès Cloud Run privé
 
@@ -109,11 +115,9 @@ garantit pas l'arrêt d'un appel déjà reçu par une autre instance serveur.
 [Sécurité](docs/SECURITY.md) · [Contrat machine](contracts/v14.json) ·
 [Tests et validation](docs/TESTS.md).
 
-Le paquet est `private: true` pour empêcher une publication npm accidentelle.
-Une publication sous un tag de préversion est une décision séparée de l'opérateur,
-après validation du backend. Ne pas remplacer `latest` par cette version avant
-les recettes de staging. Aucune clé, donnée de session ou archive privée ne doit
-être ajoutée à ce dépôt public.
+Le client est publié sur npm sous `smart-thinking-mcp@14.0.0`. La publication
+exécute les tests et le contrôle de séparation public/privé. Le serveur reste privé.
+Aucune clé, donnée de session ou archive privée ne doit être ajoutée à ce dépôt public.
 
 La V13 reste disponible dans l'historique au commit
 `a2dd4e6d926e50f8244b061f6ec97c90e5db62bb`. La supprimer de l'arbre courant ne retire
