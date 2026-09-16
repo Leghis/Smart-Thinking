@@ -19,6 +19,10 @@ Il ne remplace pas les notes de version npm ; il les documente.
   erreurs et les nouveaux outils).
 - Motivations mesurées (voir le rapport de campagne officielle) : coût de la cérémonie du dossier
   sur les tâches difficiles et erreurs d'outils opaques pour le modèle hôte.
+- **Mesures (campagne re-jouée avec la 14.1.0)** : HMMT 36,7 % (devant la V13, 33,3 %), SimpleQA
+  73,3 %, MMLU-Pro 90,0 % ; **3,2× plus rapide** que la V13 et **−52 % de tokens** ; vérification
+  ponctuelle en 1 appel (`calculate` utilisé 399 fois). Détails publics :
+  [benchmarks/OFFICIAL-BENCHMARKS-V14.md](benchmarks/OFFICIAL-BENCHMARKS-V14.md).
 
 ## 1. Ce qui change
 
