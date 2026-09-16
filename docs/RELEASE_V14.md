@@ -1,7 +1,24 @@
-# Bilan de version — client 14.0.0 (16 septembre 2026)
+# Bilan de version — client 14.1.0 (16 septembre 2026)
 
 Ce document résume ce qui est publié, ce qui a été vérifié et ce qui a été mesuré.
 Il ne remplace pas les notes de version npm ; il les documente.
+
+## 0. Nouveautés 14.1.0
+
+- **Côté serveur (14.1.0)** : trois outils exacts **sans dossier** — `calculate` (arithmétique
+  rationnelle exacte), `solve_math` (systèmes linéaires exacts), `solve_logic` (contraintes
+  d'ordre) — pour vérifier en **un appel** ce qui demandait auparavant `run_create` + `claim` +
+  `verify` ; `requestKey` devient **optionnel** sur les mutations (clé dérivée stable : un appel
+  identique rejoué est idempotent) ; les erreurs d'outils renvoient un **code + message + conseil**
+  stables ; les instructions du serveur guident le choix d'outil pour le modèle hôte.
+- **Côté client (14.1.0)** : les erreurs actionnables du serveur sont désormais **affichées**
+  (uniquement sous forme validée : code de la liste blanche, message et conseil bornés — toute
+  autre charge reste supprimée) ; `--version` passe à 14.1.0.
+- **Compatibilité** : profil wire `smart-thinking-mcp/14.0` inchangé ; un client 14.0.0 continue
+  de fonctionner avec le serveur 14.1.0 (le nouveau client ajoute seulement l'affichage des
+  erreurs et les nouveaux outils).
+- Motivations mesurées (voir le rapport de campagne officielle) : coût de la cérémonie du dossier
+  sur les tâches difficiles et erreurs d'outils opaques pour le modèle hôte.
 
 ## 1. Ce qui change
 
@@ -65,7 +82,7 @@ les deux MCP apportent ~+11 à +13 points, avec un coût nettement réduit pour 
 ## 4. Démarrer
 
 ```bash
-npm install -g smart-thinking-mcp@14.0.0
+npm install -g smart-thinking-mcp@14.1.0
 export SMART_THINKING_MCP_URL="https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp"
 export SMART_THINKING_MCP_TOKEN_FILE="/CHEMIN/PRIVE/token"   # jeton individuel fourni par l'opérateur
 smart-thinking-mcp --version

@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "14.0.0",
+  "version": "14.1.0",
   "description": "Authenticated remote MCP client for Smart-Thinking. The reasoning engine runs on the private server.",
   "type": "module",
   "main": "clients/remote-mcp/connection.mjs",
