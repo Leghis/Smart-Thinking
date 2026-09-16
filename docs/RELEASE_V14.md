@@ -54,6 +54,14 @@ tâches non indépendantes entre bras ; famille « sources » saturée ; qualit�
 réponse trop strict utilisé lors d'un premier passage sous-évaluait tous les bras ; il a été
 corrigé **avant** la campagne officielle, et les deux passages sont conservés comme preuve.
 
+## 3 bis. Benchmarks officiels (5 suites publiques, 130 tâches)
+
+Une seconde campagne, sur des **jeux publics** (AIME 2025, MMLU-Pro, HMMT, SimpleQA, LiveCodeBench),
+a comparé sans MCP / MCP V13 / client V14 dans la même session : **58,5 % / 71,5 % / 69,2 %** —
+les deux MCP apportent ~+11 à +13 points, avec un coût nettement réduit pour la V14
+(19,2 s et 6,4 M tokens contre 50,7 s et 10,5 M pour la V13). Détails, transitions et limites :
+[bilan des benchmarks officiels](benchmarks/OFFICIAL-BENCHMARKS-V14.md).
+
 ## 4. Démarrer
 
 ```bash
