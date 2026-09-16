@@ -1,6 +1,6 @@
 # Smart-Thinking V14 — client MCP distant
 
-**Version `14.0.0`.** Ce dépôt contient le **client public**
+**Version `14.1.0`.** Ce dépôt contient le **client public**
 de Smart-Thinking. Le serveur V14, les décisions Jev, les preuves, les politiques
 et l'infrastructure GCP sont maintenus séparément dans le dépôt privé autorisé.
 
@@ -15,7 +15,7 @@ Node.js **22.16.0 ou plus récent**. Aucun module fournisseur ni Python n'est
 nécessaire chez l'utilisateur. Pour installer le client publié :
 
 ```bash
-npm install -g smart-thinking-mcp@14.0.0
+npm install -g smart-thinking-mcp@14.1.0
 ```
 
 Pour développer depuis les sources :
@@ -115,7 +115,7 @@ garantit pas l'arrêt d'un appel déjà reçu par une autre instance serveur.
 [Sécurité](docs/SECURITY.md) · [Contrat machine](contracts/v14.json) ·
 [Tests et validation](docs/TESTS.md).
 
-Le client est publié sur npm sous `smart-thinking-mcp@14.0.0`. La publication
+Le client est publié sur npm sous `smart-thinking-mcp@14.1.0`. La publication
 exécute les tests et le contrôle de séparation public/privé. Le serveur reste privé.
 Aucune clé, donnée de session ou archive privée ne doit être ajoutée à ce dépôt public.
 

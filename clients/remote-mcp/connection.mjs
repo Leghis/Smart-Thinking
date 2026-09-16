@@ -4,6 +4,18 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse } from './protocol.mjs';
 const exec = promisify(execFile);
+const ERROR_CODES = new Set(['VALIDATION', 'NOT_FOUND', 'FORBIDDEN', 'CONFLICT', 'BUDGET_EXHAUSTED', 'UNAVAILABLE', 'CANCELLED', 'LIMIT_EXCEEDED', 'PROVIDER_ERROR', 'INTEGRITY_ERROR', 'STATE_ERROR', 'INTERNAL_ERROR']);
+/** Actionable summary from an allowed shape only: allowlisted code, bounded strings. Anything else stays suppressed. */
+function toolErrorSummary(result) {
+  try {
+    const text = result.content?.find(item => item.type === 'text')?.text;
+    if (typeof text !== 'string' || text.length > 1200) return undefined;
+    const error = JSON.parse(text)?.error;
+    if (!error || typeof error !== 'object' || typeof error.code !== 'string' || !ERROR_CODES.has(error.code) || typeof error.message !== 'string' || error.message.length < 1 || error.message.length > 400) return undefined;
+    const hint = typeof error.hint === 'string' && error.hint.length > 0 && error.hint.length <= 300 ? ' Hint: ' + error.hint : '';
+    return 'MCP tool error ' + error.code + ': ' + error.message + hint;
+  } catch { return undefined; }
+}
 function tokenFromFile(file, iam = false) {
   try {
     const stat = statSync(file);
@@ -101,7 +113,7 @@ export class RemoteConnection {
   async call(name, args = {}, signal) {
     const answer = await this.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/call', params: { name, arguments: args } }, signal);
     if (answer.error) throw new Error('Remote JSON-RPC error ' + answer.error.code + '; details suppressed.');
-    if (answer.result.isError) throw new Error('Remote tool rejected the operation; inspect its receipt before retrying.');
+    if (answer.result.isError) throw new Error(toolErrorSummary(answer.result) ?? 'Remote tool rejected the operation; inspect its receipt before retrying.');
     const result = answer.result;
     if (own(result, 'structuredContent')) return result.structuredContent;
     const text = result.content?.find(item => item.type === 'text')?.text;
