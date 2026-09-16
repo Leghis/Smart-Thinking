@@ -28,7 +28,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-          cache: npm
       - name: Unit and boundary tests
         run: node --test clients/remote-mcp/tests/*.test.mjs scripts/tests/v14-boundary.test.mjs
       - name: Validate public/private boundary
