@@ -1,22 +1,0 @@
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Generating test split:   0%|          | 0/500 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 500/500 [00:00<00:00, 1254.11 examples/s]Generating test split: 100%|██████████| 500/500 [00:00<00:00, 1247.32 examples/s]
-verified ids: astropy__astropy-12907 django__django-11477 django__django-13128 django__django-14349 django__django-15572 django__django-17087 pydata__xarray-3151 scikit-learn__scikit-learn-10844 sphinx-doc__sphinx-8120 sympy__sympy-15599
-SWE-Verified exit=0
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Using gold predictions - ignoring predictions_path
-Running 10 instances...
-  0%|          | 0/10 [00:00<?, ?it/s] 10%|█         | 1/10 [04:19<38:51, 259.06s/it]1 ran successfully, 0 failed:  10%|█         | 1/10 [04:19<38:51, 259.06s/it]1 ran successfully, 0 failed:  20%|██        | 2/10 [06:10<24:42, 185.27s/it]2 ran successfully, 0 failed:  20%|██        | 2/10 [06:10<24:42, 185.27s/it]2 ran successfully, 0 failed:  30%|███       | 3/10 [06:59<16:18, 139.84s/it]3 ran successfully, 0 failed:  30%|███       | 3/10 [06:59<16:18, 139.84s/it]3 ran successfully, 0 failed:  40%|████      | 4/10 [07:46<11:40, 116.69s/it]4 ran successfully, 0 failed:  40%|████      | 4/10 [07:46<11:40, 116.69s/it]4 ran successfully, 0 failed:  50%|█████     | 5/10 [08:27<08:27, 101.58s/it]5 ran successfully, 0 failed:  50%|█████     | 5/10 [08:27<08:27, 101.58s/it]5 ran successfully, 0 failed:  60%|██████    | 6/10 [09:18<06:12, 93.05s/it] 6 ran successfully, 0 failed:  60%|██████    | 6/10 [09:18<06:12, 93.05s/it]6 ran successfully, 0 failed:  70%|███████   | 7/10 [11:34<04:57, 99.20s/it]7 ran successfully, 0 failed:  70%|███████   | 7/10 [11:34<04:57, 99.20s/it]7 ran successfully, 0 failed:  80%|████████  | 8/10 [12:20<03:05, 92.58s/it]8 ran successfully, 0 failed:  80%|████████  | 8/10 [12:20<03:05, 92.58s/it]8 ran successfully, 0 failed:  90%|█████████ | 9/10 [12:59<01:26, 86.61s/it]9 ran successfully, 0 failed:  90%|█████████ | 9/10 [12:59<01:26, 86.61s/it]9 ran successfully, 0 failed: 100%|██████████| 10/10 [13:39<00:00, 81.90s/it]10 ran successfully, 0 failed: 100%|██████████| 10/10 [13:39<00:00, 81.90s/it]10 ran successfully, 0 failed: 100%|██████████| 10/10 [13:39<00:00, 81.90s/it]
-All instances run.
-Total instances: 10
-Instances submitted: 10
-Instances completed: 10
-Instances incomplete: 0
-Instances resolved: 10
-Instances unresolved: 0
-Instances with likely infrastructure failures: 0
-Instances with ambiguous failures: 0
-Instances with empty patches: 0
-Instances with errors: 0
-Unstopped containers: 0
-Unremoved images: 10
-Report written to /home/leghis/bench-results/gold.oracle-verified.json

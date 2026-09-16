@@ -1,0 +1,35 @@
+{
+  "profile": "smart-thinking-mcp/14.0",
+  "clientVersion": "14.0.0",
+  "protocolVersions": [
+    "2025-03-26",
+    "2025-06-18",
+    "2025-11-25"
+  ],
+  "transport": "stateless-streamable-http-json",
+  "endpoint": "/mcp",
+  "authentication": "application-bearer; additional Cloud Run IAM when configured",
+  "requestMaxBytes": 256000,
+  "responseMaxBytes": 1600000,
+  "requiredTools": [
+    "capabilities",
+    "run_create",
+    "run_get",
+    "claim",
+    "requirement_add",
+    "verify",
+    "audit",
+    "run_finalize",
+    "operation_get",
+    "run_cancel",
+    "analyze",
+    "reason",
+    "next_step"
+  ],
+  "notSupported": [
+    "SSE resumable streams",
+    "automatic mutation retries",
+    "browser OAuth login",
+    "local V13 server"
+  ]
+}

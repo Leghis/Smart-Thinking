@@ -1,80 +1,43 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "13.1.1",
-  "description": "MCP reasoning server: graph-based multi-step reasoning, honest verification, persistent sessions and per-user web search (Tavily or native delegation).",
-  "main": "build/index.js",
-  "module": "./src/index.ts",
+  "version": "14.0.0",
+  "description": "Authenticated remote MCP client for Smart-Thinking. The reasoning engine runs on the private server.",
+  "type": "module",
+  "main": "clients/remote-mcp/connection.mjs",
+  "exports": {
+    ".": "./clients/remote-mcp/connection.mjs",
+    "./protocol": "./clients/remote-mcp/protocol.mjs"
+  },
   "bin": {
-    "smart-thinking-mcp": "build/cli.js"
+    "smart-thinking-mcp": "bin/smart-thinking.mjs"
   },
-  "files": [
-    "build",
-    "scripts"
-  ],
-  "scripts": {
-    "build": "tsc && node scripts/make-executable.js",
-    "prestart": "npm run build",
-    "dev": "ts-node src/cli.ts",
-    "watch": "tsc --watch",
-    "start": "node build/cli.js",
-    "start:http": "node build/cli.js --transport=http",
-    "start:sse": "node build/cli.js --transport=sse",
-    "lint": "eslint --max-warnings=0 --ext .ts src",
-    "test": "jest --runInBand",
-    "test:coverage": "jest --coverage --runInBand",
-    "bench": "npm run build --silent && node build/bench/run.js",
-    "bench:sim": "npm run build --silent && node build/bench/run.js --provider=simulate",
-    "bench:ab": "npm run build --silent && node build/bench/run.js --provider=openai --conditions=baseline,tool",
-    "proof": "node scripts/run-proofs.js",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run build && npm test",
-    "postinstall": "node scripts/make-executable.js",
-    "challenge": "npm run build --silent && node build/challenge/runner.js"
+  "engines": {
+    "node": ">=22.16.0"
   },
-  "keywords": [
-    "mcp",
-    "claude",
-    "ai",
-    "reasoning",
-    "thinking",
-    "sequential-thinking",
-    "smart-thinking",
-    "tavily",
-    "web-search"
-  ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Leghis/Smart-Thinking.git"
   },
-  "homepage": "https://github.com/Leghis/Smart-Thinking#readme",
-  "bugs": {
-    "url": "https://github.com/Leghis/Smart-Thinking/issues"
+  "files": [
+    "bin",
+    "clients/remote-mcp/*.mjs",
+    "contracts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/smart-thinking.mjs",
+    "build": "node scripts/check-syntax.mjs",
+    "test": "node --test clients/remote-mcp/tests/*.test.mjs scripts/tests/*.test.mjs",
+    "doctor": "node clients/remote-mcp/doctor.mjs --allow-network",
+    "test:boundary": "node scripts/v14-check-public.mjs",
+    "test:pack": "node scripts/v14-test-package.mjs",
+    "check": "npm run build && npm test && npm run test:boundary && npm run test:pack",
+    "prepublishOnly": "npm run check"
   },
-  "author": "Smart-Thinking Team",
-  "license": "MIT",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "express": "^5.2.1",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/jest": "^29.5.3",
-    "@types/node": "^20.4.8",
-    "@typescript-eslint/eslint-plugin": "^8.44.1",
-    "@typescript-eslint/parser": "^8.44.1",
-    "eslint": "^9.36.0",
-    "jest": "^29.6.2",
-    "ts-jest": "^29.1.1",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.1.6"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "os": [
-    "darwin",
-    "linux",
-    "win32"
-  ]
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  }
 }

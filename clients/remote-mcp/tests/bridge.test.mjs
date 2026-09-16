@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { startBridge } from '../bridge.mjs';
+import { VERSION } from '../protocol.mjs';
+const delay = () => new Promise(resolve => setImmediate(resolve));
+const req = (method, id = 1) => ({ jsonrpc: '2.0', id, method, params: {} });
+const ready = { jsonrpc: '2.0', method: 'notifications/initialized' };
+function setup(t, handler) {
+  const input = new PassThrough(), output = new PassThrough(), diagnostics = new PassThrough(), responses = [], calls = [];
+  let text = '', errors = '';
+  output.on('data', b => { text += b; let i; while ((i = text.indexOf('\n')) >= 0) { responses.push(JSON.parse(text.slice(0, i))); text = text.slice(i + 1); } });
+  diagnostics.on('data', b => { errors += b; });
+  const connection = { send: async (m, signal) => { calls.push(m); if (handler) return handler(m, signal); if (!Object.hasOwn(m, 'id')) return; return { jsonrpc: '2.0', id: m.id, result: m.method === 'initialize' ? { protocolVersion: '2025-11-25' } : {} }; } };
+  const bridge = startBridge({ connection, input, output, diagnostics });
+  t.after(() => { bridge.stop(); input.destroy(); output.destroy(); diagnostics.destroy(); });
+  const send = m => input.write(JSON.stringify(m) + '\n');
+  return { input, output, responses, calls, bridge, send, errors: () => errors };
+}
+test('bridge remaps IDs and enforces initialization ordering', async t => { const e = setup(t); e.send(req('initialize')); e.send(ready); e.send(req('tools/list', 'user-id')); e.input.end(); await e.bridge.done; assert.deepEqual(e.calls.map(c => c.method), ['initialize', 'notifications/initialized', 'tools/list']); assert.deepEqual(e.responses.map(r => r.id), [1, 'user-id']); assert.notEqual(e.calls[0].id, 1); });
+test('tool before initialized notification is rejected locally', async t => { const e = setup(t); e.send(req('initialize')); await delay(); e.send(req('tools/list', 2)); e.input.end(); await e.bridge.done; assert.equal(e.calls.length, 1); assert.equal(e.responses.at(-1).error.code, -32000); });
+test('tools wait for initialized acknowledgement', async t => { let release; const gate = new Promise(r => { release = r; }); const e = setup(t, async m => { if (m.method === 'notifications/initialized') { await gate; return; } return { jsonrpc: '2.0', id: m.id, result: {} }; }); e.send(req('initialize')); e.send(ready); e.send(req('tools/list', 3)); await delay(); assert.equal(e.calls.some(m => m.method === 'tools/list'), false); release(); e.input.end(); await e.bridge.done; assert.equal(e.calls.at(-1).method, 'tools/list'); });
+test('failed initialized acknowledgement blocks tool call', async t => { const e = setup(t, async m => { if (m.method === 'notifications/initialized') throw new Error('secret'); return { jsonrpc: '2.0', id: m.id, result: {} }; }); e.send(req('initialize')); e.send(ready); e.send(req('tools/list', 3)); e.input.end(); await e.bridge.done; assert.equal(e.calls.length, 2); assert.ok(e.responses.some(r => r.id === 3 && r.error)); assert.equal(e.errors().includes('secret'), false); });
+test('malformed input gets JSON-RPC parse error, not raw echo', async t => { const e = setup(t); e.input.end('not-json-secret\n'); await e.bridge.done; assert.equal(e.responses[0].error.code, -32700); assert.equal(JSON.stringify(e.responses).includes('not-json-secret'), false); });
+test('request before initialize has no remote side effect', async t => { const e = setup(t); e.send(req('tools/call')); e.input.end(); await e.bridge.done; assert.equal(e.calls.length, 0); assert.ok(e.responses[0].error); });
+test('duplicate initialize is rejected', async t => { const e = setup(t); e.send(req('initialize')); e.send(req('initialize', 2)); e.input.end(); await e.bridge.done; assert.equal(e.calls.length, 1); assert.ok(e.responses.find(r => r.id === 2).error); });
+test('oversized unterminated line closes without forwarding', async t => { const e = setup(t); e.input.write('x'.repeat(256001)); await e.bridge.done; assert.equal(e.calls.length, 0); assert.match(e.errors(), /exceeds/); });
+test('EOF accepts complete final JSON without newline', async t => { const e = setup(t); e.input.end(JSON.stringify(req('initialize', 'last'))); await e.bridge.done; assert.equal(e.responses[0].id, 'last'); });
+test('unknown cancellation cannot forge a remote request ID', async t => { const e = setup(t); e.send(req('initialize')); e.send(ready); await delay(); e.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 'forged' } }); e.input.end(); await e.bridge.done; assert.equal(e.calls.length, 2); });
+test('cancellation maps host ID and aborts local request', async t => { const e = setup(t, async (m, signal) => { if (m.method === 'tools/call') await new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })); if (Object.hasOwn(m, 'id')) return { jsonrpc: '2.0', id: m.id, result: {} }; }); e.send(req('initialize')); e.send(ready); await delay(); e.send(req('tools/call', 'host-call')); await delay(); e.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 'host-call' } }); e.input.end(); await e.bridge.done; const call = e.calls.find(m => m.method === 'tools/call'); const cancel = e.calls.find(m => m.method === 'notifications/cancelled'); assert.equal(cancel.params.requestId, call.id); assert.notEqual(call.id, 'host-call'); assert.ok(e.responses.find(r => r.id === 'host-call').error); });
+test('root CLI exposes version/help and no implicit V13 fallback', () => { const bin = fileURLToPath(new URL('../../../bin/smart-thinking.mjs', import.meta.url)); const env = { PATH: process.env.PATH }; const version = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8', env }); assert.equal(version.status, 0); assert.equal(version.stdout.trim(), VERSION); const help = spawnSync(process.execPath, [bin, '--help'], { encoding: 'utf8', env }); assert.match(help.stdout, /remote MCP/); const legacy = spawnSync(process.execPath, [bin, '--transport=http'], { encoding: 'utf8', env }); assert.equal(legacy.status, 1); assert.equal(legacy.stdout, ''); const missing = spawnSync(process.execPath, [bin], { encoding: 'utf8', env, input: '' }); assert.equal(missing.status, 1); });

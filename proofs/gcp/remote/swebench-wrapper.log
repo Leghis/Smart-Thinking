@@ -1,50 +1,0 @@
-WARNING: The directory '/home/leghis/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
-WARNING: The directory '/home/leghis/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
-swebench 5.0.2
-docker: OK
-=== SWE-bench Verified (oracle, 10 instances) ===
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Generating test split:   0%|          | 0/500 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 500/500 [00:00<00:00, 13808.32 examples/s]
-verified ids: astropy__astropy-12907 django__django-11477 django__django-13128 django__django-14349 django__django-15572 django__django-17087 pydata__xarray-3151 scikit-learn__scikit-learn-10844 sphinx-doc__sphinx-8120 sympy__sympy-15599
-SWE-Verified exit=1
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/opt/swe/lib/python3.12/site-packages/swebench/harness/run_evaluation.py", line 863, in <module>
-    main(**vars(args))
-  File "/opt/swe/lib/python3.12/site-packages/swebench/harness/run_evaluation.py", line 783, in main
-    run_instances(
-  File "/opt/swe/lib/python3.12/site-packages/swebench/harness/run_evaluation.py", line 455, in run_instances
-    test_specs = [make_test_spec(instance) for instance in instances]
-                  ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/swe/lib/python3.12/site-packages/swebench/harness/utils.py", line 262, in make_test_spec
-    image=instance["image"],
-          ~~~~~~~~^^^^^^^^^
-KeyError: 'image'
-Using gold predictions - ignoring predictions_path
-=== SWE-bench Multilingual (oracle, 8 instances) ===
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Generating test split:   0%|          | 0/300 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 300/300 [00:00<00:00, 8949.89 examples/s]
-multiling ids: apache__druid-13704 briannesbitt__carbon-3005 fluent__fluentd-3608 google__gson-1093 laravel__framework-51890 phpoffice__phpspreadsheet-3903 projectlombok__lombok-3602 rubocop__rubocop-13680
-SWE-Multilingual exit=0
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Using gold predictions - ignoring predictions_path
-Running 8 instances...
-  0%|          | 0/8 [00:00<?, ?it/s] 12%|█▎        | 1/8 [01:16<08:56, 76.58s/it]1 ran successfully, 0 failed:  12%|█▎        | 1/8 [01:16<08:56, 76.60s/it]1 ran successfully, 0 failed:  25%|██▌       | 2/8 [02:06<06:18, 63.06s/it]2 ran successfully, 0 failed:  25%|██▌       | 2/8 [02:06<06:18, 63.06s/it]2 ran successfully, 0 failed:  38%|███▊      | 3/8 [03:23<05:39, 67.99s/it]3 ran successfully, 0 failed:  38%|███▊      | 3/8 [03:23<05:39, 67.99s/it]3 ran successfully, 0 failed:  50%|█████     | 4/8 [04:41<04:41, 70.49s/it]4 ran successfully, 0 failed:  50%|█████     | 4/8 [04:41<04:41, 70.49s/it]4 ran successfully, 0 failed:  62%|██████▎   | 5/8 [04:48<02:52, 57.64s/it]5 ran successfully, 0 failed:  62%|██████▎   | 5/8 [04:48<02:52, 57.64s/it]5 ran successfully, 0 failed:  75%|███████▌  | 6/8 [05:46<01:55, 57.67s/it]6 ran successfully, 0 failed:  75%|███████▌  | 6/8 [05:46<01:55, 57.67s/it]6 ran successfully, 0 failed:  88%|████████▊ | 7/8 [06:28<00:55, 55.43s/it]7 ran successfully, 0 failed:  88%|████████▊ | 7/8 [06:28<00:55, 55.43s/it]7 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]8 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]8 ran successfully, 0 failed: 100%|██████████| 8/8 [06:54<00:00, 51.78s/it]
-[WARNING] Maven log parser: 1 test(s) had no BUILD result: ['org.apache.druid.query.aggregation.post.ArithmeticPostAggregatorTest#testPow']
-[WARNING] Maven log parser: 1 test(s) had no BUILD result: ['org.apache.druid.query.aggregation.post.ArithmeticPostAggregatorTest#testPow']
-All instances run.
-Total instances: 8
-Instances submitted: 8
-Instances completed: 8
-Instances incomplete: 0
-Instances resolved: 7
-Instances unresolved: 1
-Instances with likely infrastructure failures: 0
-Instances with ambiguous failures: 0
-Instances with empty patches: 0
-Instances with errors: 0
-Unstopped containers: 0
-Unremoved images: 8
-Report written to /home/leghis/bench-results/gold.oracle-multiling.json
