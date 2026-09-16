@@ -1,0 +1,16 @@
+{
+  "name": "smart-thinking-remote-client",
+  "version": "14.0.0-dev.3",
+  "private": true,
+  "description": "Public thin MCP client; the Jev engine and provider credentials stay private on the server.",
+  "type": "module",
+  "engines": { "node": ">=22.16.0" },
+  "license": "MIT",
+  "bin": { "smart-thinking-remote": "bridge.mjs" },
+  "exports": { ".": "./connection.mjs", "./bridge": "./bridge.mjs" },
+  "files": ["bridge.mjs", "connection.mjs", "protocol.mjs", "doctor.mjs", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test tests/connection.test.mjs tests/bridge.test.mjs",
+    "doctor": "node doctor.mjs --allow-network"
+  }
+}
