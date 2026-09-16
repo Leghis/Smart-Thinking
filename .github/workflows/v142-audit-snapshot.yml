@@ -1,0 +1,22 @@
+name: V142 public audit snapshot
+on:
+  push:
+    branches: ['v14.2/performance-recovery']
+    paths: ['.github/workflows/v142-audit-snapshot.yml']
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: git archive --format=tar HEAD > "$RUNNER_TEMP/v142-public-source.tar"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v142-public-source
+          path: ${{ runner.temp }}/v142-public-source.tar
+          retention-days: 1
+          if-no-files-found: error
