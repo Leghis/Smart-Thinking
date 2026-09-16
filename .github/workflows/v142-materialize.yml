@@ -1,0 +1,73 @@
+name: Materialize reviewed V14.2 source changes
+on:
+  push:
+    branches: ['v14.2/performance-recovery']
+    paths: ['.github/workflows/v142-materialize.yml']
+permissions:
+  contents: write
+jobs:
+  materialize:
+    if: github.ref == 'refs/heads/v14.2/performance-recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install pinned formatting parser without lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/v142-printer" --ignore-scripts --no-audit --no-fund typescript@5.8.3
+      - name: Apply only hash-verified reviewed source edits
+        env:
+          ST142_TYPESCRIPT_ROOT: ${{ runner.temp }}/v142-printer/node_modules/typescript
+        run: |
+          python3 - <<'PY'
+          import json, hashlib, os, subprocess
+          from pathlib import Path
+          root=Path.cwd()
+          assert os.environ['GITHUB_REPOSITORY']=='Leghis/Smart-Thinking'
+          assert os.environ['GITHUB_REF']=='refs/heads/v14.2/performance-recovery'
+          data=json.loads(Path('.github/v142-reviewed.json').read_text())
+          assert data['repository']==os.environ['GITHUB_REPOSITORY']
+          assert 0<len(data['entries'])<=128
+          sha=lambda b:hashlib.sha256(b).hexdigest()
+          prepared=[]
+          seen=set()
+          printer="const ts=require(process.env.ST142_TYPESCRIPT_ROOT);const fs=require('fs');const f=process.argv[1];const s=ts.createSourceFile(f,fs.readFileSync(0,'utf8'),ts.ScriptTarget.Latest,true,f.endsWith('.ts')?ts.ScriptKind.TS:ts.ScriptKind.JS);if(s.parseDiagnostics.length)process.exit(2);process.stdout.write(ts.createPrinter({newLine:ts.NewLineKind.LineFeed}).printFile(s));"
+          for e in data['entries']:
+            rel=e['path'];p=Path(rel)
+            assert not p.is_absolute() and '..' not in p.parts and '.git' not in p.parts and '\\' not in rel and rel not in seen
+            seen.add(rel);f=root/p
+            assert not f.is_symlink() and root in f.resolve().parents
+            old=f.read_bytes() if f.exists() else None
+            assert (sha(old) if old is not None else None)==e['before'], 'Base mismatch: '+rel
+            if 'edits' in e:
+              assert old is not None
+              if e.get('normalize'):
+                old=subprocess.check_output(['node','-e',printer,rel],input=old)
+                assert sha(old)==e['normalizedSha'], 'Printer mismatch: '+rel
+              lines=old.decode().splitlines(keepends=True);last=len(lines)
+              for a,b,text in reversed(e['edits']):
+                assert 0<=a<=b<=last
+                lines[a:b]=[text];last=a
+              content=''.join(lines)
+            else: content=e['content']
+            value=content.encode() if content is not None else None
+            if value is not None: assert sha(value)==e['after'], 'Transfer mismatch: '+rel
+            assert e['mode'] in (420,493)
+            prepared.append((f,value,e['mode']))
+          for f,value,mode in prepared:
+            if value is None:f.unlink(missing_ok=True)
+            else:f.parent.mkdir(parents=True,exist_ok=True);f.write_bytes(value);f.chmod(mode)
+            subprocess.run(['git','add','-f','-A','--',str(f.relative_to(root))],check=True)
+          for rel in ['.github/v142-reviewed.json','.github/workflows/v142-materialize.yml']:
+            Path(rel).unlink();subprocess.run(['git','add','-A','--',rel],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          subprocess.run(['git','config','user.name','Smart-Thinking source transfer'],check=True)
+          subprocess.run(['git','config','user.email','actions@users.noreply.github.com'],check=True)
+          subprocess.run(['git','commit','-m','feat(v14.2): publish verified tool profiles, client contracts and release guidance'],check=True)
+          subprocess.run(['git','push','origin','HEAD:refs/heads/v14.2/performance-recovery'],check=True)
+          print('Verified and materialized',len(prepared),'source changes. No tests with live APIs, deployment, merge or package publication.')
+          PY
