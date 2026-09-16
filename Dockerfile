@@ -1,20 +1,10 @@
-FROM node:lts-alpine
-
-# Create and set working directory
+# Operator must supply a reviewed immutable image, for example node@sha256:... .
+ARG NODE_BASE
+FROM ${NODE_BASE}
 WORKDIR /app
-
-# Copy dependency files first for better caching
-COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install dependencies (npm install because the lockfile is not committed)
-RUN npm install
-
-# Copy the rest of the source
-COPY . .
-
-# Build the project
-RUN npm run build && npm prune --omit=dev
-
-# Default command to run the MCP server over stdio
-CMD ["node", "build/cli.js"]
+COPY --chown=65532:65532 package.json LICENSE ./
+COPY --chown=65532:65532 bin ./bin
+COPY --chown=65532:65532 clients/remote-mcp/*.mjs ./clients/remote-mcp/
+USER 65532:65532
+# stdio CLIENT, not the private Cloud Run server. Mount client credentials read-only.
+ENTRYPOINT ["node", "bin/smart-thinking.mjs"]

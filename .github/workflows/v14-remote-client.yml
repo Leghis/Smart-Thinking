@@ -1,36 +1,27 @@
 name: V14 remote client
-
 on:
   pull_request:
-    paths:
-      - 'clients/remote-mcp/**'
-      - 'scripts/v14-*.mjs'
-      - 'scripts/tests/v14-*.test.mjs'
-      - '.github/workflows/v14-remote-client.yml'
   push:
-    branches:
-      - 'v14/**'
-    paths:
-      - 'clients/remote-mcp/**'
-      - 'scripts/v14-*.mjs'
-      - 'scripts/tests/v14-*.test.mjs'
-      - '.github/workflows/v14-remote-client.yml'
-
+    branches: ['main', 'v14/**']
 permissions:
   contents: read
-
+concurrency:
+  group: public-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate-public-v14-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        node: ['22.16.0', '24']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.16.0'
-      - name: Unit and boundary tests
-        run: node --test clients/remote-mcp/tests/*.test.mjs scripts/tests/v14-boundary.test.mjs
-      - name: Validate public/private boundary
-        run: node scripts/v14-check-public.mjs
-      - name: Validate offline consumer package
-        run: node scripts/v14-test-package.mjs
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check

@@ -4,29 +4,23 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse } from './protocol.mjs';
 const exec = promisify(execFile);
-function credential(file) {
+function tokenFromFile(file, iam = false) {
   try {
     const stat = statSync(file);
     if (!stat.isFile() || stat.size > 16384) throw new Error();
-    const token = readFileSync(file, 'utf8').trim();
-    if (!/^[A-Za-z0-9._~-]{32,8192}$/.test(token)) throw new Error();
-    return token;
-  } catch { throw new Error('Cannot read a valid client credential file.'); }
+    const value = readFileSync(file, 'utf8').trim();
+    const pattern = iam ? /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/ : /^[A-Za-z0-9._~-]{32,8192}$/;
+    if (!pattern.test(value) || value.length > 16000) throw new Error();
+    return value;
+  } catch { throw new Error(iam ? 'Cannot read a valid IAM identity-token file.' : 'Cannot read a valid MCP access-token file.'); }
 }
-function identityToken(file) {
-  try {
-    const stat = statSync(file);
-    if (!stat.isFile() || stat.size > 16384) throw new Error();
-    return readFileSync(file, 'utf8').trim();
-  } catch { throw new Error('Cannot read the IAM identity-token file.'); }
-}
-/** JSON-only, stateless Streamable HTTP for the V14 server; intentionally not a universal SSE client. */
+/** Specialized client for the V14 stateless JSON profile, not a universal SSE client. */
 export class RemoteConnection {
   constructor(options = {}) {
     try { this.url = new URL(options.url ?? process.env.SMART_THINKING_MCP_URL ?? ''); }
     catch { throw new Error('Configure an HTTPS MCP endpoint.'); }
     const loopback = this.url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(this.url.hostname) && options.allowLoopbackTest === true;
-    if ((this.url.protocol !== 'https:' && !loopback) || this.url.username || this.url.password || this.url.hash || this.url.search) throw new Error('Use HTTPS without credentials, query or fragment in the endpoint.');
+    if (this.url.protocol !== 'https:' && !loopback || this.url.username || this.url.password || this.url.hash || this.url.search) throw new Error('Use HTTPS without credentials, query or fragment in the endpoint.');
     this.tokenFile = options.tokenFile ?? process.env.SMART_THINKING_MCP_TOKEN_FILE;
     this.idTokenFile = options.idTokenFile ?? process.env.SMART_THINKING_ID_TOKEN_FILE;
     this.impersonate = options.impersonate ?? process.env.SMART_THINKING_IAM_SERVICE_ACCOUNT;
@@ -42,8 +36,8 @@ export class RemoteConnection {
   }
   async headers(signal) {
     signal?.throwIfAborted();
-    const headers = { authorization: 'Bearer ' + credential(this.tokenFile), accept: 'application/json, text/event-stream', 'content-type': 'application/json', 'mcp-protocol-version': this.protocol };
-    let token = this.idTokenFile ? identityToken(this.idTokenFile) : undefined;
+    const headers = { authorization: 'Bearer ' + tokenFromFile(this.tokenFile), accept: 'application/json, text/event-stream', 'content-type': 'application/json', 'mcp-protocol-version': this.protocol };
+    let token = this.idTokenFile ? tokenFromFile(this.idTokenFile, true) : undefined;
     if (!token && this.impersonate) {
       if (!this.iamCache || Date.now() >= this.iamCache.until) {
         try {
@@ -61,8 +55,7 @@ export class RemoteConnection {
     return headers;
   }
   async send(message, signal) {
-    const isRequest = validateRequest(message);
-    const body = JSON.stringify(message);
+    const isRequest = validateRequest(message), body = JSON.stringify(message);
     if (Buffer.byteLength(body) > MAX_REQUEST_BYTES) throw new Error('MCP request exceeds 256 KB.');
     const deadline = AbortSignal.timeout(this.timeoutMs);
     const cancel = signal ? AbortSignal.any([signal, deadline]) : deadline;
@@ -71,8 +64,8 @@ export class RemoteConnection {
     try { response = await this.fetcher(this.url.toString(), { method: 'POST', headers, body, redirect: 'error', signal: cancel }); }
     catch { throw new Error(cancel.aborted ? 'MCP request cancelled or timed out; outcome may be unknown.' : 'MCP transport failed; no automatic retry.'); }
     const discard = async () => { await response.body?.cancel().catch(() => {}); };
-    if (!response.ok) { await discard(); throw new Error(`MCP HTTP ${response.status}; remote body suppressed. No automatic retry.`); }
-    if (response.headers.has('mcp-session-id')) { await discard(); throw new Error('This client requires the stateless V14 transport; a stateful session was returned.'); }
+    if (!response.ok) { await discard(); throw new Error(`MCP HTTP ${response.status}; body suppressed. Check the operation receipt before retrying.`); }
+    if (response.headers.has('mcp-session-id')) { await discard(); throw new Error('A stateful session was returned; this client requires the V14 stateless profile.'); }
     if (!isRequest) { await discard(); if (![202, 204].includes(response.status)) throw new Error('Invalid MCP notification acknowledgement.'); return undefined; }
     if ([202, 204].includes(response.status)) { await discard(); throw new Error('Missing MCP response for a request with an ID.'); }
     if ((response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase() !== 'application/json') { await discard(); throw new Error('Expected the V14 JSON transport, not SSE or another content type.'); }

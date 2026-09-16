@@ -1,2969 +1,0 @@
-[?2004hroot@29352b6ac4b4:/app# asciinema rec --stdin /logs/agent.cast
-[?2004l[0;32masciinema: recording asciicast to /logs/agent.cast[0m
-[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
-[?2004hroot@29352b6ac4b4:/app# clear
-[?2004l[H[J[3J[?2004hroot@29352b6ac4b4:/app# apt-get update; tmux wait -S done
-[?2004l0% [Working]            Get:1 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
-0% [Waiting for headers] [1 InRelease 0 B/126 kB 0%]                                                    Get:2 http://archive.ubuntu.com/ubuntu noble InRelease [256 kB]
-0% [2 InRelease 11.3 kB/256 kB 4%] [1 InRelease 14.2 kB/126 kB 11%]                                                                   0% [2 InRelease 155 kB/256 kB 60%]                                  0% [Waiting for headers]                        Get:3 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
-0% [3 InRelease 5678 B/126 kB 5%]                                 0% [Working]            Get:4 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
-0% [4 InRelease 20.0 kB/126 kB 16%]                                   0% [Working]0% [Working]            Get:5 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1796 kB]
-0% [5 Packages 0 B/1796 kB 0%]                              0% [Working]0% [Working]0% [5 Packages store 0 B]                         Get:6 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [50.0 kB]
-0% [5 Packages store 0 B] [Waiting for headers] [6 Packages 0 B/50.0 kB 0%]                                                                           Get:7 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [331 kB]
-0% [5 Packages store 0 B] [7 Packages 40.3 kB/331 kB 12%] [6 Packages 43.7 kB/50.0 kB 87%]                                                                                          0% [5 Packages store 0 B] [7 Packages 95.3 kB/331 kB 29%]                                                         Get:8 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1242 kB]
-0% [5 Packages store 0 B] [7 Packages 146 kB/331 kB 44%] [8 Packages 124 kB/1242 kB 10%]                                                                                        0% [5 Packages store 0 B] [8 Packages 1242 kB/1242 kB 100%]                                                           Get:9 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1531 kB]
-                                                           0% [5 Packages store 0 B] [9 Packages 67.8 kB/1531 kB 4%]                                                         0% [5 Packages store 0 B] [Waiting for headers]                                               Get:10 http://archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [117 kB]
-0% [5 Packages store 0 B] [10 Packages 57.7 kB/117 kB 49%]                                                          0% [5 Packages store 0 B]                         Get:11 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages [1808 kB]
-0% [5 Packages store 0 B] [11 Packages 155 kB/1808 kB 9%]0% [5 Packages store 0 B] [11 Packages 1808 kB/1808 kB 100%]                                                            Get:12 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages [19.3 MB]
-                                                            0% [5 Packages store 0 B] [12 Packages 477 kB/19.3 MB 2%]                                                         0% [12 Packages 1343 kB/19.3 MB 7%]0% [6 Packages store 0 B] [12 Packages 1460 kB/19.3 MB 8%]                                                          0% [12 Packages 1933 kB/19.3 MB 10%]0% [7 Packages store 0 B] [12 Packages 1952 kB/19.3 MB 10%]                                                           0% [12 Packages 2902 kB/19.3 MB 15%]0% [8 Packages store 0 B] [12 Packages 2902 kB/19.3 MB 15%]                                                           0% [12 Packages 11.3 MB/19.3 MB 58%]0% [9 Packages store 0 B] [12 Packages 11.3 MB/19.3 MB 58%]64% [9 Packages store 0 B] [12 Packages 13.1 MB/19.3 MB 68%]                                                            Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1566 kB]
-                                                            80% [9 Packages store 0 B] [13 Packages 134 kB/1566 kB 9%]                                                          84% [9 Packages store 0 B]                          Get:14 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [2152 kB]
-84% [9 Packages store 0 B] [14 Packages 0 B/2152 kB 0%]                                                       87% [14 Packages 1124 kB/2152 kB 52%]87% [10 Packages store 0 B] [14 Packages 1124 kB/2152 kB 52%]                                                             90% [14 Packages 2152 kB/2152 kB 100%]                                      Get:15 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [55.8 kB]
-                                      90% [15 Packages 31.2 kB/55.8 kB 56%]90% [11 Packages store 0 B] [15 Packages 55.8 kB/55.8 kB 100%]                                                              90% [11 Packages store 0 B]                           Get:16 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1913 kB]
-90% [11 Packages store 0 B] [16 Packages 30.0 kB/1913 kB 2%]                                                            95% [11 Packages store 0 B]                           Get:17 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [35.9 kB]
-95% [11 Packages store 0 B] [17 Packages 0 B/35.9 kB 0%]                                                        95% [11 Packages store 0 B]                           Get:18 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [671 B]
-95% [11 Packages store 0 B] [18 Packages 0 B/671 B 0%]                                                      Get:19 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [48.9 kB]
-95% [11 Packages store 0 B] [19 Packages 46.1 kB/48.9 kB 94%]                                                             95% [11 Packages store 0 B]                           96% [Working]96% [12 Packages store 0 B]96% [12 Packages store 0 B]96% [12 Packages store 0 B]96% [12 Packages store 0 B]                           96% [Working]96% [13 Packages store 0 B]                           97% [Working]97% [14 Packages store 0 B]                           97% [Working]97% [15 Packages store 0 B]                           98% [Working]98% [16 Packages store 0 B]                           98% [Working]98% [17 Packages store 0 B]                           99% [Working]99% [18 Packages store 0 B]                           99% [Working]99% [19 Packages store 0 B]                           100% [Working]              Fetched 32.6 MB in 4s (8238 kB/s)
-Reading package lists... 0%Reading package lists... 0%Reading package lists... 0%Reading package lists... 5%Reading package lists... 5%Reading package lists... 26%Reading package lists... 49%Reading package lists... 60%Reading package lists... 60%Reading package lists... 61%Reading package lists... 61%Reading package lists... 62%Reading package lists... 62%Reading package lists... 67%Reading package lists... 67%Reading package lists... 75%Reading package lists... 75%Reading package lists... 76%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 87%Reading package lists... 87%Reading package lists... 93%Reading package lists... 93%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... Done
-[?2004hroot@29352b6ac4b4:/app# apt-get install -y wget; tmux wait -S done
-[?2004lReading package lists... 0%Reading package lists... 0%Reading package lists... 0%Reading package lists... 5%Reading package lists... 5%Reading package lists... 27%Reading package lists... 50%Reading package lists... 60%Reading package lists... 60%Reading package lists... 61%Reading package lists... 61%Reading package lists... 62%Reading package lists... 62%Reading package lists... 67%Reading package lists... 67%Reading package lists... 75%Reading package lists... 75%Reading package lists... 76%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 87%Reading package lists... 87%Reading package lists... 93%Reading package lists... 93%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... Done
-Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree... 65%Building dependency tree... Done
-Reading state information... 0% Reading state information... 4%Reading state information... Done
-The following additional packages will be installed:
-  libpsl5t64 publicsuffix
-The following NEW packages will be installed:
-  libpsl5t64 publicsuffix wget
-0 upgraded, 3 newly installed, 0 to remove and 59 not upgraded.
-Need to get 520 kB of archives.
-After this operation, 1423 kB of additional disk space will be used.
-0% [Working]            Get:1 http://archive.ubuntu.com/ubuntu noble/main amd64 libpsl5t64 amd64 0.21.2-1.1build1 [57.1 kB]
-0% [1 libpsl5t64 0 B/57.1 kB 0%]                                15% [Working]             Get:2 http://archive.ubuntu.com/ubuntu noble/main amd64 publicsuffix all 20231001.0357-0.1 [129 kB]
-16% [2 publicsuffix 2604 B/129 kB 2%]                                     42% [Working]             Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 wget amd64 1.21.4-1ubuntu4.5 [334 kB]
-42% [3 wget 2198 B/334 kB 1%]                             100% [Working]              Fetched 520 kB in 1s (685 kB/s)
-debconf: delaying package configuration, since apt-utils is not installed
-Selecting previously unselected package libpsl5t64:amd64.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6337 files and directories currently installed.)
-Preparing to unpack .../libpsl5t64_0.21.2-1.1build1_amd64.deb ...
-Unpacking libpsl5t64:amd64 (0.21.2-1.1build1) ...
-Selecting previously unselected package publicsuffix.
-Preparing to unpack .../publicsuffix_20231001.0357-0.1_all.deb ...
-Unpacking publicsuffix (20231001.0357-0.1) ...
-Selecting previously unselected package wget.
-Preparing to unpack .../wget_1.21.4-1ubuntu4.5_amd64.deb ...
-Unpacking wget (1.21.4-1ubuntu4.5) ...
-Setting up libpsl5t64:amd64 (0.21.2-1.1build1) ...
-Setting up publicsuffix (20231001.0357-0.1) ...
-Setting up wget (1.21.4-1ubuntu4.5) ...
-Processing triggers for libc-bin (2.39-0ubuntu8.4) ...
-[?2004hroot@29352b6ac4b4:/app# wget https://www.sqlite.org/src/tarball/sqlite.tar.gz; tmux wait -S done
-[?2004l--2026-09-15 02:47:54--  https://www.sqlite.org/src/tarball/sqlite.tar.gz
-Resolving www.sqlite.org (www.sqlite.org)... 194.195.208.62, 2600:3c02::f03c:95ff:fe07:695
-Connecting to www.sqlite.org (www.sqlite.org)|194.195.208.62|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 12881592 (12M) [application/x-compressed]
-Saving to: ‘sqlite.tar.gz’
-
-sqlite.tar.gz                             0%[                                                                                ]       0  --.-KB/s               sqlite.tar.gz                             0%[                                                                                ] 112.00K   394KB/s               sqlite.tar.gz                             5%[===>                                                                            ] 688.00K  1.19MB/s               sqlite.tar.gz                            35%[===========================>                                                    ]   4.41M  5.76MB/s               sqlite.tar.gz                           100%[===============================================================================>]  12.28M  11.7MB/s               sqlite.tar.gz                           100%[===============================================================================>]  12.28M  11.7MB/s    in 1.0s    
-
-2026-09-15 02:47:56 (11.7 MB/s) - ‘sqlite.tar.gz’ saved [12881592/12881592]
-
-[?2004hroot@29352b6ac4b4:/app# tar -xvzf sqlite.tar.gz
-[?2004lsqlite
-sqlite/manifest
-sqlite/manifest.uuid
-sqlite/manifest.tags
-sqlite/.fossil-settings
-sqlite/.fossil-settings/binary-glob
-sqlite/.fossil-settings/empty-dirs
-sqlite/.fossil-settings/ignore-glob
-sqlite/AGENTS.md
-sqlite/LICENSE.md
-sqlite/Makefile.in
-sqlite/Makefile.linux-generic
-sqlite/Makefile.msc
-sqlite/README.md
-sqlite/VERSION
-sqlite/art
-sqlite/art/icon-243x273.gif
-sqlite/art/icon-80x90.gif
-sqlite/art/sqlite370.eps
-sqlite/art/sqlite370.ico
-sqlite/art/sqlite370.jpg
-sqlite/art/sqlite370.svg
-sqlite/auto.def
-sqlite/autoconf
-sqlite/autoconf/Makefile.fallback
-sqlite/autoconf/Makefile.in
-sqlite/autoconf/Makefile.msc
-sqlite/autoconf/README.first
-sqlite/autoconf/README.txt
-sqlite/autoconf/auto.def
-sqlite/autoconf/tea
-sqlite/autoconf/tea/Makefile.in
-sqlite/autoconf/tea/README.txt
-sqlite/autoconf/tea/_teaish.tester.tcl.in
-sqlite/autoconf/tea/auto.def
-sqlite/autoconf/tea/configure
-sqlite/autoconf/tea/license.terms
-sqlite/autoconf/tea/pkgIndex.tcl.in
-sqlite/autoconf/tea/teaish.tcl
-sqlite/autoconf/tea/teaish.test.tcl
-sqlite/autosetup
-sqlite/autosetup/LICENSE
-sqlite/autosetup/README.autosetup
-sqlite/autosetup/README.md
-sqlite/autosetup/autosetup
-sqlite/autosetup/autosetup-config.guess
-sqlite/autosetup/autosetup-config.sub
-sqlite/autosetup/autosetup-find-tclsh
-sqlite/autosetup/autosetup-test-tclsh
-sqlite/autosetup/cc-db.tcl
-sqlite/autosetup/cc-lib.tcl
-sqlite/autosetup/cc-shared.tcl
-sqlite/autosetup/cc.tcl
-sqlite/autosetup/find_tclconfig.tcl
-sqlite/autosetup/jimsh0.c
-sqlite/autosetup/pkg-config.tcl
-sqlite/autosetup/proj.tcl
-sqlite/autosetup/sqlite-config.tcl
-sqlite/autosetup/system.tcl
-sqlite/autosetup/teaish
-sqlite/autosetup/teaish/README.txt
-sqlite/autosetup/teaish/core.tcl
-sqlite/autosetup/teaish/feature.tcl
-sqlite/autosetup/teaish/tester.tcl
-sqlite/configure
-sqlite/contrib
-sqlite/contrib/sqlitecon.tcl
-sqlite/doc
-sqlite/doc/F2FS.txt
-sqlite/doc/compile-for-unix.md
-sqlite/doc/compile-for-windows.md
-sqlite/doc/json-enhancements.md
-sqlite/doc/jsonb.md
-sqlite/doc/lemon.html
-sqlite/doc/pager-invariants.txt
-sqlite/doc/tcl-extension-testing.md
-sqlite/doc/testrunner.md
-sqlite/doc/trusted-schema.md
-sqlite/doc/vdbesort-memory.md
-sqlite/doc/vfs-shm.txt
-sqlite/doc/wal-lock.md
-sqlite/ext
-sqlite/ext/README.md
-sqlite/ext/expert
-sqlite/ext/expert/README.md
-sqlite/ext/expert/expert.c
-sqlite/ext/expert/expert1.test
-sqlite/ext/expert/sqlite3expert.c
-sqlite/ext/expert/sqlite3expert.h
-sqlite/ext/expert/test_expert.c
-sqlite/ext/fts3
-sqlite/ext/fts3/README.content
-sqlite/ext/fts3/README.syntax
-sqlite/ext/fts3/README.tokenizers
-sqlite/ext/fts3/README.txt
-sqlite/ext/fts3/fts3.c
-sqlite/ext/fts3/fts3.h
-sqlite/ext/fts3/fts3Int.h
-sqlite/ext/fts3/fts3_aux.c
-sqlite/ext/fts3/fts3_expr.c
-sqlite/ext/fts3/fts3_hash.c
-sqlite/ext/fts3/fts3_hash.h
-sqlite/ext/fts3/fts3_icu.c
-sqlite/ext/fts3/fts3_porter.c
-sqlite/ext/fts3/fts3_snippet.c
-sqlite/ext/fts3/fts3_term.c
-sqlite/ext/fts3/fts3_test.c
-sqlite/ext/fts3/fts3_tokenize_vtab.c
-sqlite/ext/fts3/fts3_tokenizer.c
-sqlite/ext/fts3/fts3_tokenizer.h
-sqlite/ext/fts3/fts3_tokenizer1.c
-sqlite/ext/fts3/fts3_unicode.c
-sqlite/ext/fts3/fts3_unicode2.c
-sqlite/ext/fts3/fts3_write.c
-sqlite/ext/fts3/fts3speed.tcl
-sqlite/ext/fts3/tool
-sqlite/ext/fts3/tool/fts3cov.sh
-sqlite/ext/fts3/tool/fts3view.c
-sqlite/ext/fts3/unicode
-sqlite/ext/fts3/unicode/CaseFolding.txt
-sqlite/ext/fts3/unicode/UnicodeData.txt
-sqlite/ext/fts3/unicode/mkunicode.tcl
-sqlite/ext/fts3/unicode/parseunicode.tcl
-sqlite/ext/fts5
-sqlite/ext/fts5/extract_api_docs.tcl
-sqlite/ext/fts5/fts5.h
-sqlite/ext/fts5/fts5Int.h
-sqlite/ext/fts5/fts5_aux.c
-sqlite/ext/fts5/fts5_buffer.c
-sqlite/ext/fts5/fts5_config.c
-sqlite/ext/fts5/fts5_expr.c
-sqlite/ext/fts5/fts5_hash.c
-sqlite/ext/fts5/fts5_index.c
-sqlite/ext/fts5/fts5_main.c
-sqlite/ext/fts5/fts5_storage.c
-sqlite/ext/fts5/fts5_tcl.c
-sqlite/ext/fts5/fts5_test_mi.c
-sqlite/ext/fts5/fts5_test_tok.c
-sqlite/ext/fts5/fts5_tokenize.c
-sqlite/ext/fts5/fts5_unicode2.c
-sqlite/ext/fts5/fts5_varint.c
-sqlite/ext/fts5/fts5_vocab.c
-sqlite/ext/fts5/fts5parse.y
-sqlite/ext/fts5/mkportersteps.tcl
-sqlite/ext/fts5/test
-sqlite/ext/fts5/test/fts5_common.tcl
-sqlite/ext/fts5/test/fts5aa.test
-sqlite/ext/fts5/test/fts5ab.test
-sqlite/ext/fts5/test/fts5ac.test
-sqlite/ext/fts5/test/fts5ad.test
-sqlite/ext/fts5/test/fts5ae.test
-sqlite/ext/fts5/test/fts5af.test
-sqlite/ext/fts5/test/fts5ag.test
-sqlite/ext/fts5/test/fts5ah.test
-sqlite/ext/fts5/test/fts5ai.test
-sqlite/ext/fts5/test/fts5aj.test
-sqlite/ext/fts5/test/fts5ak.test
-sqlite/ext/fts5/test/fts5al.test
-sqlite/ext/fts5/test/fts5alter.test
-sqlite/ext/fts5/test/fts5auto.test
-sqlite/ext/fts5/test/fts5aux.test
-sqlite/ext/fts5/test/fts5aux2.test
-sqlite/ext/fts5/test/fts5auxdata.test
-sqlite/ext/fts5/test/fts5bigid.test
-sqlite/ext/fts5/test/fts5bigpl.test
-sqlite/ext/fts5/test/fts5bigtok.test
-sqlite/ext/fts5/test/fts5bigtok2.test
-sqlite/ext/fts5/test/fts5blob.test
-sqlite/ext/fts5/test/fts5cat.test
-sqlite/ext/fts5/test/fts5circref.test
-sqlite/ext/fts5/test/fts5colset.test
-sqlite/ext/fts5/test/fts5columnsize.test
-sqlite/ext/fts5/test/fts5config.test
-sqlite/ext/fts5/test/fts5conflict.test
-sqlite/ext/fts5/test/fts5connect.test
-sqlite/ext/fts5/test/fts5content.test
-sqlite/ext/fts5/test/fts5contentless.test
-sqlite/ext/fts5/test/fts5contentless2.test
-sqlite/ext/fts5/test/fts5contentless3.test
-sqlite/ext/fts5/test/fts5contentless4.test
-sqlite/ext/fts5/test/fts5contentless5.test
-sqlite/ext/fts5/test/fts5corrupt.test
-sqlite/ext/fts5/test/fts5corrupt2.test
-sqlite/ext/fts5/test/fts5corrupt3.test
-sqlite/ext/fts5/test/fts5corrupt4.test
-sqlite/ext/fts5/test/fts5corrupt5.test
-sqlite/ext/fts5/test/fts5corrupt6.test
-sqlite/ext/fts5/test/fts5corrupt7.test
-sqlite/ext/fts5/test/fts5corrupt8.test
-sqlite/ext/fts5/test/fts5corrupt9.test
-sqlite/ext/fts5/test/fts5corruptA.test
-sqlite/ext/fts5/test/fts5corruptB.test
-sqlite/ext/fts5/test/fts5corruptbig.test
-sqlite/ext/fts5/test/fts5delete.test
-sqlite/ext/fts5/test/fts5detail.test
-sqlite/ext/fts5/test/fts5determin.test
-sqlite/ext/fts5/test/fts5dlidx.test
-sqlite/ext/fts5/test/fts5doclist.test
-sqlite/ext/fts5/test/fts5ea.test
-sqlite/ext/fts5/test/fts5eb.test
-sqlite/ext/fts5/test/fts5expr.test
-sqlite/ext/fts5/test/fts5fault1.test
-sqlite/ext/fts5/test/fts5fault2.test
-sqlite/ext/fts5/test/fts5fault3.test
-sqlite/ext/fts5/test/fts5fault4.test
-sqlite/ext/fts5/test/fts5fault5.test
-sqlite/ext/fts5/test/fts5fault6.test
-sqlite/ext/fts5/test/fts5fault7.test
-sqlite/ext/fts5/test/fts5fault8.test
-sqlite/ext/fts5/test/fts5fault9.test
-sqlite/ext/fts5/test/fts5faultA.test
-sqlite/ext/fts5/test/fts5faultB.test
-sqlite/ext/fts5/test/fts5faultD.test
-sqlite/ext/fts5/test/fts5faultE.test
-sqlite/ext/fts5/test/fts5faultF.test
-sqlite/ext/fts5/test/fts5faultG.test
-sqlite/ext/fts5/test/fts5faultH.test
-sqlite/ext/fts5/test/fts5faultI.test
-sqlite/ext/fts5/test/fts5first.test
-sqlite/ext/fts5/test/fts5full.test
-sqlite/ext/fts5/test/fts5fuzz1.test
-sqlite/ext/fts5/test/fts5hash.test
-sqlite/ext/fts5/test/fts5integrity.test
-sqlite/ext/fts5/test/fts5integrity2.test
-sqlite/ext/fts5/test/fts5interrupt.test
-sqlite/ext/fts5/test/fts5join.test
-sqlite/ext/fts5/test/fts5lastrowid.test
-sqlite/ext/fts5/test/fts5leftjoin.test
-sqlite/ext/fts5/test/fts5limits.test
-sqlite/ext/fts5/test/fts5locale.test
-sqlite/ext/fts5/test/fts5matchinfo.test
-sqlite/ext/fts5/test/fts5merge.test
-sqlite/ext/fts5/test/fts5merge2.test
-sqlite/ext/fts5/test/fts5misc.test
-sqlite/ext/fts5/test/fts5multi.test
-sqlite/ext/fts5/test/fts5multiclient.test
-sqlite/ext/fts5/test/fts5near.test
-sqlite/ext/fts5/test/fts5onepass.test
-sqlite/ext/fts5/test/fts5optimize.test
-sqlite/ext/fts5/test/fts5optimize2.test
-sqlite/ext/fts5/test/fts5optimize3.test
-sqlite/ext/fts5/test/fts5origintext.test
-sqlite/ext/fts5/test/fts5origintext2.test
-sqlite/ext/fts5/test/fts5origintext3.test
-sqlite/ext/fts5/test/fts5origintext4.test
-sqlite/ext/fts5/test/fts5origintext5.test
-sqlite/ext/fts5/test/fts5origintext6.test
-sqlite/ext/fts5/test/fts5phrase.test
-sqlite/ext/fts5/test/fts5plan.test
-sqlite/ext/fts5/test/fts5porter.test
-sqlite/ext/fts5/test/fts5porter2.test
-sqlite/ext/fts5/test/fts5prefix.test
-sqlite/ext/fts5/test/fts5prefix2.test
-sqlite/ext/fts5/test/fts5query.test
-sqlite/ext/fts5/test/fts5rank.test
-sqlite/ext/fts5/test/fts5rebuild.test
-sqlite/ext/fts5/test/fts5restart.test
-sqlite/ext/fts5/test/fts5rowid.test
-sqlite/ext/fts5/test/fts5savepoint.test
-sqlite/ext/fts5/test/fts5secure.test
-sqlite/ext/fts5/test/fts5secure2.test
-sqlite/ext/fts5/test/fts5secure3.test
-sqlite/ext/fts5/test/fts5secure4.test
-sqlite/ext/fts5/test/fts5secure5.test
-sqlite/ext/fts5/test/fts5secure6.test
-sqlite/ext/fts5/test/fts5secure7.test
-sqlite/ext/fts5/test/fts5secure8.test
-sqlite/ext/fts5/test/fts5securefault.test
-sqlite/ext/fts5/test/fts5simple.test
-sqlite/ext/fts5/test/fts5simple2.test
-sqlite/ext/fts5/test/fts5simple3.test
-sqlite/ext/fts5/test/fts5synonym.test
-sqlite/ext/fts5/test/fts5synonym2.test
-sqlite/ext/fts5/test/fts5tok1.test
-sqlite/ext/fts5/test/fts5tok2.test
-sqlite/ext/fts5/test/fts5tokendata.test
-sqlite/ext/fts5/test/fts5tokenizer.test
-sqlite/ext/fts5/test/fts5tokenizer2.test
-sqlite/ext/fts5/test/fts5tokenizer3.test
-sqlite/ext/fts5/test/fts5trigram.test
-sqlite/ext/fts5/test/fts5trigram2.test
-sqlite/ext/fts5/test/fts5ubsan.test
-sqlite/ext/fts5/test/fts5umlaut.test
-sqlite/ext/fts5/test/fts5unicode.test
-sqlite/ext/fts5/test/fts5unicode2.test
-sqlite/ext/fts5/test/fts5unicode3.test
-sqlite/ext/fts5/test/fts5unicode4.test
-sqlite/ext/fts5/test/fts5unindexed.test
-sqlite/ext/fts5/test/fts5unindexed2.test
-sqlite/ext/fts5/test/fts5update.test
-sqlite/ext/fts5/test/fts5update2.test
-sqlite/ext/fts5/test/fts5version.test
-sqlite/ext/fts5/test/fts5vocab.test
-sqlite/ext/fts5/test/fts5vocab2.test
-sqlite/ext/fts5/tool
-sqlite/ext/fts5/tool/fts5cost.tcl
-sqlite/ext/fts5/tool/fts5speed.tcl
-sqlite/ext/fts5/tool/fts5txt2db.tcl
-sqlite/ext/fts5/tool/loadfts5.tcl
-sqlite/ext/fts5/tool/mkfts5c.tcl
-sqlite/ext/fts5/tool/showfts5.tcl
-sqlite/ext/icu
-sqlite/ext/icu/README.txt
-sqlite/ext/icu/icu.c
-sqlite/ext/icu/sqliteicu.h
-sqlite/ext/intck
-sqlite/ext/intck/intck1.test
-sqlite/ext/intck/intck2.test
-sqlite/ext/intck/intck_common.tcl
-sqlite/ext/intck/intckbusy.test
-sqlite/ext/intck/intckcorrupt.test
-sqlite/ext/intck/intckfault.test
-sqlite/ext/intck/sqlite3intck.c
-sqlite/ext/intck/sqlite3intck.h
-sqlite/ext/intck/test_intck.c
-sqlite/ext/jni
-sqlite/ext/jni/GNUmakefile
-sqlite/ext/jni/README.md
-sqlite/ext/jni/jar-dist.make
-sqlite/ext/jni/src
-sqlite/ext/jni/src/c
-sqlite/ext/jni/src/c/sqlite3-jni.c
-sqlite/ext/jni/src/c/sqlite3-jni.h
-sqlite/ext/jni/src/org
-sqlite/ext/jni/src/org/sqlite
-sqlite/ext/jni/src/org/sqlite/jni
-sqlite/ext/jni/src/org/sqlite/jni/annotation
-sqlite/ext/jni/src/org/sqlite/jni/annotation/Experimental.java
-sqlite/ext/jni/src/org/sqlite/jni/annotation/NotNull.java
-sqlite/ext/jni/src/org/sqlite/jni/annotation/Nullable.java
-sqlite/ext/jni/src/org/sqlite/jni/annotation/package-info.java
-sqlite/ext/jni/src/org/sqlite/jni/capi
-sqlite/ext/jni/src/org/sqlite/jni/capi/AbstractCollationCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/AggregateFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/AuthorizerCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/AutoExtensionCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/BusyHandlerCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/CApi.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/CallbackProxy.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/CollationCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/CollationNeededCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/CommitHookCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ConfigLogCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ConfigSqlLogCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/NativePointerHolder.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/OutputPointer.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/PrepareMultiCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/PreupdateHookCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ProgressHandlerCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ResultCode.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/RollbackHookCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/SQLFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/SQLTester.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ScalarFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/TableColumnMetadata.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/Tester1.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/TraceV2Callback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/UpdateHookCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/ValueHolder.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/WindowFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/XDestroyCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/package-info.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3_backup.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3_blob.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3_context.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3_stmt.java
-sqlite/ext/jni/src/org/sqlite/jni/capi/sqlite3_value.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5
-sqlite/ext/jni/src/org/sqlite/jni/fts5/Fts5.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/Fts5Context.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/Fts5ExtensionApi.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/Fts5PhraseIter.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/Fts5Tokenizer.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/TesterFts5.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/XTokenizeCallback.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/fts5_api.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/fts5_extension_function.java
-sqlite/ext/jni/src/org/sqlite/jni/fts5/fts5_tokenizer.java
-sqlite/ext/jni/src/org/sqlite/jni/test-script-interpreter.md
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/AggregateFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/ScalarFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/SqlFunction.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/Sqlite.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/SqliteException.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/Tester2.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/ValueHolder.java
-sqlite/ext/jni/src/org/sqlite/jni/wrapper1/WindowFunction.java
-sqlite/ext/jni/src/tests
-sqlite/ext/jni/src/tests/000-000-sanity.test
-sqlite/ext/jni/src/tests/000-001-ignored.test
-sqlite/ext/jni/src/tests/900-001-fts.test
-sqlite/ext/misc
-sqlite/ext/misc/README.md
-sqlite/ext/misc/amatch.c
-sqlite/ext/misc/anycollseq.c
-sqlite/ext/misc/appendvfs.c
-sqlite/ext/misc/base64.c
-sqlite/ext/misc/base85.c
-sqlite/ext/misc/basexx.c
-sqlite/ext/misc/btreeinfo.c
-sqlite/ext/misc/cksumvfs.c
-sqlite/ext/misc/closure.c
-sqlite/ext/misc/completion.c
-sqlite/ext/misc/compress.c
-sqlite/ext/misc/csv.c
-sqlite/ext/misc/dbdump.c
-sqlite/ext/misc/decimal.c
-sqlite/ext/misc/diskused.c
-sqlite/ext/misc/eval.c
-sqlite/ext/misc/explain.c
-sqlite/ext/misc/fileio.c
-sqlite/ext/misc/fossildelta.c
-sqlite/ext/misc/fuzzer.c
-sqlite/ext/misc/ieee754.c
-sqlite/ext/misc/memstat.c
-sqlite/ext/misc/memtrace.c
-sqlite/ext/misc/mmapwarm.c
-sqlite/ext/misc/nextchar.c
-sqlite/ext/misc/noop.c
-sqlite/ext/misc/normalize.c
-sqlite/ext/misc/pcachetrace.c
-sqlite/ext/misc/percentile.c
-sqlite/ext/misc/prefixes.c
-sqlite/ext/misc/qpvtab.c
-sqlite/ext/misc/randomjson.c
-sqlite/ext/misc/regexp.c
-sqlite/ext/misc/remember.c
-sqlite/ext/misc/rot13.c
-sqlite/ext/misc/series.c
-sqlite/ext/misc/sha1.c
-sqlite/ext/misc/shathree.c
-sqlite/ext/misc/showauth.c
-sqlite/ext/misc/spellfix.c
-sqlite/ext/misc/sqlar.c
-sqlite/ext/misc/sqlite3_stdio.c
-sqlite/ext/misc/sqlite3_stdio.h
-sqlite/ext/misc/stmt.c
-sqlite/ext/misc/stmtrand.c
-sqlite/ext/misc/strdup.c
-sqlite/ext/misc/templatevtab.c
-sqlite/ext/misc/tmstmpvfs.c
-sqlite/ext/misc/totype.c
-sqlite/ext/misc/uint.c
-sqlite/ext/misc/unionvtab.c
-sqlite/ext/misc/urifuncs.c
-sqlite/ext/misc/uuid.c
-sqlite/ext/misc/vfslog.c
-sqlite/ext/misc/vfsstat.c
-sqlite/ext/misc/vfstrace.c
-sqlite/ext/misc/vtablog.c
-sqlite/ext/misc/vtshim.c
-sqlite/ext/misc/wholenumber.c
-sqlite/ext/misc/windirent.h
-sqlite/ext/misc/zipfile.c
-sqlite/ext/misc/zorder.c
-sqlite/ext/qrf
-sqlite/ext/qrf/README.md
-sqlite/ext/qrf/dev-notes.md
-sqlite/ext/qrf/qrf.c
-sqlite/ext/qrf/qrf.h
-sqlite/ext/rbu
-sqlite/ext/rbu/rbu.c
-sqlite/ext/rbu/rbu1.test
-sqlite/ext/rbu/rbu10.test
-sqlite/ext/rbu/rbu11.test
-sqlite/ext/rbu/rbu12.test
-sqlite/ext/rbu/rbu13.test
-sqlite/ext/rbu/rbu14.test
-sqlite/ext/rbu/rbu3.test
-sqlite/ext/rbu/rbu5.test
-sqlite/ext/rbu/rbu6.test
-sqlite/ext/rbu/rbu7.test
-sqlite/ext/rbu/rbu8.test
-sqlite/ext/rbu/rbu9.test
-sqlite/ext/rbu/rbuA.test
-sqlite/ext/rbu/rbuB.test
-sqlite/ext/rbu/rbuC.test
-sqlite/ext/rbu/rbu_common.tcl
-sqlite/ext/rbu/rbubusy.test
-sqlite/ext/rbu/rbucollate.test
-sqlite/ext/rbu/rbucorrupt.test
-sqlite/ext/rbu/rbucrash.test
-sqlite/ext/rbu/rbucrash2.test
-sqlite/ext/rbu/rbudiff.test
-sqlite/ext/rbu/rbudor.test
-sqlite/ext/rbu/rbuexlock.test
-sqlite/ext/rbu/rbuexpr.test
-sqlite/ext/rbu/rbufault.test
-sqlite/ext/rbu/rbufault2.test
-sqlite/ext/rbu/rbufault3.test
-sqlite/ext/rbu/rbufault4.test
-sqlite/ext/rbu/rbufts.test
-sqlite/ext/rbu/rbumisc.test
-sqlite/ext/rbu/rbumulti.test
-sqlite/ext/rbu/rbupartial.test
-sqlite/ext/rbu/rbupass.test
-sqlite/ext/rbu/rbuprogress.test
-sqlite/ext/rbu/rburename.test
-sqlite/ext/rbu/rburesume.test
-sqlite/ext/rbu/rbusave.test
-sqlite/ext/rbu/rbusplit.test
-sqlite/ext/rbu/rbutemplimit.test
-sqlite/ext/rbu/rbuvacuum.test
-sqlite/ext/rbu/rbuvacuum2.test
-sqlite/ext/rbu/rbuvacuum3.test
-sqlite/ext/rbu/rbuvacuum4.test
-sqlite/ext/rbu/sqlite3rbu.c
-sqlite/ext/rbu/sqlite3rbu.h
-sqlite/ext/rbu/test_rbu.c
-sqlite/ext/recover
-sqlite/ext/recover/dbdata.c
-sqlite/ext/recover/recover1.test
-sqlite/ext/recover/recover_common.tcl
-sqlite/ext/recover/recoverbuild.test
-sqlite/ext/recover/recoverclobber.test
-sqlite/ext/recover/recovercorrupt.test
-sqlite/ext/recover/recovercorrupt2.test
-sqlite/ext/recover/recovercorrupt3.test
-sqlite/ext/recover/recovercorrupt4.test
-sqlite/ext/recover/recoverfault.test
-sqlite/ext/recover/recoverfault2.test
-sqlite/ext/recover/recoverold.test
-sqlite/ext/recover/recoverpgsz.test
-sqlite/ext/recover/recoverrowid.test
-sqlite/ext/recover/recoverslowidx.test
-sqlite/ext/recover/recoversql.test
-sqlite/ext/recover/sqlite3recover.c
-sqlite/ext/recover/sqlite3recover.h
-sqlite/ext/recover/test_recover.c
-sqlite/ext/rtree
-sqlite/ext/rtree/README
-sqlite/ext/rtree/geopoly.c
-sqlite/ext/rtree/rtree.c
-sqlite/ext/rtree/rtree.h
-sqlite/ext/rtree/rtree1.test
-sqlite/ext/rtree/rtree2.test
-sqlite/ext/rtree/rtree3.test
-sqlite/ext/rtree/rtree4.test
-sqlite/ext/rtree/rtree5.test
-sqlite/ext/rtree/rtree6.test
-sqlite/ext/rtree/rtree7.test
-sqlite/ext/rtree/rtree8.test
-sqlite/ext/rtree/rtree9.test
-sqlite/ext/rtree/rtreeA.test
-sqlite/ext/rtree/rtreeB.test
-sqlite/ext/rtree/rtreeC.test
-sqlite/ext/rtree/rtreeD.test
-sqlite/ext/rtree/rtreeE.test
-sqlite/ext/rtree/rtreeF.test
-sqlite/ext/rtree/rtreeG.test
-sqlite/ext/rtree/rtreeH.test
-sqlite/ext/rtree/rtreeI.test
-sqlite/ext/rtree/rtreeJ.test
-sqlite/ext/rtree/rtree_perf.tcl
-sqlite/ext/rtree/rtree_util.tcl
-sqlite/ext/rtree/rtreecheck.test
-sqlite/ext/rtree/rtreecirc.test
-sqlite/ext/rtree/rtreeconnect.test
-sqlite/ext/rtree/rtreedoc.test
-sqlite/ext/rtree/rtreedoc2.test
-sqlite/ext/rtree/rtreedoc3.test
-sqlite/ext/rtree/rtreefuzz001.test
-sqlite/ext/rtree/sqlite3rtree.h
-sqlite/ext/rtree/test_rtreedoc.c
-sqlite/ext/rtree/tkt3363.test
-sqlite/ext/rtree/util
-sqlite/ext/rtree/util/randomshape.tcl
-sqlite/ext/rtree/viewrtree.tcl
-sqlite/ext/rtree/visual01.txt
-sqlite/ext/session
-sqlite/ext/session/changeset.c
-sqlite/ext/session/changesetfuzz.c
-sqlite/ext/session/changesetfuzz1.test
-sqlite/ext/session/session1.test
-sqlite/ext/session/session2.test
-sqlite/ext/session/session3.test
-sqlite/ext/session/session4.test
-sqlite/ext/session/session5.test
-sqlite/ext/session/session6.test
-sqlite/ext/session/session8.test
-sqlite/ext/session/session9.test
-sqlite/ext/session/sessionA.test
-sqlite/ext/session/sessionB.test
-sqlite/ext/session/sessionC.test
-sqlite/ext/session/sessionD.test
-sqlite/ext/session/sessionE.test
-sqlite/ext/session/sessionF.test
-sqlite/ext/session/sessionG.test
-sqlite/ext/session/sessionH.test
-sqlite/ext/session/sessionI.test
-sqlite/ext/session/session_common.tcl
-sqlite/ext/session/session_gen.test
-sqlite/ext/session/session_speed_test.c
-sqlite/ext/session/sessionalter.test
-sqlite/ext/session/sessionat.test
-sqlite/ext/session/sessionbig.test
-sqlite/ext/session/sessionbig2.test
-sqlite/ext/session/sessionblob.test
-sqlite/ext/session/sessionchange.test
-sqlite/ext/session/sessionchange2.test
-sqlite/ext/session/sessionconflict.test
-sqlite/ext/session/sessionconflict2.test
-sqlite/ext/session/sessioncorrupt.test
-sqlite/ext/session/sessiondiff.test
-sqlite/ext/session/sessionfault.test
-sqlite/ext/session/sessionfault2.test
-sqlite/ext/session/sessionfault3.test
-sqlite/ext/session/sessioninvert.test
-sqlite/ext/session/sessionmem.test
-sqlite/ext/session/sessionnoact.test
-sqlite/ext/session/sessionnoop.test
-sqlite/ext/session/sessionnoop2.test
-sqlite/ext/session/sessionrebase.test
-sqlite/ext/session/sessionrebase2.test
-sqlite/ext/session/sessionrowid.test
-sqlite/ext/session/sessionsize.test
-sqlite/ext/session/sessionstat1.test
-sqlite/ext/session/sessionwor.test
-sqlite/ext/session/sqlite3session.c
-sqlite/ext/session/sqlite3session.h
-sqlite/ext/session/test_session.c
-sqlite/ext/wasm
-sqlite/ext/wasm/GNUmakefile
-sqlite/ext/wasm/README-dist.txt
-sqlite/ext/wasm/README.md
-sqlite/ext/wasm/SQLTester
-sqlite/ext/wasm/SQLTester/GNUmakefile
-sqlite/ext/wasm/SQLTester/SQLTester.mjs
-sqlite/ext/wasm/SQLTester/SQLTester.run.mjs
-sqlite/ext/wasm/SQLTester/index.html
-sqlite/ext/wasm/SQLTester/touint8array.c
-sqlite/ext/wasm/api
-sqlite/ext/wasm/api/EXPORTED_FUNCTIONS.c-pp
-sqlite/ext/wasm/api/README.md
-sqlite/ext/wasm/api/extern-post-js.c-pp.js
-sqlite/ext/wasm/api/extern-pre-js.js
-sqlite/ext/wasm/api/opfs-common-inline.c-pp.js
-sqlite/ext/wasm/api/opfs-common-shared.c-pp.js
-sqlite/ext/wasm/api/post-js-footer.js
-sqlite/ext/wasm/api/post-js-header.js
-sqlite/ext/wasm/api/pre-js.c-pp.js
-sqlite/ext/wasm/api/sqlite3-api-glue.c-pp.js
-sqlite/ext/wasm/api/sqlite3-api-oo1.c-pp.js
-sqlite/ext/wasm/api/sqlite3-api-prologue.js
-sqlite/ext/wasm/api/sqlite3-api-worker1.c-pp.js
-sqlite/ext/wasm/api/sqlite3-license-version-header.js
-sqlite/ext/wasm/api/sqlite3-opfs-async-proxy.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vfs-helper.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vfs-kvvfs.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vfs-opfs-sahpool.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vfs-opfs-wl.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vfs-opfs.c-pp.js
-sqlite/ext/wasm/api/sqlite3-vtab-helper.c-pp.js
-sqlite/ext/wasm/api/sqlite3-wasm.c
-sqlite/ext/wasm/api/sqlite3-worker1-promiser.c-pp.js
-sqlite/ext/wasm/api/sqlite3-worker1.c-pp.js
-sqlite/ext/wasm/common
-sqlite/ext/wasm/common/SqliteTestUtil.js
-sqlite/ext/wasm/common/emscripten.css
-sqlite/ext/wasm/common/testing.css
-sqlite/ext/wasm/common/whwasmutil.js
-sqlite/ext/wasm/config.make.in
-sqlite/ext/wasm/demo-123-worker.html
-sqlite/ext/wasm/demo-123.html
-sqlite/ext/wasm/demo-123.js
-sqlite/ext/wasm/demo-jsstorage.html
-sqlite/ext/wasm/demo-jsstorage.js
-sqlite/ext/wasm/demo-worker1-promiser.c-pp.html
-sqlite/ext/wasm/demo-worker1-promiser.c-pp.js
-sqlite/ext/wasm/demo-worker1.html
-sqlite/ext/wasm/demo-worker1.js
-sqlite/ext/wasm/example_extra_init.c
-sqlite/ext/wasm/fiddle
-sqlite/ext/wasm/fiddle/fiddle-worker.js
-sqlite/ext/wasm/fiddle/fiddle.js
-sqlite/ext/wasm/fiddle/index.c-pp.html
-sqlite/ext/wasm/index-dist.html
-sqlite/ext/wasm/index.html
-sqlite/ext/wasm/jaccwabyt
-sqlite/ext/wasm/jaccwabyt/jaccwabyt.js
-sqlite/ext/wasm/jaccwabyt/jaccwabyt.md
-sqlite/ext/wasm/libcmpp.c
-sqlite/ext/wasm/mkdist.sh
-sqlite/ext/wasm/mkwasmbuilds.c
-sqlite/ext/wasm/module-symbols.html
-sqlite/ext/wasm/scratchpad-wasmfs.html
-sqlite/ext/wasm/scratchpad-wasmfs.mjs
-sqlite/ext/wasm/speedtest1-wasmfs.html
-sqlite/ext/wasm/speedtest1-wasmfs.mjs
-sqlite/ext/wasm/speedtest1-worker.html
-sqlite/ext/wasm/speedtest1-worker.js
-sqlite/ext/wasm/speedtest1.html
-sqlite/ext/wasm/split-speedtest1-script.sh
-sqlite/ext/wasm/sql
-sqlite/ext/wasm/sql/000-mandelbrot.sql
-sqlite/ext/wasm/sql/001-sudoku.sql
-sqlite/ext/wasm/test-opfs-vfs.html
-sqlite/ext/wasm/test-opfs-vfs.js
-sqlite/ext/wasm/tester1-worker.c-pp.html
-sqlite/ext/wasm/tester1.c-pp.html
-sqlite/ext/wasm/tester1.c-pp.js
-sqlite/ext/wasm/tests
-sqlite/ext/wasm/tests/opfs
-sqlite/ext/wasm/tests/opfs/concurrency
-sqlite/ext/wasm/tests/opfs/concurrency/index.html
-sqlite/ext/wasm/tests/opfs/concurrency/test.js
-sqlite/ext/wasm/tests/opfs/concurrency/worker.js
-sqlite/ext/wasm/tests/opfs/sahpool
-sqlite/ext/wasm/tests/opfs/sahpool/digest-worker.js
-sqlite/ext/wasm/tests/opfs/sahpool/digest.html
-sqlite/ext/wasm/tests/opfs/sahpool/index.html
-sqlite/ext/wasm/tests/opfs/sahpool/sahpool-pausing.js
-sqlite/ext/wasm/tests/opfs/sahpool/sahpool-worker.js
-sqlite/magic.txt
-sqlite/main.mk
-sqlite/make.bat
-sqlite/mptest
-sqlite/mptest/config01.test
-sqlite/mptest/config02.test
-sqlite/mptest/crash01.test
-sqlite/mptest/crash02.subtest
-sqlite/mptest/mptest.c
-sqlite/mptest/multiwrite01.test
-sqlite/sqlite.pc.in
-sqlite/sqlite3.1
-sqlite/sqlite3.pc.in
-sqlite/src
-sqlite/src/alter.c
-sqlite/src/analyze.c
-sqlite/src/attach.c
-sqlite/src/auth.c
-sqlite/src/backup.c
-sqlite/src/bitvec.c
-sqlite/src/btmutex.c
-sqlite/src/btree.c
-sqlite/src/btree.h
-sqlite/src/btreeInt.h
-sqlite/src/build.c
-sqlite/src/callback.c
-sqlite/src/carray.c
-sqlite/src/complete.c
-sqlite/src/date.c
-sqlite/src/dbpage.c
-sqlite/src/dbstat.c
-sqlite/src/delete.c
-sqlite/src/expr.c
-sqlite/src/fault.c
-sqlite/src/fkey.c
-sqlite/src/func.c
-sqlite/src/global.c
-sqlite/src/hash.c
-sqlite/src/hash.h
-sqlite/src/hwtime.h
-sqlite/src/in-operator.md
-sqlite/src/insert.c
-sqlite/src/json.c
-sqlite/src/legacy.c
-sqlite/src/loadext.c
-sqlite/src/main.c
-sqlite/src/malloc.c
-sqlite/src/mem0.c
-sqlite/src/mem1.c
-sqlite/src/mem2.c
-sqlite/src/mem3.c
-sqlite/src/mem5.c
-sqlite/src/memdb.c
-sqlite/src/memjournal.c
-sqlite/src/msvc.h
-sqlite/src/mutex.c
-sqlite/src/mutex.h
-sqlite/src/mutex_noop.c
-sqlite/src/mutex_unix.c
-sqlite/src/mutex_w32.c
-sqlite/src/notify.c
-sqlite/src/os.c
-sqlite/src/os.h
-sqlite/src/os_common.h
-sqlite/src/os_kv.c
-sqlite/src/os_setup.h
-sqlite/src/os_unix.c
-sqlite/src/os_win.c
-sqlite/src/os_win.h
-sqlite/src/pager.c
-sqlite/src/pager.h
-sqlite/src/parse.y
-sqlite/src/pcache.c
-sqlite/src/pcache.h
-sqlite/src/pcache1.c
-sqlite/src/pragma.c
-sqlite/src/prepare.c
-sqlite/src/printf.c
-sqlite/src/random.c
-sqlite/src/resolve.c
-sqlite/src/rowset.c
-sqlite/src/select.c
-sqlite/src/shell.c.in
-sqlite/src/sqlite.h.in
-sqlite/src/sqlite3.rc
-sqlite/src/sqlite3ext.h
-sqlite/src/sqliteInt.h
-sqlite/src/sqliteLimit.h
-sqlite/src/status.c
-sqlite/src/table.c
-sqlite/src/tclsqlite.c
-sqlite/src/tclsqlite.h
-sqlite/src/test1.c
-sqlite/src/test2.c
-sqlite/src/test3.c
-sqlite/src/test4.c
-sqlite/src/test5.c
-sqlite/src/test6.c
-sqlite/src/test8.c
-sqlite/src/test9.c
-sqlite/src/test_autoext.c
-sqlite/src/test_backup.c
-sqlite/src/test_bestindex.c
-sqlite/src/test_blob.c
-sqlite/src/test_btree.c
-sqlite/src/test_config.c
-sqlite/src/test_delete.c
-sqlite/src/test_demovfs.c
-sqlite/src/test_devsym.c
-sqlite/src/test_fs.c
-sqlite/src/test_func.c
-sqlite/src/test_hexio.c
-sqlite/src/test_init.c
-sqlite/src/test_intarray.c
-sqlite/src/test_intarray.h
-sqlite/src/test_journal.c
-sqlite/src/test_loadext.c
-sqlite/src/test_malloc.c
-sqlite/src/test_md5.c
-sqlite/src/test_multiplex.c
-sqlite/src/test_multiplex.h
-sqlite/src/test_mutex.c
-sqlite/src/test_onefile.c
-sqlite/src/test_osinst.c
-sqlite/src/test_pcache.c
-sqlite/src/test_quota.c
-sqlite/src/test_quota.h
-sqlite/src/test_rtree.c
-sqlite/src/test_schema.c
-sqlite/src/test_sqllog.c
-sqlite/src/test_superlock.c
-sqlite/src/test_syscall.c
-sqlite/src/test_tclsh.c
-sqlite/src/test_tclvar.c
-sqlite/src/test_thread.c
-sqlite/src/test_vdbecov.c
-sqlite/src/test_vfs.c
-sqlite/src/test_window.c
-sqlite/src/test_wsd.c
-sqlite/src/threads.c
-sqlite/src/tokenize.c
-sqlite/src/treeview.c
-sqlite/src/trigger.c
-sqlite/src/update.c
-sqlite/src/upsert.c
-sqlite/src/utf.c
-sqlite/src/util.c
-sqlite/src/vacuum.c
-sqlite/src/vdbe.c
-sqlite/src/vdbe.h
-sqlite/src/vdbeInt.h
-sqlite/src/vdbeapi.c
-sqlite/src/vdbeaux.c
-sqlite/src/vdbeblob.c
-sqlite/src/vdbemem.c
-sqlite/src/vdbesort.c
-sqlite/src/vdbetrace.c
-sqlite/src/vdbevtab.c
-sqlite/src/vtab.c
-sqlite/src/vxworks.h
-sqlite/src/wal.c
-sqlite/src/wal.h
-sqlite/src/walker.c
-sqlite/src/where.c
-sqlite/src/whereInt.h
-sqlite/src/wherecode.c
-sqlite/src/whereexpr.c
-sqlite/src/window.c
-sqlite/test
-sqlite/test/8_3_names.test
-sqlite/test/affinity2.test
-sqlite/test/affinity3.test
-sqlite/test/aggerror.test
-sqlite/test/aggfault.test
-sqlite/test/aggnested.test
-sqlite/test/aggorderby.test
-sqlite/test/alias.test
-sqlite/test/all.test
-sqlite/test/alter.test
-sqlite/test/alter2.test
-sqlite/test/alter3.test
-sqlite/test/alter4.test
-sqlite/test/alterauth.test
-sqlite/test/alterauth2.test
-sqlite/test/altercol.test
-sqlite/test/altercons.test
-sqlite/test/altercons2.test
-sqlite/test/altercons3.test
-sqlite/test/altercorrupt.test
-sqlite/test/alterdropcol.test
-sqlite/test/alterdropcol2.test
-sqlite/test/alterfault.test
-sqlite/test/alterlegacy.test
-sqlite/test/altermalloc.test
-sqlite/test/altermalloc2.test
-sqlite/test/altermalloc3.test
-sqlite/test/alterqf.test
-sqlite/test/altertab.test
-sqlite/test/altertab2.test
-sqlite/test/altertab3.test
-sqlite/test/altertrig.test
-sqlite/test/amatch1.test
-sqlite/test/analyze.test
-sqlite/test/analyze3.test
-sqlite/test/analyze4.test
-sqlite/test/analyze5.test
-sqlite/test/analyze6.test
-sqlite/test/analyze7.test
-sqlite/test/analyze8.test
-sqlite/test/analyze9.test
-sqlite/test/analyzeC.test
-sqlite/test/analyzeD.test
-sqlite/test/analyzeE.test
-sqlite/test/analyzeF.test
-sqlite/test/analyzeG.test
-sqlite/test/analyzer1.test
-sqlite/test/atof1.test
-sqlite/test/atof2.test
-sqlite/test/atomic.test
-sqlite/test/atomic2.test
-sqlite/test/atrc.c
-sqlite/test/attach.test
-sqlite/test/attach2.test
-sqlite/test/attach3.test
-sqlite/test/attach4.test
-sqlite/test/attachmalloc.test
-sqlite/test/auth.test
-sqlite/test/auth2.test
-sqlite/test/auth3.test
-sqlite/test/autoanalyze1.test
-sqlite/test/autoinc.test
-sqlite/test/autoindex1.test
-sqlite/test/autoindex2.test
-sqlite/test/autoindex3.test
-sqlite/test/autoindex4.test
-sqlite/test/autoindex5.test
-sqlite/test/autovacuum.test
-sqlite/test/autovacuum2.test
-sqlite/test/autovacuum_ioerr2.test
-sqlite/test/avfs.test
-sqlite/test/avtrans.test
-sqlite/test/backcompat.test
-sqlite/test/backup.test
-sqlite/test/backup2.test
-sqlite/test/backup4.test
-sqlite/test/backup5.test
-sqlite/test/backup_ioerr.test
-sqlite/test/backup_malloc.test
-sqlite/test/badutf.test
-sqlite/test/badutf2.test
-sqlite/test/basexx1.test
-sqlite/test/bc_common.tcl
-sqlite/test/bestindex1.test
-sqlite/test/bestindex2.test
-sqlite/test/bestindex3.test
-sqlite/test/bestindex4.test
-sqlite/test/bestindex5.test
-sqlite/test/bestindex6.test
-sqlite/test/bestindex7.test
-sqlite/test/bestindex8.test
-sqlite/test/bestindex9.test
-sqlite/test/bestindexA.test
-sqlite/test/bestindexB.test
-sqlite/test/bestindexC.test
-sqlite/test/bestindexD.test
-sqlite/test/bestindexE.test
-sqlite/test/bestindexF.test
-sqlite/test/bestindexG.test
-sqlite/test/between.test
-sqlite/test/bigfile.test
-sqlite/test/bigfile2.test
-sqlite/test/bigmmap.test
-sqlite/test/bigrow.test
-sqlite/test/bigsort.test
-sqlite/test/bind.test
-sqlite/test/bind2.test
-sqlite/test/bindxfer.test
-sqlite/test/bitvec.test
-sqlite/test/blob.test
-sqlite/test/bloom1.test
-sqlite/test/boundary1.tcl
-sqlite/test/boundary1.test
-sqlite/test/boundary2.tcl
-sqlite/test/boundary2.test
-sqlite/test/boundary3.tcl
-sqlite/test/boundary3.test
-sqlite/test/boundary4.tcl
-sqlite/test/boundary4.test
-sqlite/test/btree01.test
-sqlite/test/btree02.test
-sqlite/test/btreefault.test
-sqlite/test/busy.test
-sqlite/test/busy2.test
-sqlite/test/c
-sqlite/test/c/changeblob1.c
-sqlite/test/c/malloc1.c
-sqlite/test/c/snprintf1.c
-sqlite/test/cache.test
-sqlite/test/cacheflush.test
-sqlite/test/cachespill.test
-sqlite/test/capi2.test
-sqlite/test/capi3.test
-sqlite/test/capi3b.test
-sqlite/test/capi3c.test
-sqlite/test/capi3d.test
-sqlite/test/capi3e.test
-sqlite/test/carray01.test
-sqlite/test/carray02.test
-sqlite/test/carrayfault.test
-sqlite/test/cast.test
-sqlite/test/cffault.test
-sqlite/test/changes.test
-sqlite/test/changes2.test
-sqlite/test/check.test
-sqlite/test/checkfault.test
-sqlite/test/chunksize.test
-sqlite/test/cksumvfs.test
-sqlite/test/close.test
-sqlite/test/closure01.test
-sqlite/test/coalesce.test
-sqlite/test/collate1.test
-sqlite/test/collate2.test
-sqlite/test/collate3.test
-sqlite/test/collate4.test
-sqlite/test/collate5.test
-sqlite/test/collate6.test
-sqlite/test/collate7.test
-sqlite/test/collate8.test
-sqlite/test/collate9.test
-sqlite/test/collateA.test
-sqlite/test/collateB.test
-sqlite/test/colmeta.test
-sqlite/test/colname.test
-sqlite/test/columncount.test
-sqlite/test/conflict.test
-sqlite/test/conflict2.test
-sqlite/test/conflict3.test
-sqlite/test/conflict4.test
-sqlite/test/contrib01.test
-sqlite/test/corrupt.test
-sqlite/test/corrupt2.test
-sqlite/test/corrupt3.test
-sqlite/test/corrupt4.test
-sqlite/test/corrupt5.test
-sqlite/test/corrupt6.test
-sqlite/test/corrupt7.test
-sqlite/test/corrupt8.test
-sqlite/test/corrupt9.test
-sqlite/test/corruptA.test
-sqlite/test/corruptB.test
-sqlite/test/corruptC.test
-sqlite/test/corruptD.test
-sqlite/test/corruptE.test
-sqlite/test/corruptF.test
-sqlite/test/corruptG.test
-sqlite/test/corruptH.test
-sqlite/test/corruptI.test
-sqlite/test/corruptJ.test
-sqlite/test/corruptK.test
-sqlite/test/corruptL.test
-sqlite/test/corruptM.test
-sqlite/test/corruptN.test
-sqlite/test/cost.test
-sqlite/test/count.test
-sqlite/test/countofview.test
-sqlite/test/coveridxscan.test
-sqlite/test/crash.test
-sqlite/test/crash2.test
-sqlite/test/crash3.test
-sqlite/test/crash4.test
-sqlite/test/crash5.test
-sqlite/test/crash6.test
-sqlite/test/crash7.test
-sqlite/test/crash8.test
-sqlite/test/crash9.test
-sqlite/test/crashM.test
-sqlite/test/crashtest1.c
-sqlite/test/createtab.test
-sqlite/test/cse.test
-sqlite/test/csv01.test
-sqlite/test/ctime.test
-sqlite/test/cursorhint.test
-sqlite/test/cursorhint2.test
-sqlite/test/dataversion1.test
-sqlite/test/date.test
-sqlite/test/date2.test
-sqlite/test/date3.test
-sqlite/test/date4.test
-sqlite/test/date5.test
-sqlite/test/dbdata.test
-sqlite/test/dbfuzz.c
-sqlite/test/dbfuzz001.test
-sqlite/test/dbfuzz2-seed1.db
-sqlite/test/dbfuzz2.c
-sqlite/test/dblwidth-a.sql
-sqlite/test/dbpage.test
-sqlite/test/dbpagefault.test
-sqlite/test/dbstatus.test
-sqlite/test/dbstatus2.test
-sqlite/test/decimal.test
-sqlite/test/default.test
-sqlite/test/delete.test
-sqlite/test/delete2.test
-sqlite/test/delete3.test
-sqlite/test/delete4.test
-sqlite/test/delete_db.test
-sqlite/test/descidx1.test
-sqlite/test/descidx2.test
-sqlite/test/descidx3.test
-sqlite/test/diskfull.test
-sqlite/test/distinct.test
-sqlite/test/distinct2.test
-sqlite/test/distinctagg.test
-sqlite/test/dotcmd01.sql
-sqlite/test/e_blobbytes.test
-sqlite/test/e_blobclose.test
-sqlite/test/e_blobopen.test
-sqlite/test/e_blobwrite.test
-sqlite/test/e_changes.test
-sqlite/test/e_createtable.test
-sqlite/test/e_delete.test
-sqlite/test/e_droptrigger.test
-sqlite/test/e_dropview.test
-sqlite/test/e_expr.test
-sqlite/test/e_fkey.test
-sqlite/test/e_fts3.test
-sqlite/test/e_insert.test
-sqlite/test/e_reindex.test
-sqlite/test/e_resolve.test
-sqlite/test/e_select.test
-sqlite/test/e_select2.test
-sqlite/test/e_totalchanges.test
-sqlite/test/e_update.test
-sqlite/test/e_uri.test
-sqlite/test/e_vacuum.test
-sqlite/test/e_wal.test
-sqlite/test/e_walauto.test
-sqlite/test/e_walckpt.test
-sqlite/test/e_walhook.test
-sqlite/test/emptytable.test
-sqlite/test/enc.test
-sqlite/test/enc2.test
-sqlite/test/enc3.test
-sqlite/test/enc4.test
-sqlite/test/eqp.test
-sqlite/test/eqp2.test
-sqlite/test/errmsg.test
-sqlite/test/errofst1.test
-sqlite/test/eval.test
-sqlite/test/exclusive.test
-sqlite/test/exclusive2.test
-sqlite/test/exec.test
-sqlite/test/exists.test
-sqlite/test/existsexpr.test
-sqlite/test/existsexpr2.test
-sqlite/test/existsfault.test
-sqlite/test/expr.test
-sqlite/test/expr2.test
-sqlite/test/exprfault.test
-sqlite/test/exprfault2.test
-sqlite/test/expridx1.test
-sqlite/test/expridx2.test
-sqlite/test/extension01.test
-sqlite/test/external_reader.test
-sqlite/test/extraquick.test
-sqlite/test/fallocate.test
-sqlite/test/filectrl.test
-sqlite/test/filefmt.test
-sqlite/test/filter1.test
-sqlite/test/filter2.tcl
-sqlite/test/filter2.test
-sqlite/test/filterfault.test
-sqlite/test/fkey1.test
-sqlite/test/fkey2.test
-sqlite/test/fkey3.test
-sqlite/test/fkey4.test
-sqlite/test/fkey5.test
-sqlite/test/fkey6.test
-sqlite/test/fkey7.test
-sqlite/test/fkey8.test
-sqlite/test/fkey_malloc.test
-sqlite/test/fordelete.test
-sqlite/test/fork-test.c
-sqlite/test/format4.test
-sqlite/test/fossildelta.sql
-sqlite/test/fp-speed-1.c
-sqlite/test/fp-speed-2.c
-sqlite/test/fpconv1.test
-sqlite/test/fptest01.sql
-sqlite/test/fts-9fd058691.test
-sqlite/test/fts3.test
-sqlite/test/fts3_common.tcl
-sqlite/test/fts3aa.test
-sqlite/test/fts3ab.test
-sqlite/test/fts3ac.test
-sqlite/test/fts3ad.test
-sqlite/test/fts3ae.test
-sqlite/test/fts3af.test
-sqlite/test/fts3ag.test
-sqlite/test/fts3ah.test
-sqlite/test/fts3ai.test
-sqlite/test/fts3aj.test
-sqlite/test/fts3ak.test
-sqlite/test/fts3al.test
-sqlite/test/fts3am.test
-sqlite/test/fts3an.test
-sqlite/test/fts3ao.test
-sqlite/test/fts3atoken.test
-sqlite/test/fts3atoken2.test
-sqlite/test/fts3auto.test
-sqlite/test/fts3aux1.test
-sqlite/test/fts3aux2.test
-sqlite/test/fts3b.test
-sqlite/test/fts3c.test
-sqlite/test/fts3comp1.test
-sqlite/test/fts3conf.test
-sqlite/test/fts3corrupt.test
-sqlite/test/fts3corrupt2.test
-sqlite/test/fts3corrupt3.test
-sqlite/test/fts3corrupt4.test
-sqlite/test/fts3corrupt5.test
-sqlite/test/fts3corrupt6.test
-sqlite/test/fts3corrupt7.test
-sqlite/test/fts3cov.test
-sqlite/test/fts3d.test
-sqlite/test/fts3defer.test
-sqlite/test/fts3defer2.test
-sqlite/test/fts3defer3.test
-sqlite/test/fts3drop.test
-sqlite/test/fts3dropmod.test
-sqlite/test/fts3e.test
-sqlite/test/fts3expr.test
-sqlite/test/fts3expr2.test
-sqlite/test/fts3expr3.test
-sqlite/test/fts3expr4.test
-sqlite/test/fts3expr5.test
-sqlite/test/fts3f.test
-sqlite/test/fts3fault.test
-sqlite/test/fts3fault2.test
-sqlite/test/fts3fault3.test
-sqlite/test/fts3first.test
-sqlite/test/fts3fuzz001.test
-sqlite/test/fts3integrity.test
-sqlite/test/fts3join.test
-sqlite/test/fts3malloc.test
-sqlite/test/fts3matchinfo.test
-sqlite/test/fts3matchinfo2.test
-sqlite/test/fts3misc.test
-sqlite/test/fts3near.test
-sqlite/test/fts3offsets.test
-sqlite/test/fts3prefix.test
-sqlite/test/fts3prefix2.test
-sqlite/test/fts3query.test
-sqlite/test/fts3rank.test
-sqlite/test/fts3rnd.test
-sqlite/test/fts3shared.test
-sqlite/test/fts3snippet.test
-sqlite/test/fts3snippet2.test
-sqlite/test/fts3sort.test
-sqlite/test/fts3tok1.test
-sqlite/test/fts3tok_err.test
-sqlite/test/fts3varint.test
-sqlite/test/fts4aa.test
-sqlite/test/fts4check.test
-sqlite/test/fts4content.test
-sqlite/test/fts4docid.test
-sqlite/test/fts4growth.test
-sqlite/test/fts4growth2.test
-sqlite/test/fts4incr.test
-sqlite/test/fts4intck1.test
-sqlite/test/fts4langid.test
-sqlite/test/fts4lastrowid.test
-sqlite/test/fts4merge.test
-sqlite/test/fts4merge2.test
-sqlite/test/fts4merge3.test
-sqlite/test/fts4merge4.test
-sqlite/test/fts4merge5.test
-sqlite/test/fts4min.test
-sqlite/test/fts4noti.test
-sqlite/test/fts4onepass.test
-sqlite/test/fts4opt.test
-sqlite/test/fts4record.test
-sqlite/test/fts4rename.test
-sqlite/test/fts4umlaut.test
-sqlite/test/fts4unicode.test
-sqlite/test/fts4upfrom.test
-sqlite/test/full.test
-sqlite/test/func.test
-sqlite/test/func2.test
-sqlite/test/func3.test
-sqlite/test/func4.test
-sqlite/test/func5.test
-sqlite/test/func6.test
-sqlite/test/func7.test
-sqlite/test/func8.test
-sqlite/test/func9.test
-sqlite/test/fuzz-oss1.test
-sqlite/test/fuzz.test
-sqlite/test/fuzz2.test
-sqlite/test/fuzz3.test
-sqlite/test/fuzz4.test
-sqlite/test/fuzz_common.tcl
-sqlite/test/fuzz_malloc.test
-sqlite/test/fuzzcheck.c
-sqlite/test/fuzzdata1.db
-sqlite/test/fuzzdata2.db
-sqlite/test/fuzzdata3.db
-cd sqlite
-sqlite/test/fuzzdata4.db
-sqlite/test/fuzzdata5.db
-sqlite/test/fuzzdata6.db
-sqlite/test/fuzzdata7.db
-sqlite/test/fuzzdata8.db
-sqlite/test/fuzzer1.test
-sqlite/test/fuzzer2.test
-sqlite/test/fuzzerfault.test
-sqlite/test/fuzzinvariants.c
-sqlite/test/gcfault.test
-sqlite/test/gencol1.test
-sqlite/test/genesis.tcl
-sqlite/test/having.test
-sqlite/test/hexlit.test
-sqlite/test/hidden.test
-sqlite/test/hook.test
-sqlite/test/hook2.test
-sqlite/test/icu.test
-sqlite/test/ieee754.test
-sqlite/test/import01.sql
-sqlite/test/imposter1.sql
-sqlite/test/imposter1.test
-sqlite/test/in.test
-sqlite/test/in2.test
-sqlite/test/in3.test
-sqlite/test/in4.test
-sqlite/test/in5.test
-sqlite/test/in6.test
-sqlite/test/in7.test
-sqlite/test/incrblob.test
-sqlite/test/incrblob2.test
-sqlite/test/incrblob3.test
-sqlite/test/incrblob4.test
-sqlite/test/incrblob_err.test
-sqlite/test/incrblobfault.test
-sqlite/test/incrcorrupt.test
-sqlite/test/incrvacuum.test
-sqlite/test/incrvacuum2.test
-sqlite/test/incrvacuum3.test
-sqlite/test/incrvacuum_ioerr.test
-sqlite/test/index.test
-sqlite/test/index2.test
-sqlite/test/index3.test
-sqlite/test/index4.test
-sqlite/test/index5.test
-sqlite/test/index6.test
-sqlite/test/index7.test
-sqlite/test/index8.test
-sqlite/test/index9.test
-sqlite/test/indexA.test
-sqlite/test/indexedby.test
-sqlite/test/indexexpr1.test
-sqlite/test/indexexpr2.test
-sqlite/test/indexexpr3.test
-sqlite/test/indexfault.test
-sqlite/test/init.test
-sqlite/test/insert.test
-sqlite/test/insert2.test
-sqlite/test/insert3.test
-sqlite/test/insert4.test
-sqlite/test/insert5.test
-sqlite/test/insertfault.test
-sqlite/test/instr.test
-sqlite/test/instrfault.test
-sqlite/test/intarray.test
-sqlite/test/intck01.sql
-sqlite/test/interrupt.test
-sqlite/test/interrupt2.test
-sqlite/test/intpkey.test
-sqlite/test/intreal.test
-sqlite/test/io.test
-sqlite/test/ioerr.test
-sqlite/test/ioerr2.test
-sqlite/test/ioerr3.test
-sqlite/test/ioerr4.test
-sqlite/test/ioerr5.test
-sqlite/test/ioerr6.test
-sqlite/test/istrue.test
-sqlite/test/join.test
-sqlite/test/join2.test
-sqlite/test/join3.test
-sqlite/test/join4.test
-sqlite/test/join5.test
-sqlite/test/join6.test
-sqlite/test/join7.test
-sqlite/test/join8.test
-sqlite/test/join9.test
-sqlite/test/joinA.test
-sqlite/test/joinB.test
-sqlite/test/joinC.test
-sqlite/test/joinD.test
-sqlite/test/joinE.test
-sqlite/test/joinF.test
-sqlite/test/joinH.test
-sqlite/test/joinI.test
-sqlite/test/journal1.test
-sqlite/test/journal2.test
-sqlite/test/journal3.test
-sqlite/test/jrnlmode.test
-sqlite/test/jrnlmode2.test
-sqlite/test/jrnlmode3.test
-sqlite/test/json
-sqlite/test/json/README.md
-sqlite/test/json/json-generator.tcl
-sqlite/test/json/json-q1.txt
-sqlite/test/json/json-speed-check.sh
-sqlite/test/json/jsonb-q1.txt
-sqlite/test/json101.test
-sqlite/test/json102.test
-sqlite/test/json103.test
-sqlite/test/json104.test
-sqlite/test/json105.test
-sqlite/test/json106.test
-sqlite/test/json107.test
-sqlite/test/json108.test
-sqlite/test/json109.test
-sqlite/test/json501.test
-sqlite/test/json502.test
-sqlite/test/jsonb01.test
-sqlite/test/keyword1.test
-sqlite/test/kvtest.c
-sqlite/test/lastinsert.test
-sqlite/test/laststmtchanges.test
-sqlite/test/lemon-test01.y
-sqlite/test/like.test
-sqlite/test/like2.test
-sqlite/test/like3.test
-sqlite/test/limit.test
-sqlite/test/limit2.test
-sqlite/test/literal.test
-sqlite/test/literal2.tcl
-sqlite/test/literal2.test
-sqlite/test/loadext.test
-sqlite/test/loadext2.test
-sqlite/test/lock.test
-sqlite/test/lock2.test
-sqlite/test/lock3.test
-sqlite/test/lock4.test
-sqlite/test/lock5.test
-sqlite/test/lock6.test
-sqlite/test/lock7.test
-sqlite/test/lock_common.tcl
-sqlite/test/lookaside.test
-sqlite/test/main.test
-sqlite/test/make-where7.tcl
-sqlite/test/malloc.test
-sqlite/test/malloc3.test
-sqlite/test/malloc4.test
-sqlite/test/malloc5.test
-sqlite/test/malloc6.test
-sqlite/test/malloc7.test
-sqlite/test/malloc8.test
-sqlite/test/malloc9.test
-sqlite/test/mallocA.test
-sqlite/test/mallocAll.test
-sqlite/test/mallocB.test
-sqlite/test/mallocC.test
-sqlite/test/mallocD.test
-sqlite/test/mallocE.test
-sqlite/test/mallocF.test
-sqlite/test/mallocG.test
-sqlite/test/mallocH.test
-sqlite/test/mallocI.test
-sqlite/test/mallocJ.test
-sqlite/test/mallocK.test
-sqlite/test/mallocL.test
-sqlite/test/mallocM.test
-sqlite/test/malloc_common.tcl
-sqlite/test/malloctraceviewer.tcl
-sqlite/test/manydb.test
-sqlite/test/mem5.test
-sqlite/test/memdb.test
-sqlite/test/memdb1.test
-sqlite/test/memdb2.test
-sqlite/test/memjournal.test
-sqlite/test/memjournal2.test
-sqlite/test/memleak.test
-sqlite/test/memsubsys1.test
-sqlite/test/memsubsys2.test
-sqlite/test/merge1.test
-sqlite/test/minmax.test
-sqlite/test/minmax2.test
-sqlite/test/minmax3.test
-sqlite/test/minmax4.test
-sqlite/test/misc1.test
-sqlite/test/misc2.test
-sqlite/test/misc3.test
-sqlite/test/misc4.test
-sqlite/test/misc5.test
-sqlite/test/misc6.test
-sqlite/test/misc7.test
-sqlite/test/misc8.test
-sqlite/test/misuse.test
-sqlite/test/mjournal.test
-sqlite/test/mmap1.test
-sqlite/test/mmap2.test
-sqlite/test/mmap3.test
-sqlite/test/mmap4.test
-sqlite/test/mmapcorrupt.test
-sqlite/test/mmapfault.test
-sqlite/test/mmapwarm.test
-sqlite/test/modeA.sql
-sqlite/test/multiplex.test
-sqlite/test/multiplex2.test
-sqlite/test/multiplex3.test
-sqlite/test/multiplex4.test
-sqlite/test/mutex1.test
-sqlite/test/mutex2.test
-sqlite/test/nan.test
-sqlite/test/nockpt.test
-sqlite/test/nolock.test
-sqlite/test/normalize.test
-sqlite/test/notify1.test
-sqlite/test/notify2.test
-sqlite/test/notify3.test
-sqlite/test/notnull.test
-sqlite/test/notnull2.test
-sqlite/test/notnullfault.test
-sqlite/test/null.test
-sqlite/test/nulls1.test
-sqlite/test/nulls2.test
-sqlite/test/numcast.test
-sqlite/test/numindex1.test
-sqlite/test/offset1.test
-sqlite/test/openv2.test
-sqlite/test/optfuzz-db01.c
-sqlite/test/optfuzz-db01.txt
-sqlite/test/optfuzz.c
-sqlite/test/orderby1.test
-sqlite/test/orderby2.test
-sqlite/test/orderby3.test
-sqlite/test/orderby4.test
-sqlite/test/orderby5.test
-sqlite/test/orderby6.test
-sqlite/test/orderby7.test
-sqlite/test/orderby8.test
-sqlite/test/orderby9.test
-sqlite/test/orderbyA.test
-sqlite/test/orderbyB.test
-sqlite/test/oserror.test
-sqlite/test/ossfuzz.c
-sqlite/test/ossshell.c
-sqlite/test/output-redirect-test.txt
-sqlite/test/ovfl.test
-sqlite/test/pager1.test
-sqlite/test/pager2.test
-sqlite/test/pager3.test
-sqlite/test/pager4.test
-sqlite/test/pagerfault.test
-sqlite/test/pagerfault2.test
-sqlite/test/pagerfault3.test
-sqlite/test/pageropt.test
-sqlite/test/pagesize.test
-sqlite/test/parser1.test
-sqlite/test/pcache.test
-sqlite/test/pcache2.test
-sqlite/test/pendingrace.test
-sqlite/test/percentile.test
-sqlite/test/permutations.test
-sqlite/test/pg_common.tcl
-sqlite/test/pragma.test
-sqlite/test/pragma2.test
-sqlite/test/pragma3.test
-sqlite/test/pragma4.test
-sqlite/test/pragma5.test
-sqlite/test/pragma6.test
-sqlite/test/pragmafault.test
-sqlite/test/prefixes.test
-sqlite/test/printf.test
-sqlite/test/printf2.test
-sqlite/test/progress.test
-sqlite/test/ptrchng.test
-sqlite/test/pushdown.test
-sqlite/test/qrf01.test
-sqlite/test/qrf02.test
-sqlite/test/qrf03.test
-sqlite/test/qrf04.test
-sqlite/test/qrf05.test
-sqlite/test/qrf06.test
-sqlite/test/queryonly.test
-sqlite/test/quick.test
-sqlite/test/quickcheck.test
-sqlite/test/quota-glob.test
-sqlite/test/quota.test
-sqlite/test/quota2.test
-sqlite/test/quote.test
-sqlite/test/randexpr1.tcl
-sqlite/test/randexpr1.test
-sqlite/test/rbu.test
-sqlite/test/rdonly.test
-sqlite/test/readonly.test
-sqlite/test/recover.test
-sqlite/test/regexp1.sql
-sqlite/test/regexp1.test
-sqlite/test/regexp2.test
-sqlite/test/reindex.test
-sqlite/test/reservebytes.test
-sqlite/test/resetdb.test
-sqlite/test/resolver01.test
-sqlite/test/returning1.test
-sqlite/test/returningfault.test
-sqlite/test/rollback.test
-sqlite/test/rollback2.test
-sqlite/test/rollbackfault.test
-sqlite/test/round1.test
-sqlite/test/rowallock.test
-sqlite/test/rowhash.test
-sqlite/test/rowid.test
-sqlite/test/rowvalue.test
-sqlite/test/rowvalue2.test
-sqlite/test/rowvalue3.test
-sqlite/test/rowvalue4.test
-sqlite/test/rowvalue5.test
-sqlite/test/rowvalue6.test
-sqlite/test/rowvalue7.test
-sqlite/test/rowvalue8.test
-sqlite/test/rowvalue9.test
-sqlite/test/rowvalueA.test
-sqlite/test/rowvaluefault.test
-sqlite/test/rowvaluevtab.test
-sqlite/test/rtree.test
-sqlite/test/run-wordcount.sh
-sqlite/test/savepoint.test
-sqlite/test/savepoint2.test
-sqlite/test/savepoint4.test
-sqlite/test/savepoint5.test
-sqlite/test/savepoint6.test
-sqlite/test/savepoint7.test
-sqlite/test/savepointfault.test
-sqlite/test/scanstatus.test
-sqlite/test/scanstatus2.test
-sqlite/test/schema.test
-sqlite/test/schema2.test
-sqlite/test/schema3.test
-sqlite/test/schema4.test
-sqlite/test/schema5.test
-sqlite/test/schema6.test
-sqlite/test/schemafault.test
-sqlite/test/securedel.test
-sqlite/test/securedel2.test
-sqlite/test/seekscan1.test
-sqlite/test/select1.test
-sqlite/test/select2.test
-sqlite/test/select3.test
-sqlite/test/select4.test
-sqlite/test/select5.test
-sqlite/test/select6.test
-sqlite/test/select7.test
-sqlite/test/select8.test
-sqlite/test/select9.test
-sqlite/test/selectA.test
-sqlite/test/selectB.test
-sqlite/test/selectC.test
-sqlite/test/selectD.test
-sqlite/test/selectE.test
-sqlite/test/selectF.test
-sqlite/test/selectG.test
-sqlite/test/selectH.test
-sqlite/test/session.test
-sqlite/test/sessionfuzz-data1.db
-sqlite/test/sessionfuzz.c
-sqlite/test/sha1.sql
-sqlite/test/shared.test
-sqlite/test/shared2.test
-sqlite/test/shared3.test
-sqlite/test/shared4.test
-sqlite/test/shared6.test
-sqlite/test/shared7.test
-sqlite/test/shared8.test
-sqlite/test/shared9.test
-sqlite/test/sharedA.test
-sqlite/test/sharedB.test
-sqlite/test/shared_err.test
-sqlite/test/sharedlock.test
-sqlite/test/shell-prompt.sql
-sqlite/test/shell1.test
-sqlite/test/shell2.test
-sqlite/test/shell3.test
-sqlite/test/shell4.test
-sqlite/test/shell5.test
-sqlite/test/shell6.test
-sqlite/test/shell7.test
-sqlite/test/shell8.test
-sqlite/test/shell9.test
-sqlite/test/shellA.test
-sqlite/test/shellB.test
-sqlite/test/shmlock.test
-sqlite/test/shortread1.test
-sqlite/test/show_speedtest1_rtree.tcl
-sqlite/test/shrink.test
-sqlite/test/sidedelete.test
-sqlite/test/skipscan1.test
-sqlite/test/skipscan2.test
-sqlite/test/skipscan3.test
-sqlite/test/skipscan5.test
-sqlite/test/skipscan6.test
-sqlite/test/snapshot.test
-sqlite/test/snapshot2.test
-sqlite/test/snapshot3.test
-sqlite/test/snapshot4.test
-sqlite/test/snapshot_fault.test
-sqlite/test/snapshot_up.test
-sqlite/test/soak.test
-sqlite/test/softheap1.test
-sqlite/test/sort.test
-sqlite/test/sort2.test
-sqlite/test/sort3.test
-sqlite/test/sort4.test
-sqlite/test/sort5.test
-sqlite/test/sorterref.test
-sqlite/test/sortfault.test
-sqlite/test/speed1.test
-sqlite/test/speed1p.explain
-sqlite/test/speed1p.test
-sqlite/test/speed2.test
-sqlite/test/speed3.test
-sqlite/test/speed4.test
-sqlite/test/speed4p.explain
-sqlite/test/speed4p.test
-sqlite/test/speedtest.md
-sqlite/test/speedtest.tcl
-sqlite/test/speedtest1.c
-sqlite/test/spellfix.test
-sqlite/test/spellfix2.test
-sqlite/test/spellfix3.test
-sqlite/test/spellfix4.test
-sqlite/test/sqldiff1.test
-sqlite/test/sqllimits1.test
-sqlite/test/sqllog.test
-sqlite/test/starschema1.test
-sqlite/test/startup.c
-sqlite/test/stat.test
-sqlite/test/statfault.test
-sqlite/test/stmt.test
-sqlite/test/stmtrand.test
-sqlite/test/stmtvtab1.test
-sqlite/test/strict1.test
-sqlite/test/strict2.test
-sqlite/test/subjournal.test
-sqlite/test/subquery.test
-sqlite/test/subquery2.test
-sqlite/test/subselect.test
-sqlite/test/substr.test
-sqlite/test/subtype1.test
-sqlite/test/superlock.test
-sqlite/test/swarmvtab.test
-sqlite/test/swarmvtab2.test
-sqlite/test/swarmvtab3.test
-sqlite/test/swarmvtabfault.test
-sqlite/test/symlink.test
-sqlite/test/symlink2.test
-sqlite/test/sync.test
-sqlite/test/sync2.test
-sqlite/test/syscall.test
-sqlite/test/sysfault.test
-sqlite/test/tabfunc01.test
-sqlite/test/table.test
-sqlite/test/tableapi.test
-sqlite/test/tableopts.test
-sqlite/test/tclsqlite.test
-sqlite/test/tempdb.test
-sqlite/test/tempdb2.test
-sqlite/test/tempfault.test
-sqlite/test/temptable.test
-sqlite/test/temptable2.test
-sqlite/test/temptable3.test
-sqlite/test/temptrigfault.tes
-sqlite/test/temptrigger.test
-sqlite/test/tester.tcl
-sqlite/test/testloadext.c
-sqlite/test/testrunner.tcl
-sqlite/test/testrunner_data.tcl
-sqlite/test/testrunner_estwork.tcl
-sqlite/test/thread001.test
-sqlite/test/thread002.test
-sqlite/test/thread003.test
-sqlite/test/thread004.test
-sqlite/test/thread005.test
-sqlite/test/thread1.test
-sqlite/test/thread2.test
-sqlite/test/thread3.test
-sqlite/test/thread_common.tcl
-sqlite/test/threadtest1.c
-sqlite/test/threadtest2.c
-sqlite/test/threadtest3.c
-sqlite/test/threadtest4.c
-sqlite/test/threadtest5.c
-sqlite/test/time-wordcount.sh
-sqlite/test/timediff1.test
-sqlite/test/tkt-02a8e81d44.test
-sqlite/test/tkt-18458b1a.test
-sqlite/test/tkt-26ff0c2d1e.test
-sqlite/test/tkt-2a5629202f.test
-sqlite/test/tkt-2d1a5c67d.test
-sqlite/test/tkt-2ea2425d34.test
-sqlite/test/tkt-31338dca7e.test
-sqlite/test/tkt-313723c356.test
-sqlite/test/tkt-385a5b56b9.test
-sqlite/test/tkt-38cb5df375.test
-sqlite/test/tkt-3998683a16.test
-sqlite/test/tkt-3a77c9714e.test
-sqlite/test/tkt-3fe897352e.test
-sqlite/test/tkt-4a03edc4c8.test
-sqlite/test/tkt-4c86b126f2.test
-sqlite/test/tkt-4dd95f6943.test
-sqlite/test/tkt-4ef7e3cfca.test
-sqlite/test/tkt-54844eea3f.test
-sqlite/test/tkt-5d863f876e.test
-sqlite/test/tkt-5e10420e8d.test
-sqlite/test/tkt-5ee23731f.test
-sqlite/test/tkt-6bfb98dfc0.test
-sqlite/test/tkt-752e1646fc.test
-sqlite/test/tkt-78e04e52ea.test
-sqlite/test/tkt-7a31705a7e6.test
-sqlite/test/tkt-7bbfb7d442.test
-sqlite/test/tkt-80ba201079.test
-sqlite/test/tkt-80e031a00f.test
-sqlite/test/tkt-8454a207b9.test
-sqlite/test/tkt-868145d012.test
-sqlite/test/tkt-8c63ff0ec.test
-sqlite/test/tkt-91e2e8ba6f.test
-sqlite/test/tkt-99378177930f87bd.test
-sqlite/test/tkt-9a8b09f8e6.test
-sqlite/test/tkt-9d68c883.test
-sqlite/test/tkt-9f2eb3abac.test
-sqlite/test/tkt-a7b7803e.test
-sqlite/test/tkt-a7debbe0.test
-sqlite/test/tkt-a8a0d2996a.test
-sqlite/test/tkt-b1d3a2e531.test
-sqlite/test/tkt-b351d95f9.test
-sqlite/test/tkt-b72787b1.test
-sqlite/test/tkt-b75a9ca6b0.test
-sqlite/test/tkt-ba7cbfaedc.test
-sqlite/test/tkt-bd484a090c.test
-sqlite/test/tkt-bdc6bbbb38.test
-sqlite/test/tkt-c48d99d690.test
-sqlite/test/tkt-c694113d5.test
-sqlite/test/tkt-cbd054fa6b.test
-sqlite/test/tkt-d11f09d36e.test
-sqlite/test/tkt-d635236375.test
-sqlite/test/tkt-d82e3f3721.test
-sqlite/test/tkt-f3e5abed55.test
-sqlite/test/tkt-f67b41381a.test
-sqlite/test/tkt-f777251dc7a.test
-sqlite/test/tkt-f7b4edec.test
-sqlite/test/tkt-f973c7ac31.test
-sqlite/test/tkt-fa7bf5ec.test
-sqlite/test/tkt-fc62af4523.test
-sqlite/test/tkt-fc7bd6358f.test
-sqlite/test/tkt1435.test
-sqlite/test/tkt1443.test
-sqlite/test/tkt1444.test
-sqlite/test/tkt1449.test
-sqlite/test/tkt1473.test
-sqlite/test/tkt1501.test
-sqlite/test/tkt1512.test
-sqlite/test/tkt1514.test
-sqlite/test/tkt1536.test
-sqlite/test/tkt1537.test
-sqlite/test/tkt1567.test
-sqlite/test/tkt1644.test
-sqlite/test/tkt1667.test
-sqlite/test/tkt1873.test
-sqlite/test/tkt2141.test
-sqlite/test/tkt2192.test
-sqlite/test/tkt2213.test
-sqlite/test/tkt2251.test
-sqlite/test/tkt2285.test
-sqlite/test/tkt2332.test
-sqlite/test/tkt2339.test
-sqlite/test/tkt2391.test
-sqlite/test/tkt2409.test
-sqlite/test/tkt2450.test
-sqlite/test/tkt2565.test
-sqlite/test/tkt2640.test
-sqlite/test/tkt2643.test
-sqlite/test/tkt2686.test
-sqlite/test/tkt2767.test
-sqlite/test/tkt2817.test
-sqlite/test/tkt2820.test
-sqlite/test/tkt2822.test
-sqlite/test/tkt2832.test
-sqlite/test/tkt2854.test
-sqlite/test/tkt2920.test
-sqlite/test/tkt2927.test
-sqlite/test/tkt2942.test
-sqlite/test/tkt3080.test
-sqlite/test/tkt3093.test
-sqlite/test/tkt3121.test
-sqlite/test/tkt3201.test
-sqlite/test/tkt3292.test
-sqlite/test/tkt3298.test
-sqlite/test/tkt3334.test
-sqlite/test/tkt3346.test
-sqlite/test/tkt3357.test
-sqlite/test/tkt3419.test
-sqlite/test/tkt3424.test
-sqlite/test/tkt3442.test
-sqlite/test/tkt3457.test
-sqlite/test/tkt3461.test
-sqlite/test/tkt3493.test
-sqlite/test/tkt3508.test
-sqlite/test/tkt3522.test
-sqlite/test/tkt3527.test
-sqlite/test/tkt3541.test
-sqlite/test/tkt3554.test
-sqlite/test/tkt3581.test
-sqlite/test/tkt35xx.test
-sqlite/test/tkt3630.test
-sqlite/test/tkt3718.test
-sqlite/test/tkt3731.test
-sqlite/test/tkt3757.test
-sqlite/test/tkt3761.test
-sqlite/test/tkt3762.test
-sqlite/test/tkt3773.test
-sqlite/test/tkt3791.test
-sqlite/test/tkt3793.test
-sqlite/test/tkt3810.test
-sqlite/test/tkt3824.test
-sqlite/test/tkt3832.test
-sqlite/test/tkt3838.test
-sqlite/test/tkt3841.test
-sqlite/test/tkt3871.test
-sqlite/test/tkt3879.test
-sqlite/test/tkt3911.test
-sqlite/test/tkt3918.test
-sqlite/test/tkt3922.test
-sqlite/test/tkt3929.test
-sqlite/test/tkt3935.test
-sqlite/test/tkt3992.test
-sqlite/test/tkt3997.test
-sqlite/test/tkt4018.test
-sqlite/test/tokenize.test
-sqlite/test/tpch01.test
-sqlite/test/trace.test
-sqlite/test/trace2.test
-sqlite/test/trace3.test
-sqlite/test/trans.test
-sqlite/test/trans2.test
-sqlite/test/trans3.test
-sqlite/test/transitive1.test
-sqlite/test/trigger1.test
-sqlite/test/trigger2.test
-sqlite/test/trigger3.test
-sqlite/test/trigger4.test
-sqlite/test/trigger5.test
-sqlite/test/trigger6.test
-sqlite/test/trigger7.test
-sqlite/test/trigger8.test
-sqlite/test/trigger9.test
-sqlite/test/triggerA.test
-sqlite/test/triggerB.test
-sqlite/test/triggerC.test
-sqlite/test/triggerD.test
-sqlite/test/triggerE.test
-sqlite/test/triggerF.test
-sqlite/test/triggerG.test
-sqlite/test/triggerupfrom.test
-sqlite/test/trustschema1.test
-sqlite/test/tt3_checkpoint.c
-sqlite/test/tt3_index.c
-sqlite/test/tt3_lookaside1.c
-sqlite/test/tt3_shared.c
-sqlite/test/tt3_stress.c
-sqlite/test/tt3_vacuum.c
-sqlite/test/types.test
-sqlite/test/types2.test
-sqlite/test/types3.test
-sqlite/test/unhex.test
-sqlite/test/unionall.test
-sqlite/test/unionall2.test
-sqlite/test/unionallfault.test
-sqlite/test/unionvtab.test
-sqlite/test/unionvtabfault.test
-sqlite/test/unique.test
-sqlite/test/unique2.test
-sqlite/test/unixexcl.test
-sqlite/test/unordered.test
-sqlite/test/update.test
-sqlite/test/update2.test
-sqlite/test/upfrom1.tcl
-sqlite/test/upfrom1.test
-sqlite/test/upfrom2.test
-sqlite/test/upfrom3.test
-sqlite/test/upfrom4.test
-sqlite/test/upfromfault.test
-sqlite/test/upsert1.test
-sqlite/test/upsert2.test
-sqlite/test/upsert3.test
-sqlite/test/upsert4.test
-sqlite/test/upsert5.test
-sqlite/test/upsertfault.test
-sqlite/test/uri.test
-sqlite/test/uri2.test
-sqlite/test/utf16align.test
-sqlite/test/vacuum-into.test
-sqlite/test/vacuum.test
-sqlite/test/vacuum2.test
-sqlite/test/vacuum3.test
-sqlite/test/vacuum4.test
-sqlite/test/vacuum5.test
-sqlite/test/vacuum6.test
-sqlite/test/vacuummem.test
-sqlite/test/values.test
-sqlite/test/valuesfault.test
-sqlite/test/varint.test
-sqlite/test/veryquick.test
-sqlite/test/view.test
-sqlite/test/view2.test
-sqlite/test/view3.test
-sqlite/test/vt02.c
-sqlite/test/vt100-a.sql
-sqlite/test/vtab1.test
-sqlite/test/vtab2.test
-sqlite/test/vtab3.test
-sqlite/test/vtab4.test
-sqlite/test/vtab5.test
-sqlite/test/vtab6.test
-sqlite/test/vtab7.test
-sqlite/test/vtab8.test
-sqlite/test/vtab9.test
-sqlite/test/vtabA.test
-sqlite/test/vtabB.test
-sqlite/test/vtabC.test
-sqlite/test/vtabD.test
-sqlite/test/vtabE.test
-sqlite/test/vtabF.test
-sqlite/test/vtabH.test
-sqlite/test/vtabI.test
-sqlite/test/vtabJ.test
-sqlite/test/vtabK.test
-sqlite/test/vtabL.test
-sqlite/test/vtab_alter.test
-sqlite/test/vtab_err.test
-sqlite/test/vtab_shared.test
-sqlite/test/vtabdistinct.test
-sqlite/test/vtabdrop.test
-sqlite/test/vtabrhs1.test
-sqlite/test/wal.test
-sqlite/test/wal2.test
-sqlite/test/wal3.test
-sqlite/test/wal4.test
-sqlite/test/wal5.test
-sqlite/test/wal6.test
-sqlite/test/wal64k.test
-sqlite/test/wal7.test
-sqlite/test/wal8.test
-sqlite/test/wal9.test
-sqlite/test/wal_common.tcl
-sqlite/test/walbak.test
-sqlite/test/walbig.test
-sqlite/test/walblock.test
-sqlite/test/walckptnoop.test
-sqlite/test/walcksum.test
-sqlite/test/walcrash.test
-sqlite/test/walcrash2.test
-sqlite/test/walcrash3.test
-sqlite/test/walcrash4.test
-sqlite/test/walfault.test
-sqlite/test/walfault2.test
-sqlite/test/walhook.test
-sqlite/test/waliter.test
-sqlite/test/walmode.test
-sqlite/test/walnoshm.test
-sqlite/test/waloverwrite.test
-sqlite/test/walpersist.test
-sqlite/test/walprotocol.test
-sqlite/test/walprotocol2.test
-sqlite/test/walrestart.test
-sqlite/test/walro.test
-sqlite/test/walro2.test
-sqlite/test/walrofault.test
-sqlite/test/walseh1.test
-sqlite/test/walsetlk.test
-sqlite/test/walsetlk2.test
-sqlite/test/walsetlk3.test
-sqlite/test/walsetlk_recover.test
-sqlite/test/walsetlk_snapshot.test
-sqlite/test/walshared.test
-sqlite/test/walslow.test
-sqlite/test/walthread.test
-sqlite/test/walvfs.test
-sqlite/test/where.test
-sqlite/test/where2.test
-sqlite/test/where3.test
-sqlite/test/where4.test
-sqlite/test/where5.test
-sqlite/test/where6.test
-sqlite/test/where7.test
-sqlite/test/where8.test
-sqlite/test/where9.test
-sqlite/test/whereA.test
-sqlite/test/whereB.test
-sqlite/test/whereC.test
-sqlite/test/whereD.test
-sqlite/test/whereE.test
-sqlite/test/whereF.test
-sqlite/test/whereG.test
-sqlite/test/whereH.test
-sqlite/test/whereI.test
-sqlite/test/whereJ.test
-sqlite/test/whereK.test
-sqlite/test/whereL.test
-sqlite/test/whereM.test
-sqlite/test/whereN.test
-sqlite/test/wherefault.test
-sqlite/test/wherelfault.test
-sqlite/test/wherelimit.test
-sqlite/test/wherelimit2.test
-sqlite/test/wherelimit3.test
-sqlite/test/widetab1.test
-sqlite/test/win32heap.test
-sqlite/test/win32lock.test
-sqlite/test/win32longpath.test
-sqlite/test/win32nolock.test
-sqlite/test/window1.test
-sqlite/test/window2.tcl
-sqlite/test/window2.test
-sqlite/test/window3.tcl
-sqlite/test/window3.test
-sqlite/test/window4.tcl
-sqlite/test/window4.test
-sqlite/test/window5.test
-sqlite/test/window6.test
-sqlite/test/window7.tcl
-sqlite/test/window7.test
-sqlite/test/window8.tcl
-sqlite/test/window8.test
-sqlite/test/window9.test
-sqlite/test/windowA.test
-sqlite/test/windowB.test
-sqlite/test/windowC.test
-sqlite/test/windowD.test
-sqlite/test/windowE.test
-sqlite/test/windowerr.tcl
-sqlite/test/windowerr.test
-sqlite/test/windowfault.test
-sqlite/test/windowpushd.test
-sqlite/test/with1.test
-sqlite/test/with2.test
-sqlite/test/with3.test
-sqlite/test/with4.test
-sqlite/test/with5.test
-sqlite/test/with6.test
-sqlite/test/withM.test
-sqlite/test/without_rowid1.test
-sqlite/test/without_rowid2.test
-sqlite/test/without_rowid3.test
-sqlite/test/without_rowid4.test
-sqlite/test/without_rowid5.test
-sqlite/test/without_rowid6.test
-sqlite/test/without_rowid7.test
-sqlite/test/wordcount.c
-sqlite/test/writecrash.test
-sqlite/test/zeroblob.test
-sqlite/test/zeroblobfault.test
-sqlite/test/zerodamage.test
-sqlite/test/zipfile.test
-sqlite/test/zipfile2.test
-sqlite/test/zipfilefault.test
-sqlite/tool
-sqlite/tool/GetFile.cs
-sqlite/tool/GetTclKit.bat
-sqlite/tool/Replace.cs
-sqlite/tool/build-all-msvc.bat
-sqlite/tool/build-shell.sh
-sqlite/tool/buildtclext.tcl
-sqlite/tool/cg_anno.tcl
-sqlite/tool/checkSpacing.c
-sqlite/tool/cktclsh.sh
-sqlite/tool/cp.tcl
-sqlite/tool/custom.txt
-sqlite/tool/dbhash.c
-sqlite/tool/dbtotxt.c
-sqlite/tool/dbtotxt.md
-sqlite/tool/emcc.sh.in
-sqlite/tool/enlargedb.c
-sqlite/tool/extract-sqlite3h.tcl
-sqlite/tool/extract.c
-sqlite/tool/fast_vacuum.c
-sqlite/tool/fragck.tcl
-sqlite/tool/fuzzershell.c
-sqlite/tool/genfkey.README
-sqlite/tool/genfkey.test
-sqlite/tool/getlock.c
-sqlite/tool/index_usage.c
-sqlite/tool/lemon.c
-sqlite/tool/lempar.c
-sqlite/tool/libvers.c
-sqlite/tool/loadfts.c
-sqlite/tool/logest.c
-sqlite/tool/max-limits.c
-sqlite/tool/merge-test.tcl
-sqlite/tool/mkamalzip.tcl
-sqlite/tool/mkautoconfamal.sh
-sqlite/tool/mkccode.tcl
-sqlite/tool/mkcombo.tcl
-sqlite/tool/mkctimec.tcl
-sqlite/tool/mkfptab.c
-sqlite/tool/mkkeywordhash.c
-sqlite/tool/mkmsvcmin.tcl
-sqlite/tool/mkopcodec.tcl
-sqlite/tool/mkopcodeh.tcl
-sqlite/tool/mkopts.tcl
-sqlite/tool/mkpragmatab.tcl
-sqlite/tool/mkshellc.tcl
-sqlite/tool/mksourceid.c
-sqlite/tool/mksqlite3c-noext.tcl
-sqlite/tool/mksqlite3c.tcl
-sqlite/tool/mksqlite3h.tcl
-sqlite/tool/mksqlite3internalh.tcl
-sqlite/tool/mksrczip.tcl
-sqlite/tool/mktoolzip.tcl
-sqlite/tool/mkvsix.tcl
-sqlite/tool/mkwinarm64ec.tcl
-sqlite/tool/offsets.c
-sqlite/tool/omittest-msvc.tcl
-sqlite/tool/omittest.tcl
-sqlite/tool/opcodesum.tcl
-sqlite/tool/pagesig.c
-sqlite/tool/renumber-win-thunk.tcl
-sqlite/tool/replace.tcl
-sqlite/tool/restore_jrnl.tcl
-sqlite/tool/rollback-test.c
-sqlite/tool/showdb.c
-sqlite/tool/showjournal.c
-sqlite/tool/showlocks.c
-sqlite/tool/showshm.c
-sqlite/tool/showstat4.c
-sqlite/tool/showtmlog.c
-sqlite/tool/showwal.c
-sqlite/tool/soak1.tcl
-sqlite/tool/spaceanal.tcl
-sqlite/tool/spellsift.tcl
-sqlite/tool/split-sqlite3c.tcl
-sqlite/tool/sqldiff.c
-sqlite/tool/sqlite3_analyzer.c.in
-sqlite/tool/sqlite3_rsync.c
-sqlite/tool/sqltclsh.c.in
-sqlite/tool/sqltclsh.tcl
-sqlite/tool/src-verify.c
-sqlite/tool/srcck1.c
-sqlite/tool/srctree-check.tcl
-sqlite/tool/stack_usage.tcl
-sqlite/tool/stripccomments.c
-sqlite/tool/symbols-mingw.sh
-sqlite/tool/symbols.sh
-sqlite/tool/tclConfigShToMake.sh
-sqlite/tool/varint.c
-sqlite/tool/vdbe-compress.tcl
-sqlite/tool/vdbe_profile.tcl
-sqlite/tool/version-info.c
-sqlite/tool/warnings-clang.sh
-sqlite/tool/warnings.sh
-sqlite/tool/win
-sqlite/tool/win/sqlite.vsix
-sqlite/tool/winmain.c
-[?2004hroot@29352b6ac4b4:/app# cd sqlite
-[?2004l[?2004hroot@29352b6ac4b4:/app/sqlite# DEBIAN_FRONTEND=noninteractive apt-get -y install tzdata; tmux wait -S done
-[?2004lReading package lists... 0%Reading package lists... 0%Reading package lists... 0%Reading package lists... 5%Reading package lists... 5%Reading package lists... 27%Reading package lists... 49%Reading package lists... 60%Reading package lists... 60%Reading package lists... 61%Reading package lists... 61%Reading package lists... 62%Reading package lists... 62%Reading package lists... 67%Reading package lists... 67%Reading package lists... 70%Reading package lists... 75%Reading package lists... 75%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 87%Reading package lists... 87%Reading package lists... 93%Reading package lists... 93%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... Done
-Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree... 57%Building dependency tree... Done
-Reading state information... 0% Reading state information... 4%Reading state information... Done
-The following packages will be upgraded:
-  tzdata
-1 upgraded, 0 newly installed, 0 to remove and 58 not upgraded.
-Need to get 280 kB of archives.
-After this operation, 0 B of additional disk space will be used.
-0% [Working]            Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 tzdata all 2026c-0ubuntu0.24.04.1 [280 kB]
-0% [1 tzdata 0 B/280 kB 0%]                           100% [Working]              Fetched 280 kB in 0s (1171 kB/s)
-debconf: delaying package configuration, since apt-utils is not installed
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../tzdata_2026c-0ubuntu0.24.04.1_all.deb ...
-Unpacking tzdata (2026c-0ubuntu0.24.04.1) over (2025b-0ubuntu0.24.04) ...
-Setting up tzdata (2026c-0ubuntu0.24.04.1) ...
-
-Current default time zone: 'Etc/UTC'
-Local time is now:      Tue Sep 15 02:48:08 UTC 2026.
-Universal Time is now:  Tue Sep 15 02:48:08 UTC 2026.
-Run 'dpkg-reconfigure tzdata' if you wish to change it.
-
-[?2004hroot@29352b6ac4b4:/app/sqlite# apt-get install -y gcc jimsh tclsh make; tmux wait -S done
-[?2004lReading package lists... 0%Reading package lists... 0%Reading package lists... 0%Reading package lists... 5%Reading package lists... 5%Reading package lists... 11%Reading package lists... 27%Reading package lists... 50%Reading package lists... 60%Reading package lists... 60%Reading package lists... 61%Reading package lists... 61%Reading package lists... 62%Reading package lists... 62%Reading package lists... 67%Reading package lists... 67%Reading package lists... 75%Reading package lists... 75%Reading package lists... 76%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 82%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 83%Reading package lists... 87%Reading package lists... 87%Reading package lists... 93%Reading package lists... 93%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... 99%Reading package lists... Done
-Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree... 67%Building dependency tree... Done
-Reading state information... 0% Reading state information... 4%Reading state information... Done
-Note, selecting 'tcl' instead of 'tclsh'
-The following additional packages will be installed:
-  binutils binutils-common binutils-x86-64-linux-gnu cpp cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu fontconfig-config fonts-dejavu-core
-  fonts-dejavu-mono gcc-13 gcc-13-base gcc-13-x86-64-linux-gnu gcc-14-base gcc-x86-64-linux-gnu libaom3 libasan8 libatomic1 libbinutils libbrotli1 libbsd0
-  libc-bin libc-dev-bin libc-devtools libc6 libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0 libctf0 libdeflate0 libfontconfig1 libfreetype6 libgcc-13-dev
-  libgcc-s1 libgd3 libgomp1 libgprofng0 libheif-plugin-aomdec libheif-plugin-aomenc libheif1 libhwasan0 libisl23 libitm1 libjansson4 libjbig0 libjim0.82t64
-  libjpeg-turbo8 libjpeg8 liblerc4 liblsan0 libmpc3 libmpfr6 libpng16-16t64 libquadmath0 libsframe1 libsharpyuv0 libstdc++6 libtcl8.6 libtiff6 libtsan2
-  libubsan1 libwebp7 libx11-6 libx11-data libxau6 libxcb1 libxdmcp6 libxpm4 linux-libc-dev manpages manpages-dev rpcsvc-proto tcl8.6
-Suggested packages:
-  binutils-doc gprofng-gui cpp-doc gcc-13-locales cpp-13-doc gcc-multilib autoconf automake libtool flex bison gdb gcc-doc gcc-13-multilib gcc-13-doc
-  gdb-x86-64-linux-gnu glibc-doc locales libnss-nis libnss-nisplus libgd-tools libheif-plugin-libde265 libheif-plugin-x265 libheif-plugin-ffmpegdec
-  libheif-plugin-jpegdec libheif-plugin-jpegenc libheif-plugin-j2kdec libheif-plugin-j2kenc libheif-plugin-rav1e libheif-plugin-svtenc make-doc man-browser
-  tcl-tclreadline
-The following NEW packages will be installed:
-  binutils binutils-common binutils-x86-64-linux-gnu cpp cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu fontconfig-config fonts-dejavu-core
-  fonts-dejavu-mono gcc gcc-13 gcc-13-base gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu jimsh libaom3 libasan8 libatomic1 libbinutils libbrotli1 libbsd0
-  libc-dev-bin libc-devtools libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0 libctf0 libdeflate0 libfontconfig1 libfreetype6 libgcc-13-dev libgd3 libgomp1
-  libgprofng0 libheif-plugin-aomdec libheif-plugin-aomenc libheif1 libhwasan0 libisl23 libitm1 libjansson4 libjbig0 libjim0.82t64 libjpeg-turbo8 libjpeg8
-  liblerc4 liblsan0 libmpc3 libmpfr6 libpng16-16t64 libquadmath0 libsframe1 libsharpyuv0 libtcl8.6 libtiff6 libtsan2 libubsan1 libwebp7 libx11-6 libx11-data
-  libxau6 libxcb1 libxdmcp6 libxpm4 linux-libc-dev make manpages manpages-dev rpcsvc-proto tcl tcl8.6
-The following packages will be upgraded:
-  gcc-14-base libc-bin libc6 libgcc-s1 libstdc++6
-5 upgraded, 73 newly installed, 0 to remove and 53 not upgraded.
-Need to get 71.1 MB of archives.
-After this operation, 221 MB of additional disk space will be used.
-0% [Working]            Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-14-base amd64 14.2.0-4ubuntu2~24.04.1 [51.0 kB]
-0% [1 gcc-14-base 0 B/51.0 kB 0%]                                 0% [Working]            Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgcc-s1 amd64 14.2.0-4ubuntu2~24.04.1 [78.4 kB]
-0% [2 libgcc-s1 0 B/78.4 kB 0%]                               1% [Working]            Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libstdc++6 amd64 14.2.0-4ubuntu2~24.04.1 [792 kB]
-1% [3 libstdc++6 7905 B/792 kB 1%]                                  2% [Working]            Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6 amd64 2.39-0ubuntu8.9 [3264 kB]
-2% [4 libc6 32.8 kB/3264 kB 1%]                               6% [Working]            Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-bin amd64 2.39-0ubuntu8.9 [682 kB]
-6% [5 libc-bin 2346 B/682 kB 0%]                                Get:6 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbsd0 amd64 0.12.1-1build1.1 [41.2 kB]
-7% [6 libbsd0 40.8 kB/41.2 kB 99%]                                  7% [Working]            Get:7 http://archive.ubuntu.com/ubuntu noble/main amd64 libjansson4 amd64 2.14-2build2 [32.8 kB]
-7% [7 libjansson4 0 B/32.8 kB 0%]                                 7% [Working]            Get:8 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpng16-16t64 amd64 1.6.43-5ubuntu0.6 [189 kB]
-7% [8 libpng16-16t64 36.4 kB/189 kB 19%]                                        Get:9 http://archive.ubuntu.com/ubuntu noble/main amd64 libxau6 amd64 1:1.0.9-1build6 [7160 B]
-                                        Get:10 http://archive.ubuntu.com/ubuntu noble/main amd64 libxdmcp6 amd64 1:1.1.3-0ubuntu6 [10.3 kB]
-                                        8% [10 libxdmcp6 10.3 kB/10.3 kB 100%]                                      8% [Working]            Get:11 http://archive.ubuntu.com/ubuntu noble/main amd64 libxcb1 amd64 1.15-1ubuntu2 [47.7 kB]
-8% [11 libxcb1 47.7 kB/47.7 kB 100%]                                    9% [Working]            Get:12 http://archive.ubuntu.com/ubuntu noble/main amd64 libx11-data all 2:1.8.7-1build1 [115 kB]
-9% [12 libx11-data 0 B/115 kB 0%]                                 9% [Working]            Get:13 http://archive.ubuntu.com/ubuntu noble/main amd64 libx11-6 amd64 2:1.8.7-1build1 [650 kB]
-9% [13 libx11-6 58.8 kB/650 kB 9%]                                  10% [Working]             Get:14 http://archive.ubuntu.com/ubuntu noble/main amd64 manpages all 6.7-2 [1384 kB]
-10% [14 manpages 0 B/1384 kB 0%]                                Get:15 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-common amd64 2.42-4ubuntu2.10 [240 kB]
-12% [15 binutils-common 56.1 kB/240 kB 23%]                                           12% [Working]             Get:16 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsframe1 amd64 2.42-4ubuntu2.10 [15.7 kB]
-12% [16 libsframe1 15.7 kB/15.7 kB 100%]                                        13% [Working]             Get:17 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbinutils amd64 2.42-4ubuntu2.10 [577 kB]
-13% [17 libbinutils 127 kB/577 kB 22%]                                      14% [Working]             Get:18 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf-nobfd0 amd64 2.42-4ubuntu2.10 [98.0 kB]
-14% [18 libctf-nobfd0 98.0 kB/98.0 kB 100%]                                           14% [Working]             Get:19 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf0 amd64 2.42-4ubuntu2.10 [94.5 kB]
-14% [19 libctf0 0 B/94.5 kB 0%]                               14% [Working]             Get:20 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgprofng0 amd64 2.42-4ubuntu2.10 [849 kB]
-15% [20 libgprofng0 274 kB/849 kB 32%]                                      16% [Waiting for headers]                         Get:21 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-x86-64-linux-gnu amd64 2.42-4ubuntu2.10 [2463 kB]
-16% [21 binutils-x86-64-linux-gnu 81.9 kB/2463 kB 3%]                                                     19% [Working]             Get:22 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils amd64 2.42-4ubuntu2.10 [18.2 kB]
-19% [22 binutils 0 B/18.2 kB 0%]                                19% [Working]             Get:23 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-base amd64 13.3.0-6ubuntu2~24.04.1 [51.6 kB]
-19% [23 gcc-13-base 24.2 kB/51.6 kB 47%]                                        19% [Working]             Get:24 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libisl23 amd64 0.26-3build1.1 [680 kB]
-19% [24 libisl23 65.2 kB/680 kB 10%]                                    20% [Working]             Get:25 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpfr6 amd64 4.2.1-1build1.1 [353 kB]
-20% [25 libmpfr6 0 B/353 kB 0%]                               21% [Working]             Get:26 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpc3 amd64 1.3.1-1build1.1 [54.6 kB]
-21% [26 libmpc3 53.0 kB/54.6 kB 97%]                                    21% [Working]             Get:27 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [10.7 MB]
-21% [27 cpp-13-x86-64-linux-gnu 0 B/10.7 MB 0%]                                               33% [Working]             Get:28 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13 amd64 13.3.0-6ubuntu2~24.04.1 [1042 B]
-             Get:29 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [5326 B]
-             Get:30 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp amd64 4:13.2.0-7ubuntu1 [22.4 kB]
-             Get:31 http://archive.ubuntu.com/ubuntu noble/main amd64 fonts-dejavu-mono all 2.37-8 [502 kB]
-34% [31 fonts-dejavu-mono 65.2 kB/502 kB 13%]                                             35% [Working]             Get:32 http://archive.ubuntu.com/ubuntu noble/main amd64 fonts-dejavu-core all 2.37-8 [835 kB]
-35% [32 fonts-dejavu-core 87.0 kB/835 kB 10%]                                             36% [Working]             Get:33 http://archive.ubuntu.com/ubuntu noble/main amd64 fontconfig-config amd64 2.15.0-1.1ubuntu2 [37.3 kB]
-             Get:34 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcc1-0 amd64 14.2.0-4ubuntu2~24.04.1 [48.0 kB]
-             Get:35 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgomp1 amd64 14.2.0-4ubuntu2~24.04.1 [148 kB]
-37% [35 libgomp1 19.4 kB/148 kB 13%]                                    37% [Working]             Get:36 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libitm1 amd64 14.2.0-4ubuntu2~24.04.1 [29.7 kB]
-37% [36 libitm1 29.7 kB/29.7 kB 100%]                                     38% [Working]             Get:37 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libatomic1 amd64 14.2.0-4ubuntu2~24.04.1 [10.5 kB]
-             Get:38 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libasan8 amd64 14.2.0-4ubuntu2~24.04.1 [3027 kB]
-38% [38 libasan8 65.2 kB/3027 kB 2%]                                    42% [Working]             Get:39 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 liblsan0 amd64 14.2.0-4ubuntu2~24.04.1 [1322 kB]
-42% [39 liblsan0 0 B/1322 kB 0%]                                43% [Working]             Get:40 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libtsan2 amd64 14.2.0-4ubuntu2~24.04.1 [2772 kB]
-43% [40 libtsan2 41.7 kB/2772 kB 2%]                                    47% [Working]             Get:41 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libubsan1 amd64 14.2.0-4ubuntu2~24.04.1 [1184 kB]
-47% [41 libubsan1 87.6 kB/1184 kB 7%]                                     48% [Working]             Get:42 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libhwasan0 amd64 14.2.0-4ubuntu2~24.04.1 [1641 kB]
-48% [42 libhwasan0 0 B/1641 kB 0%]                                  50% [Working]             Get:43 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libquadmath0 amd64 14.2.0-4ubuntu2~24.04.1 [153 kB]
-50% [43 libquadmath0 108 kB/153 kB 70%]                                       51% [Working]             Get:44 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgcc-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2681 kB]
-51% [44 libgcc-13-dev 19.6 kB/2681 kB 1%]                                         54% [Working]             Get:45 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [21.1 MB]
-54% [45 gcc-13-x86-64-linux-gnu 130 kB/21.1 MB 1%]                                                  78% [Working]             Get:46 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13 amd64 13.3.0-6ubuntu2~24.04.1 [494 kB]
-78% [46 gcc-13 109 kB/494 kB 22%]                                 79% [Working]             Get:47 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [1212 B]
-79% [47 gcc-x86-64-linux-gnu 1212 B/1212 B 100%]                                                Get:48 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc amd64 4:13.2.0-7ubuntu1 [5018 B]
-                                                Get:49 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libaom3 amd64 3.8.2-2ubuntu0.1 [1941 kB]
-                                                79% [49 libaom3 131 kB/1941 kB 7%]                                  82% [Working]             Get:50 http://archive.ubuntu.com/ubuntu noble/main amd64 libbrotli1 amd64 1.1.0-2build2 [331 kB]
-82% [50 libbrotli1 0 B/331 kB 0%]                                 82% [Working]             Get:51 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-dev-bin amd64 2.39-0ubuntu8.9 [20.4 kB]
-82% [51 libc-dev-bin 0 B/20.4 kB 0%]                                    83% [Working]             Get:52 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libfreetype6 amd64 2.13.2+dfsg-1ubuntu0.1 [402 kB]
-83% [52 libfreetype6 65.2 kB/402 kB 16%]                                        83% [Working]             Get:53 http://archive.ubuntu.com/ubuntu noble/main amd64 libfontconfig1 amd64 2.15.0-1.1ubuntu2 [139 kB]
-83% [53 libfontconfig1 56.1 kB/139 kB 40%]                                          84% [Working]             Get:54 http://archive.ubuntu.com/ubuntu noble/main amd64 libsharpyuv0 amd64 1.3.2-0.4build3 [15.8 kB]
-84% [54 libsharpyuv0 0 B/15.8 kB 0%]                                    84% [Waiting for headers]                         Get:55 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libheif-plugin-aomdec amd64 1.17.6-1ubuntu4.8 [11.6 kB]
-84% [55 libheif-plugin-aomdec 0 B/11.6 kB 0%]                                             Get:56 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libheif1 amd64 1.17.6-1ubuntu4.8 [277 kB]
-                                             84% [56 libheif1 65.2 kB/277 kB 24%]                                    85% [Working]             Get:57 http://archive.ubuntu.com/ubuntu noble/main amd64 libjpeg-turbo8 amd64 2.1.5-2ubuntu2 [150 kB]
-85% [57 libjpeg-turbo8 0 B/150 kB 0%]                                     85% [Working]             Get:58 http://archive.ubuntu.com/ubuntu noble/main amd64 libjpeg8 amd64 8c-2ubuntu11 [2148 B]
-85% [58 libjpeg8 0 B/2148 B 0%]                               86% [Waiting for headers]                         Get:59 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libdeflate0 amd64 1.19-1build1.1 [43.9 kB]
-86% [59 libdeflate0 0 B/43.9 kB 0%]                                   Get:60 http://archive.ubuntu.com/ubuntu noble/main amd64 libjbig0 amd64 2.1-6.1ubuntu2 [29.7 kB]
-                                   86% [Waiting for headers]                         Get:61 http://archive.ubuntu.com/ubuntu noble/main amd64 liblerc4 amd64 4.0.0+ds-4ubuntu2 [179 kB]
-86% [61 liblerc4 64.9 kB/179 kB 36%]                                    87% [Working]             Get:62 http://archive.ubuntu.com/ubuntu noble/main amd64 libwebp7 amd64 1.3.2-0.4build3 [230 kB]
-87% [62 libwebp7 59.5 kB/230 kB 26%]                                    87% [Working]             Get:63 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libtiff6 amd64 4.5.1+git230720-4ubuntu2.5 [200 kB]
-87% [63 libtiff6 0 B/200 kB 0%]                               88% [Working]             Get:64 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libxpm4 amd64 1:3.5.17-1ubuntu0.24.04.1 [36.7 kB]
-88% [64 libxpm4 36.7 kB/36.7 kB 100%]                                     88% [Working]             Get:65 http://archive.ubuntu.com/ubuntu noble/main amd64 libgd3 amd64 2.3.3-9ubuntu5 [128 kB]
-88% [65 libgd3 50.8 kB/128 kB 40%]                                  88% [Working]             Get:66 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-devtools amd64 2.39-0ubuntu8.9 [29.3 kB]
-88% [66 libc-devtools 0 B/29.3 kB 0%]                                     89% [Working]             Get:67 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-libc-dev amd64 6.8.0-139.139 [1527 kB]
-89% [67 linux-libc-dev 156 kB/1527 kB 10%]                                          91% [Working]             Get:68 http://archive.ubuntu.com/ubuntu noble/main amd64 libcrypt-dev amd64 1:4.4.36-4build1 [112 kB]
-91% [68 libcrypt-dev 0 B/112 kB 0%]                                   91% [Working]             Get:69 http://archive.ubuntu.com/ubuntu noble/main amd64 rpcsvc-proto amd64 1.4.2-0ubuntu7 [67.4 kB]
-91% [69 rpcsvc-proto 37.5 kB/67.4 kB 56%]                                         91% [Working]             Get:70 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6-dev amd64 2.39-0ubuntu8.9 [2126 kB]
-91% [70 libc6-dev 86.4 kB/2126 kB 4%]                                     Get:71 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libheif-plugin-aomenc amd64 1.17.6-1ubuntu4.8 [14.7 kB]
-                                     Get:72 http://archive.ubuntu.com/ubuntu noble/universe amd64 libjim0.82t64 amd64 0.82-4.1build2 [152 kB]
-                                     Get:73 http://archive.ubuntu.com/ubuntu noble/main amd64 libtcl8.6 amd64 8.6.14+dfsg-1build1 [988 kB]
-                                     95% [73 libtcl8.6 218 kB/988 kB 22%]                                    96% [Working]             Get:74 http://archive.ubuntu.com/ubuntu noble/main amd64 make amd64 4.3-4.1build2 [180 kB]
-96% [74 make 82.3 kB/180 kB 46%]                                97% [Working]             Get:75 http://archive.ubuntu.com/ubuntu noble/main amd64 manpages-dev all 6.7-2 [2013 kB]
-97% [75 manpages-dev 0 B/2013 kB 0%]                                    99% [Working]             Get:76 http://archive.ubuntu.com/ubuntu noble/main amd64 tcl8.6 amd64 8.6.14+dfsg-1build1 [14.7 kB]
-99% [76 tcl8.6 903 B/14.7 kB 6%]                                99% [Working]             Get:77 http://archive.ubuntu.com/ubuntu noble/main amd64 tcl amd64 8.6.14build1 [4124 B]
-             Get:78 http://archive.ubuntu.com/ubuntu noble/universe amd64 jimsh amd64 0.82-4.1build2 [164 kB]
-100% [78 jimsh 32.6 kB/164 kB 20%]                                  100% [Working]              Fetched 71.1 MB in 2s (32.0 MB/s)
-debconf: delaying package configuration, since apt-utils is not installed
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking gcc-14-base:amd64 (14.2.0-4ubuntu2~24.04.1) over (14.2.0-4ubuntu2~24.04) ...
-Setting up gcc-14-base:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../libgcc-s1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libgcc-s1:amd64 (14.2.0-4ubuntu2~24.04.1) over (14.2.0-4ubuntu2~24.04) ...
-Setting up libgcc-s1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../libstdc++6_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libstdc++6:amd64 (14.2.0-4ubuntu2~24.04.1) over (14.2.0-4ubuntu2~24.04) ...
-Setting up libstdc++6:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../libc6_2.39-0ubuntu8.9_amd64.deb ...
-debconf: unable to initialize frontend: Dialog
-debconf: (No usable dialog-like program is installed, so the dialog based frontend cannot be used. at /usr/share/perl5/Debconf/FrontEnd/Dialog.pm line 79.)
-debconf: falling back to frontend: Readline
-debconf: unable to initialize frontend: Readline
-debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
-debconf: falling back to frontend: Teletype
-Unpacking libc6:amd64 (2.39-0ubuntu8.9) over (2.39-0ubuntu8.4) ...
-Setting up libc6:amd64 (2.39-0ubuntu8.9) ...
-debconf: unable to initialize frontend: Dialog
-debconf: (No usable dialog-like program is installed, so the dialog based frontend cannot be used. at /usr/share/perl5/Debconf/FrontEnd/Dialog.pm line 79.)
-debconf: falling back to frontend: Readline
-debconf: unable to initialize frontend: Readline
-debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
-debconf: falling back to frontend: Teletype
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../libc-bin_2.39-0ubuntu8.9_amd64.deb ...
-Unpacking libc-bin (2.39-0ubuntu8.9) over (2.39-0ubuntu8.4) ...
-Setting up libc-bin (2.39-0ubuntu8.9) ...
-Selecting previously unselected package libbsd0:amd64.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6364 files and directories currently installed.)
-Preparing to unpack .../00-libbsd0_0.12.1-1build1.1_amd64.deb ...
-Unpacking libbsd0:amd64 (0.12.1-1build1.1) ...
-Selecting previously unselected package libjansson4:amd64.
-Preparing to unpack .../01-libjansson4_2.14-2build2_amd64.deb ...
-Unpacking libjansson4:amd64 (2.14-2build2) ...
-Selecting previously unselected package libpng16-16t64:amd64.
-Preparing to unpack .../02-libpng16-16t64_1.6.43-5ubuntu0.6_amd64.deb ...
-Unpacking libpng16-16t64:amd64 (1.6.43-5ubuntu0.6) ...
-Selecting previously unselected package libxau6:amd64.
-Preparing to unpack .../03-libxau6_1%3a1.0.9-1build6_amd64.deb ...
-Unpacking libxau6:amd64 (1:1.0.9-1build6) ...
-Selecting previously unselected package libxdmcp6:amd64.
-Preparing to unpack .../04-libxdmcp6_1%3a1.1.3-0ubuntu6_amd64.deb ...
-Unpacking libxdmcp6:amd64 (1:1.1.3-0ubuntu6) ...
-Selecting previously unselected package libxcb1:amd64.
-Preparing to unpack .../05-libxcb1_1.15-1ubuntu2_amd64.deb ...
-Unpacking libxcb1:amd64 (1.15-1ubuntu2) ...
-Selecting previously unselected package libx11-data.
-Preparing to unpack .../06-libx11-data_2%3a1.8.7-1build1_all.deb ...
-Unpacking libx11-data (2:1.8.7-1build1) ...
-Selecting previously unselected package libx11-6:amd64.
-Preparing to unpack .../07-libx11-6_2%3a1.8.7-1build1_amd64.deb ...
-Unpacking libx11-6:amd64 (2:1.8.7-1build1) ...
-Selecting previously unselected package manpages.
-Preparing to unpack .../08-manpages_6.7-2_all.deb ...
-Unpacking manpages (6.7-2) ...
-Selecting previously unselected package binutils-common:amd64.
-Preparing to unpack .../09-binutils-common_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking binutils-common:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package libsframe1:amd64.
-Preparing to unpack .../10-libsframe1_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking libsframe1:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package libbinutils:amd64.
-Preparing to unpack .../11-libbinutils_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking libbinutils:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package libctf-nobfd0:amd64.
-Preparing to unpack .../12-libctf-nobfd0_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package libctf0:amd64.
-Preparing to unpack .../13-libctf0_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking libctf0:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package libgprofng0:amd64.
-Preparing to unpack .../14-libgprofng0_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking libgprofng0:amd64 (2.42-4ubuntu2.10) ...
-Selecting previously unselected package binutils-x86-64-linux-gnu.
-Preparing to unpack .../15-binutils-x86-64-linux-gnu_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
-Selecting previously unselected package binutils.
-Preparing to unpack .../16-binutils_2.42-4ubuntu2.10_amd64.deb ...
-Unpacking binutils (2.42-4ubuntu2.10) ...
-Selecting previously unselected package gcc-13-base:amd64.
-Preparing to unpack .../17-gcc-13-base_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package libisl23:amd64.
-Preparing to unpack .../18-libisl23_0.26-3build1.1_amd64.deb ...
-Unpacking libisl23:amd64 (0.26-3build1.1) ...
-Selecting previously unselected package libmpfr6:amd64.
-Preparing to unpack .../19-libmpfr6_4.2.1-1build1.1_amd64.deb ...
-Unpacking libmpfr6:amd64 (4.2.1-1build1.1) ...
-Selecting previously unselected package libmpc3:amd64.
-Preparing to unpack .../20-libmpc3_1.3.1-1build1.1_amd64.deb ...
-Unpacking libmpc3:amd64 (1.3.1-1build1.1) ...
-Selecting previously unselected package cpp-13-x86-64-linux-gnu.
-Preparing to unpack .../21-cpp-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package cpp-13.
-Preparing to unpack .../22-cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package cpp-x86-64-linux-gnu.
-Preparing to unpack .../23-cpp-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
-Unpacking cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
-Selecting previously unselected package cpp.
-Preparing to unpack .../24-cpp_4%3a13.2.0-7ubuntu1_amd64.deb ...
-Unpacking cpp (4:13.2.0-7ubuntu1) ...
-Selecting previously unselected package fonts-dejavu-mono.
-Preparing to unpack .../25-fonts-dejavu-mono_2.37-8_all.deb ...
-Unpacking fonts-dejavu-mono (2.37-8) ...
-Selecting previously unselected package fonts-dejavu-core.
-Preparing to unpack .../26-fonts-dejavu-core_2.37-8_all.deb ...
-Unpacking fonts-dejavu-core (2.37-8) ...
-Selecting previously unselected package fontconfig-config.
-Preparing to unpack .../27-fontconfig-config_2.15.0-1.1ubuntu2_amd64.deb ...
-Unpacking fontconfig-config (2.15.0-1.1ubuntu2) ...
-Selecting previously unselected package libcc1-0:amd64.
-Preparing to unpack .../28-libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libgomp1:amd64.
-Preparing to unpack .../29-libgomp1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libitm1:amd64.
-Preparing to unpack .../30-libitm1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libatomic1:amd64.
-Preparing to unpack .../31-libatomic1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libasan8:amd64.
-Preparing to unpack .../32-libasan8_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package liblsan0:amd64.
-Preparing to unpack .../33-liblsan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libtsan2:amd64.
-Preparing to unpack .../34-libtsan2_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libubsan1:amd64.
-Preparing to unpack .../35-libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libhwasan0:amd64.
-Preparing to unpack .../36-libhwasan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libquadmath0:amd64.
-Preparing to unpack .../37-libquadmath0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
-Unpacking libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Selecting previously unselected package libgcc-13-dev:amd64.
-Preparing to unpack .../38-libgcc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package gcc-13-x86-64-linux-gnu.
-Preparing to unpack .../39-gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package gcc-13.
-Preparing to unpack .../40-gcc-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
-Unpacking gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
-Selecting previously unselected package gcc-x86-64-linux-gnu.
-Preparing to unpack .../41-gcc-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
-Unpacking gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
-Selecting previously unselected package gcc.
-Preparing to unpack .../42-gcc_4%3a13.2.0-7ubuntu1_amd64.deb ...
-Unpacking gcc (4:13.2.0-7ubuntu1) ...
-Selecting previously unselected package libaom3:amd64.
-Preparing to unpack .../43-libaom3_3.8.2-2ubuntu0.1_amd64.deb ...
-Unpacking libaom3:amd64 (3.8.2-2ubuntu0.1) ...
-Selecting previously unselected package libbrotli1:amd64.
-Preparing to unpack .../44-libbrotli1_1.1.0-2build2_amd64.deb ...
-Unpacking libbrotli1:amd64 (1.1.0-2build2) ...
-Selecting previously unselected package libc-dev-bin.
-Preparing to unpack .../45-libc-dev-bin_2.39-0ubuntu8.9_amd64.deb ...
-Unpacking libc-dev-bin (2.39-0ubuntu8.9) ...
-Selecting previously unselected package libfreetype6:amd64.
-Preparing to unpack .../46-libfreetype6_2.13.2+dfsg-1ubuntu0.1_amd64.deb ...
-Unpacking libfreetype6:amd64 (2.13.2+dfsg-1ubuntu0.1) ...
-Selecting previously unselected package libfontconfig1:amd64.
-Preparing to unpack .../47-libfontconfig1_2.15.0-1.1ubuntu2_amd64.deb ...
-Unpacking libfontconfig1:amd64 (2.15.0-1.1ubuntu2) ...
-Selecting previously unselected package libsharpyuv0:amd64.
-Preparing to unpack .../48-libsharpyuv0_1.3.2-0.4build3_amd64.deb ...
-Unpacking libsharpyuv0:amd64 (1.3.2-0.4build3) ...
-Selecting previously unselected package libheif-plugin-aomdec:amd64.
-Preparing to unpack .../49-libheif-plugin-aomdec_1.17.6-1ubuntu4.8_amd64.deb ...
-Unpacking libheif-plugin-aomdec:amd64 (1.17.6-1ubuntu4.8) ...
-Selecting previously unselected package libheif1:amd64.
-Preparing to unpack .../50-libheif1_1.17.6-1ubuntu4.8_amd64.deb ...
-Unpacking libheif1:amd64 (1.17.6-1ubuntu4.8) ...
-Selecting previously unselected package libjpeg-turbo8:amd64.
-Preparing to unpack .../51-libjpeg-turbo8_2.1.5-2ubuntu2_amd64.deb ...
-Unpacking libjpeg-turbo8:amd64 (2.1.5-2ubuntu2) ...
-Selecting previously unselected package libjpeg8:amd64.
-Preparing to unpack .../52-libjpeg8_8c-2ubuntu11_amd64.deb ...
-Unpacking libjpeg8:amd64 (8c-2ubuntu11) ...
-Selecting previously unselected package libdeflate0:amd64.
-Preparing to unpack .../53-libdeflate0_1.19-1build1.1_amd64.deb ...
-Unpacking libdeflate0:amd64 (1.19-1build1.1) ...
-Selecting previously unselected package libjbig0:amd64.
-Preparing to unpack .../54-libjbig0_2.1-6.1ubuntu2_amd64.deb ...
-Unpacking libjbig0:amd64 (2.1-6.1ubuntu2) ...
-Selecting previously unselected package liblerc4:amd64.
-Preparing to unpack .../55-liblerc4_4.0.0+ds-4ubuntu2_amd64.deb ...
-Unpacking liblerc4:amd64 (4.0.0+ds-4ubuntu2) ...
-Selecting previously unselected package libwebp7:amd64.
-Preparing to unpack .../56-libwebp7_1.3.2-0.4build3_amd64.deb ...
-Unpacking libwebp7:amd64 (1.3.2-0.4build3) ...
-Selecting previously unselected package libtiff6:amd64.
-Preparing to unpack .../57-libtiff6_4.5.1+git230720-4ubuntu2.5_amd64.deb ...
-Unpacking libtiff6:amd64 (4.5.1+git230720-4ubuntu2.5) ...
-Selecting previously unselected package libxpm4:amd64.
-Preparing to unpack .../58-libxpm4_1%3a3.5.17-1ubuntu0.24.04.1_amd64.deb ...
-Unpacking libxpm4:amd64 (1:3.5.17-1ubuntu0.24.04.1) ...
-Selecting previously unselected package libgd3:amd64.
-Preparing to unpack .../59-libgd3_2.3.3-9ubuntu5_amd64.deb ...
-Unpacking libgd3:amd64 (2.3.3-9ubuntu5) ...
-Selecting previously unselected package libc-devtools.
-Preparing to unpack .../60-libc-devtools_2.39-0ubuntu8.9_amd64.deb ...
-Unpacking libc-devtools (2.39-0ubuntu8.9) ...
-Selecting previously unselected package linux-libc-dev:amd64.
-Preparing to unpack .../61-linux-libc-dev_6.8.0-139.139_amd64.deb ...
-Unpacking linux-libc-dev:amd64 (6.8.0-139.139) ...
-Selecting previously unselected package libcrypt-dev:amd64.
-Preparing to unpack .../62-libcrypt-dev_1%3a4.4.36-4build1_amd64.deb ...
-Unpacking libcrypt-dev:amd64 (1:4.4.36-4build1) ...
-Selecting previously unselected package rpcsvc-proto.
-Preparing to unpack .../63-rpcsvc-proto_1.4.2-0ubuntu7_amd64.deb ...
-Unpacking rpcsvc-proto (1.4.2-0ubuntu7) ...
-Selecting previously unselected package libc6-dev:amd64.
-Preparing to unpack .../64-libc6-dev_2.39-0ubuntu8.9_amd64.deb ...
-Unpacking libc6-dev:amd64 (2.39-0ubuntu8.9) ...
-Selecting previously unselected package libheif-plugin-aomenc:amd64.
-Preparing to unpack .../65-libheif-plugin-aomenc_1.17.6-1ubuntu4.8_amd64.deb ...
-Unpacking libheif-plugin-aomenc:amd64 (1.17.6-1ubuntu4.8) ...
-Selecting previously unselected package libjim0.82t64:amd64.
-Preparing to unpack .../66-libjim0.82t64_0.82-4.1build2_amd64.deb ...
-Unpacking libjim0.82t64:amd64 (0.82-4.1build2) ...
-Selecting previously unselected package libtcl8.6:amd64.
-Preparing to unpack .../67-libtcl8.6_8.6.14+dfsg-1build1_amd64.deb ...
-Unpacking libtcl8.6:amd64 (8.6.14+dfsg-1build1) ...
-Selecting previously unselected package make.
-Preparing to unpack .../68-make_4.3-4.1build2_amd64.deb ...
-Unpacking make (4.3-4.1build2) ...
-Selecting previously unselected package manpages-dev.
-Preparing to unpack .../69-manpages-dev_6.7-2_all.deb ...
-Unpacking manpages-dev (6.7-2) ...
-Selecting previously unselected package tcl8.6.
-Preparing to unpack .../70-tcl8.6_8.6.14+dfsg-1build1_amd64.deb ...
-Unpacking tcl8.6 (8.6.14+dfsg-1build1) ...
-Selecting previously unselected package tcl.
-Preparing to unpack .../71-tcl_8.6.14build1_amd64.deb ...
-Unpacking tcl (8.6.14build1) ...
-Selecting previously unselected package jimsh.
-Preparing to unpack .../72-jimsh_0.82-4.1build2_amd64.deb ...
-Unpacking jimsh (0.82-4.1build2) ...
-Setting up libsharpyuv0:amd64 (1.3.2-0.4build3) ...
-Setting up libaom3:amd64 (3.8.2-2ubuntu0.1) ...
-Setting up libxau6:amd64 (1:1.0.9-1build6) ...
-Setting up liblerc4:amd64 (4.0.0+ds-4ubuntu2) ...
-Setting up manpages (6.7-2) ...
-Setting up libbrotli1:amd64 (1.1.0-2build2) ...
-Setting up binutils-common:amd64 (2.42-4ubuntu2.10) ...
-Setting up libdeflate0:amd64 (1.19-1build1.1) ...
-Setting up linux-libc-dev:amd64 (6.8.0-139.139) ...
-Setting up libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
-Setting up libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libjbig0:amd64 (2.1-6.1ubuntu2) ...
-Setting up libsframe1:amd64 (2.42-4ubuntu2.10) ...
-Setting up libjansson4:amd64 (2.14-2build2) ...
-Setting up libjim0.82t64:amd64 (0.82-4.1build2) ...
-Setting up rpcsvc-proto (1.4.2-0ubuntu7) ...
-Setting up gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
-Setting up jimsh (0.82-4.1build2) ...
-Setting up libx11-data (2:1.8.7-1build1) ...
-Setting up make (4.3-4.1build2) ...
-Setting up libmpfr6:amd64 (4.2.1-1build1.1) ...
-Setting up libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up fonts-dejavu-mono (2.37-8) ...
-Setting up libpng16-16t64:amd64 (1.6.43-5ubuntu0.6) ...
-Setting up libmpc3:amd64 (1.3.1-1build1.1) ...
-Setting up libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libtcl8.6:amd64 (8.6.14+dfsg-1build1) ...
-Setting up fonts-dejavu-core (2.37-8) ...
-Setting up libjpeg-turbo8:amd64 (2.1.5-2ubuntu2) ...
-Setting up libwebp7:amd64 (1.3.2-0.4build3) ...
-Setting up libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libcrypt-dev:amd64 (1:4.4.36-4build1) ...
-Setting up libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libbinutils:amd64 (2.42-4ubuntu2.10) ...
-Setting up libisl23:amd64 (0.26-3build1.1) ...
-Setting up libc-dev-bin (2.39-0ubuntu8.9) ...
-Setting up libbsd0:amd64 (0.12.1-1build1.1) ...
-Setting up libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
-Setting up libctf0:amd64 (2.42-4ubuntu2.10) ...
-Setting up libjpeg8:amd64 (8c-2ubuntu11) ...
-Setting up manpages-dev (6.7-2) ...
-Setting up libxdmcp6:amd64 (1:1.1.3-0ubuntu6) ...
-Setting up tcl8.6 (8.6.14+dfsg-1build1) ...
-Setting up libxcb1:amd64 (1.15-1ubuntu2) ...
-Setting up cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
-Setting up fontconfig-config (2.15.0-1.1ubuntu2) ...
-Setting up libgprofng0:amd64 (2.42-4ubuntu2.10) ...
-Setting up libfreetype6:amd64 (2.13.2+dfsg-1ubuntu0.1) ...
-Setting up libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
-Setting up libtiff6:amd64 (4.5.1+git230720-4ubuntu2.5) ...
-Setting up tcl (8.6.14build1) ...
-Setting up libc6-dev:amd64 (2.39-0ubuntu8.9) ...
-Setting up libx11-6:amd64 (2:1.8.7-1build1) ...
-Setting up libfontconfig1:amd64 (2.15.0-1.1ubuntu2) ...
-Setting up binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
-Setting up cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
-Setting up libxpm4:amd64 (1:3.5.17-1ubuntu0.24.04.1) ...
-Setting up cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
-Setting up gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
-Setting up binutils (2.42-4ubuntu2.10) ...
-Setting up gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
-Setting up cpp (4:13.2.0-7ubuntu1) ...
-Setting up gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
-Setting up gcc (4:13.2.0-7ubuntu1) ...
-Setting up libheif-plugin-aomdec:amd64 (1.17.6-1ubuntu4.8) ...
-Setting up libheif1:amd64 (1.17.6-1ubuntu4.8) ...
-Setting up libgd3:amd64 (2.3.3-9ubuntu5) ...
-Setting up libc-devtools (2.39-0ubuntu8.9) ...
-Setting up libheif-plugin-aomenc:amd64 (1.17.6-1ubuntu4.8) ...
-Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
-[?2004hroot@29352b6ac4b4:/app/sqlite# CFLAGS="-g -ftest-coverage -fprofile-arcs" ./configure --enable-fts3 --enable-session; tmux wait -S done
-[?2004lConfiguring SQLite version 3.54.0
-Host System...x86_64-pc-linux-gnu
-Build System...x86_64-pc-linux-gnu
-Source dir = /app/sqlite
-Build dir  = /app/sqlite
-C compiler... cc -g -ftest-coverage -fprofile-arcs 
-C++ compiler...  -g -ftest-coverage -fprofile-arcs 
-Build C compiler...cc
-Checking for stdlib.h...ok
-Checking for sys/types.h...ok
-Checking if -D_FILE_OFFSET_BITS=64 is needed...no
-SQLITE_DEBUG build? no
-Looking for install ... /usr/bin/install
-Checking for int8_t...ok
-Checking for int16_t...ok
-Checking for int32_t...ok
-Checking for int64_t...ok
-Checking for intptr_t...ok
-Checking for uint8_t...ok
-Checking for uint16_t...ok
-Checking for uint32_t...ok
-Checking for uint64_t...ok
-Checking for uintptr_t...ok
-Checking for gmtime_r...ok
-Checking for isnan...ok
-Checking for localtime_r...ok
-Checking for localtime_s...not found
-Checking for usleep...ok
-Checking for utime...ok
-Checking for pread...ok
-Checking for pread64...ok
-Checking for pwrite...ok
-Checking for pwrite64...ok
-Checking libs for fdatasync...none needed
-Checking libs for nanosleep...none needed
-Checking for sys/types.h...(cached) ok
-Checking for sys/stat.h...ok
-Checking for dlfcn.h...ok
-Checking for unistd.h...ok
-Checking for stdlib.h...(cached) ok
-Checking for malloc.h...ok
-Checking for memory.h...ok
-Checking for string.h...ok
-Checking for strings.h...ok
-Checking for inttypes.h...ok
-Checking for zlib.h...not found
-Use amalgamation for builds? yes
-Use gcov? no
-test-runner flags: no
-Use #line macros in the amalgamation: no
-Checking whether the C compiler accepts -fsanitize=address...yes
-Checking whether the C compiler accepts -fsanitize=bounds-strict...yes
-Checking for a suitable tcl... 
-Checking for tclsh9.1...no
-Checking for tclsh9.0...no
-Checking for tclsh8.6.../usr/bin/tclsh8.6
-WARNING: [ sqlite-check-tcl ]: /usr/bin/tclsh8.6 is unable to recommend a tclConfig.sh
-Using tclsh: /usr/bin/tclsh8.6
-WARNING: [ sqlite-check-tcl ]: Found tclsh but no tclConfig.sh.
-
-    WARNING: Cannot find a usable tclConfig.sh file.  Use
-    --with-tcl=DIR to specify a directory where tclConfig.sh can be
-    found.  SQLite does not use TCL internally, but some optional
-    components require TCL, including tests and sqlite3_analyzer.
-
-Checking for TCL to use for code generation... 
-Checking for dirent.h...ok
-Checking for sys/time.h...ok
-Checking for realpath...ok
-TCL for code generation: jimsh
-Emscripten SDK? not found
-Statically link tclsqlite3? no
-Statically link CLI shell? no
-Checking whether the C compiler accepts -rpath /usr/local/lib...no
-Checking whether the C compiler accepts -Wl,-rpath,/usr/local/lib...yes
-Support threadsafe operation? Checking for libs...
-Checking libs for pthread_create...none needed
-Checking libs for pthread_mutexattr_init...none needed
-Checking libs for dlopen...none needed
-Loadable extension support enabled. 
-Checking libs for ceil...-lm
-Enabling math SQL functions
-ICU support is disabled.
-Checking for line-editing capability...
-Line-editing support for the sqlite3 shell: none
-Build shared library? yes
-Build static library? yes
-Feature flags...
-  + fts3
-  - fts4
-  - fts5
-  - geopoly
-  - rtree
-  + session
-  - update-limit
-  - memsys5
-  - memsys3
-  - scanstatus
-  - column-metadata
-  - dbpage
-  - dbstat
-  - carray
-  + json
-Library feature flags: -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1
-Shell options: -DSQLITE_DQS=0 -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_DBPAGE_VTAB -DSQLITE_ENABLE_DBSTAT_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_OFFSET_SQL_FUNC -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_STMTVTAB -DSQLITE_ENABLE_UNKNOWN_SQL_FUNCTION -DSQLITE_STRICT_SUBTYPE=1
-Created Makefile from Makefile.in
-Created sqlite3.pc from sqlite3.pc.in
-Created sqlite_cfg.h
-[?2004hroot@29352b6ac4b4:/app/sqlite# make -j$(nproc); tmux wait -S done
-[?2004lcc -g -o jimsh -O1 -DHAVE_REALPATH /app/sqlite/autosetup/jimsh0.c
-cc -g -o mkkeywordhash -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1   /app/sqlite/tool/mkkeywordhash.c
-cc -g -o src-verify /app/sqlite/tool/src-verify.c
-touch .main.mk.checks
-cc -g -o mksourceid /app/sqlite/tool/mksourceid.c
-cc -g -o lemon /app/sqlite/tool/lemon.c
-./mkkeywordhash > keywordhash.h
-cp /app/sqlite/tool/lempar.c .
-cp /app/sqlite/src/parse.y .
-cp /app/sqlite/ext/fts5/fts5parse.y .
-./lemon -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1   -S parse.y
-rm -f fts5parse.h
-./lemon  -S fts5parse.y
-./jimsh /app/sqlite/tool/mksqlite3h.tcl /app/sqlite -o sqlite3.h
-./jimsh /app/sqlite/tool/mkctimec.tcl
-./jimsh /app/sqlite/tool/mkpragmatab.tcl
-./jimsh /app/sqlite/tool/mkcombo.tcl /app/sqlite/ext/qrf/qrf.h /app/sqlite/ext/qrf/qrf.c /app/sqlite/src/tclsqlite.c -o tclsqlite-ex.c
-Overwriting ctime.c...
-Overwriting pragma.h with new pragma table...
-cat parse.h /app/sqlite/src/vdbe.c | ./jimsh /app/sqlite/tool/mkopcodeh.tcl >opcodes.h
-./jimsh /app/sqlite/tool/mkshellc.tcl shell.c
-./jimsh /app/sqlite/ext/fts5/tool/mkfts5c.tcl
-cp /app/sqlite/ext/fts5/fts5.h .
-./jimsh /app/sqlite/tool/mkopcodec.tcl opcodes.h >opcodes.c
-rm -rf tsrc
-mkdir tsrc
-cp -f /app/sqlite/src/alter.c /app/sqlite/src/analyze.c /app/sqlite/src/attach.c /app/sqlite/src/auth.c /app/sqlite/src/backup.c /app/sqlite/src/bitvec.c /app/sqlite/src/btmutex.c /app/sqlite/src/btree.c /app/sqlite/src/btree.h /app/sqlite/src/btreeInt.h /app/sqlite/src/build.c /app/sqlite/src/callback.c /app/sqlite/src/carray.c /app/sqlite/src/complete.c ctime.c /app/sqlite/src/date.c /app/sqlite/src/dbpage.c /app/sqlite/src/dbstat.c /app/sqlite/src/delete.c /app/sqlite/src/expr.c /app/sqlite/src/fault.c /app/sqlite/src/fkey.c /app/sqlite/src/func.c /app/sqlite/src/global.c /app/sqlite/src/hash.c /app/sqlite/src/hash.h /app/sqlite/src/hwtime.h /app/sqlite/src/insert.c /app/sqlite/src/json.c /app/sqlite/src/legacy.c /app/sqlite/src/loadext.c /app/sqlite/src/main.c /app/sqlite/src/malloc.c /app/sqlite/src/mem0.c /app/sqlite/src/mem1.c /app/sqlite/src/mem2.c /app/sqlite/src/mem3.c /app/sqlite/src/mem5.c /app/sqlite/src/memdb.c /app/sqlite/src/memjournal.c /app/sqlite/src/msvc.h /app/sqlite/src/mutex.c /app/sqlite/src/mutex.h /app/sqlite/src/mutex_noop.c /app/sqlite/src/mutex_unix.c /app/sqlite/src/mutex_w32.c /app/sqlite/src/notify.c /app/sqlite/src/os.c /app/sqlite/src/os.h /app/sqlite/src/os_common.h /app/sqlite/src/os_setup.h /app/sqlite/src/os_kv.c /app/sqlite/src/os_unix.c /app/sqlite/src/os_win.c /app/sqlite/src/os_win.h /app/sqlite/src/pager.c /app/sqlite/src/pager.h /app/sqlite/src/parse.y /app/sqlite/src/pcache.c /app/sqlite/src/pcache.h /app/sqlite/src/pcache1.c /app/sqlite/src/pragma.c pragma.h /app/sqlite/src/prepare.c /app/sqlite/src/printf.c /app/sqlite/src/random.c /app/sqlite/src/resolve.c /app/sqlite/src/rowset.c /app/sqlite/src/select.c /app/sqlite/src/status.c /app/sqlite/src/shell.c.in /app/sqlite/src/sqlite.h.in /app/sqlite/src/sqlite3ext.h /app/sqlite/src/sqliteInt.h /app/sqlite/src/sqliteLimit.h /app/sqlite/src/table.c tclsqlite-ex.c /app/sqlite/src/threads.c /app/sqlite/src/tokenize.c /app/sqlite/src/treeview.c /app/sqlite/src/trigger.c /app/sqlite/src/utf.c /app/sqlite/src/update.c /app/sqlite/src/upsert.c /app/sqlite/src/util.c /app/sqlite/src/vacuum.c /app/sqlite/src/vdbe.c /app/sqlite/src/vdbe.h /app/sqlite/src/vdbeapi.c /app/sqlite/src/vdbeaux.c /app/sqlite/src/vdbeblob.c /app/sqlite/src/vdbemem.c /app/sqlite/src/vdbesort.c /app/sqlite/src/vdbetrace.c /app/sqlite/src/vdbevtab.c /app/sqlite/src/vdbeInt.h /app/sqlite/src/vtab.c /app/sqlite/src/vxworks.h /app/sqlite/src/wal.c /app/sqlite/src/wal.h /app/sqlite/src/walker.c /app/sqlite/src/where.c /app/sqlite/src/wherecode.c /app/sqlite/src/whereexpr.c /app/sqlite/src/whereInt.h /app/sqlite/src/window.c /app/sqlite/ext/fts3/fts3.c /app/sqlite/ext/fts3/fts3.h /app/sqlite/ext/fts3/fts3Int.h /app/sqlite/ext/fts3/fts3_aux.c /app/sqlite/ext/fts3/fts3_expr.c /app/sqlite/ext/fts3/fts3_hash.c /app/sqlite/ext/fts3/fts3_hash.h /app/sqlite/ext/fts3/fts3_icu.c /app/sqlite/ext/fts3/fts3_porter.c /app/sqlite/ext/fts3/fts3_snippet.c /app/sqlite/ext/fts3/fts3_tokenizer.h /app/sqlite/ext/fts3/fts3_tokenizer.c /app/sqlite/ext/fts3/fts3_tokenizer1.c /app/sqlite/ext/fts3/fts3_tokenize_vtab.c /app/sqlite/ext/fts3/fts3_unicode.c /app/sqlite/ext/fts3/fts3_unicode2.c /app/sqlite/ext/fts3/fts3_write.c /app/sqlite/ext/icu/sqliteicu.h /app/sqlite/ext/icu/icu.c /app/sqlite/ext/rtree/rtree.h /app/sqlite/ext/rtree/rtree.c /app/sqlite/ext/rtree/geopoly.c /app/sqlite/ext/session/sqlite3session.c /app/sqlite/ext/session/sqlite3session.h /app/sqlite/ext/rbu/sqlite3rbu.h /app/sqlite/ext/rbu/sqlite3rbu.c /app/sqlite/ext/misc/stmt.c keywordhash.h opcodes.c opcodes.h parse.c parse.h sqlite_cfg.h shell.c sqlite3.h tsrc
-rm -f tsrc/sqlite.h.in tsrc/parse.y
-./jimsh /app/sqlite/tool/vdbe-compress.tcl  <tsrc/vdbe.c >vdbe.new
-mv -f vdbe.new tsrc/vdbe.c
-cp fts5.c fts5.h tsrc
-touch .target_source
-./jimsh /app/sqlite/tool/mksqlite3c.tcl --linemacros=0 
-cp tsrc/sqlite3ext.h .
-cp /app/sqlite/ext/session/sqlite3session.h .
-cc -DNDEBUG -fPIC -g -ftest-coverage -fprofile-arcs  -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1    -D_HAVE_SQLITE_CONFIG_H -DBUILD_sqlite -I. -I/app/sqlite/src -I/app/sqlite/ext/rtree -I/app/sqlite/ext/icu -I/app/sqlite/ext/fts3 -I/app/sqlite/ext/session -I/app/sqlite/ext/misc -c sqlite3.c
-cc -DNDEBUG -fPIC -g -ftest-coverage -fprofile-arcs  -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1    -D_HAVE_SQLITE_CONFIG_H -DBUILD_sqlite -I. -I/app/sqlite/src -I/app/sqlite/ext/rtree -I/app/sqlite/ext/icu -I/app/sqlite/ext/fts3 -I/app/sqlite/ext/session -I/app/sqlite/ext/misc  -o sqlite3 \
-	shell.c sqlite3.c \
-	 \
-	 -DSQLITE_DQS=0 -DSQLITE_ENABLE_BYTECODE_VTAB -DSQLITE_ENABLE_DBPAGE_VTAB -DSQLITE_ENABLE_DBSTAT_VTAB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_OFFSET_SQL_FUNC -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_STMTVTAB -DSQLITE_ENABLE_UNKNOWN_SQL_FUNCTION -DSQLITE_STRICT_SUBTYPE=1  \
-	-Wl,-rpath,/usr/local/lib  -lm      
-ar cr libsqlite3.a sqlite3.o
-cc -DNDEBUG -fPIC -g -ftest-coverage -fprofile-arcs  -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PERCENTILE -DSQLITE_ENABLE_PREUPDATE_HOOK -DSQLITE_ENABLE_SESSION -DSQLITE_THREADSAFE=1    -D_HAVE_SQLITE_CONFIG_H -DBUILD_sqlite -I. -I/app/sqlite/src -I/app/sqlite/ext/rtree -I/app/sqlite/ext/icu -I/app/sqlite/ext/fts3 -I/app/sqlite/ext/session -I/app/sqlite/ext/misc  -shared -o libsqlite3.so sqlite3.o -Wl,-rpath,/usr/local/lib  -lm      \
-	 
-[?2004hroot@29352b6ac4b4:/app/sqlite# ln -s $(pwd)/sqlite3 /usr/local/bin/sqlite3
-[?2004l[?2004hroot@29352b6ac4b4:/app/sqlite# export PATH=$PATH:$(pwd)
-[?2004l[?2004hroot@29352b6ac4b4:/app/sqlite# echo 'export PATH=$PATH:/sqlite' >> ~/.bashrc
-[?2004l[?2004hroot@29352b6ac4b4:/app/sqlite# [?2004l
-exit
-[0;32masciinema: recording finished[0m
-[0;32masciinema: asciicast saved to /logs/agent.cast[0m
-[?2004hroot@29352b6ac4b4:/app# 

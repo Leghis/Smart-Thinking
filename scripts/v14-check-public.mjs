@@ -1,43 +1,28 @@
-#!/usr/bin/env node
-/** Defense in depth for the public repository; not a replacement for a full security review. */
-import { spawnSync } from 'node:child_process';
-import { readFileSync, lstatSync } from 'node:fs';
+import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-const privatePath = /(?:^|\/)(?:\.private|private-server|server-private|backend-private|\.local-secrets)(?:\/|$)|(?:^|\/)src\/(?:cloud|intelligence)\/|(?:^|\/)questions\.ts$|(?:^|\/)Smart-Thinking_V14.*\.(?:zip|pdf)$/i;
-const secretPatterns = [
-  /apikey_[A-Za-z0-9]{24,}_[A-Za-z0-9]{24,}/,
-  /st14_[a-f0-9]{64}/,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
-  /"type"\s*:\s*"service_account"[\s\S]{0,2000}"private_key"\s*:/,
-];
-export function inspectPublicFile(name, content) {
-  const reasons = [];
-  if (privatePath.test(name)) reasons.push('private-server-material');
-  if (/\.(?:tfstate|tfvars)(?:\.|$)|(?:^|\/)\.env(?:\.|$)/i.test(name) && !name.endsWith('.example')) reasons.push('environment-or-state-file');
-  if (content && !content.includes('\u0000')) {
-    if (secretPatterns.some(pattern => pattern.test(content))) reasons.push('credential-pattern');
-    if (/^clients\/remote-mcp\/[^/]+\.mjs$/.test(name) && /api\.typesafe\.ai|TYPESAFE_API_KEY|routeQuestions|passageQuestions/.test(content)) reasons.push('provider-or-policy-code-in-client');
+const ignored = new Set(['.git', 'node_modules', '.local', 'reports', 'coverage']);
+export async function scanPublic(root) {
+  const errors = [];
+  async function visit(dir) {
+    for (const e of await readdir(dir, { withFileTypes: true })) {
+      if (ignored.has(e.name)) continue;
+      const file = path.join(dir, e.name), rel = path.relative(root, file).replaceAll(path.sep, '/');
+      if (e.isSymbolicLink()) { errors.push(rel + ': symlink'); continue; }
+      if (/^(src|workers|infra|private|tooling|dist|build|proofs)($|\/)/.test(rel) || /(^|\/)(\.env(?:\..*)?|.*\.tfstate.*|.*\.(?:tfvars|pem|key|zip|tgz|sqlite|db))$/.test(rel)) { errors.push(rel + ': server, credential or generated material'); continue; }
+      if (e.isDirectory()) { await visit(file); continue; }
+      const bytes = await readFile(file);
+      if (bytes.length > 512000 || bytes.includes(0)) { errors.push(rel + ': oversized/binary public file'); continue; }
+      const text = bytes.toString('utf8');
+      if (/apikey_[a-f0-9]{20,}_[a-f0-9]{20,}/i.test(text) || /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text) || /"private_key"\s*:\s*"[^"\s]{20,}/.test(text)) errors.push(rel + ': possible secret');
+      if (!rel.startsWith('scripts/') && /api\.typesafe\.ai\/v1\/systemone|class\s+(?:CloudEngine|SemanticDecisions|JevClient)\b/.test(text)) errors.push(rel + ': private implementation');
+    }
   }
-  return reasons;
-}
-export function scanTracked(root) {
-  const git = spawnSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8', maxBuffer: 16000000 });
-  if (git.status !== 0) throw new Error('Run the boundary check inside the public Git worktree.');
-  const files = git.stdout.split('\0').filter(Boolean), findings = [], skipped = [];
-  for (const name of files) {
-    const file = path.join(root, name); let stat;
-    try { stat = lstatSync(file); } catch { findings.push({ path: name, reasons: ['tracked-file-missing'] }); continue; }
-    if (stat.isSymbolicLink()) { if (name.startsWith('clients/remote-mcp/')) findings.push({ path: name, reasons: ['client-symlink-not-allowed'] }); continue; }
-    let content = '';
-    if (stat.size <= 2000000 && !/\.(?:png|jpe?g|webp|gif|woff2?|ttf|ico)$/i.test(name)) content = readFileSync(file, 'utf8');
-    else skipped.push(name);
-    const reasons = inspectPublicFile(name, content);
-    if (reasons.length) findings.push({ path: name, reasons });
-  }
-  return { ok: findings.length === 0, trackedFiles: files.length, findings, contentScanSkipped: skipped, note: 'Heuristic credential detection only; values are never printed. No remote visibility or historical-secret audit is implied.' };
+  await visit(root);
+  return errors;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try { const report = scanTracked(fileURLToPath(new URL('..', import.meta.url))); process.stdout.write(JSON.stringify(report, null, 2) + '\n'); if (!report.ok) process.exitCode = 1; }
-  catch { process.stderr.write('Public-boundary validation could not run.\n'); process.exitCode = 1; }
+  const errors = await scanPublic(fileURLToPath(new URL('../', import.meta.url)));
+  if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
+  else console.log('Public source boundary passed. This scanner is defense in depth, not a secret-scanning guarantee.');
 }
