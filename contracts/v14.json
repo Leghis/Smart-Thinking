@@ -1,6 +1,6 @@
 {
   "profile": "smart-thinking-mcp/14.0",
-  "clientVersion": "14.1.0",
+  "clientVersion": "14.2.1",
   "protocolVersions": [
     "2025-03-26",
     "2025-06-18",
@@ -8,7 +8,7 @@
   ],
   "transport": "stateless-streamable-http-json",
   "endpoint": "/mcp",
-  "authentication": "application-bearer; additional Cloud Run IAM when configured",
+  "authentication": "none required: anonymous public access by default; optional application bearer raises per-identity quotas",
   "requestMaxBytes": 256000,
   "responseMaxBytes": 1600000,
   "requiredTools": [
@@ -31,5 +31,11 @@
     "automatic mutation retries",
     "browser OAuth login",
     "local V13 server"
+  ],
+  "optionalToolsV142": [
+    "calculate_batch",
+    "finite_compute",
+    "cas",
+    "check"
   ]
 }

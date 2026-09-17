@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { RemoteConnection } from '../connection.mjs';
+import { RemoteConnection, DEFAULT_ENDPOINT } from '../connection.mjs';
 import { validateRequest, validateResponse, PROTOCOLS } from '../protocol.mjs';
 const rpc = (method = 'ping', id = 1) => ({ jsonrpc: '2.0', id, method, params: {} });
 const result = (id = 1, value = {}) => new Response(JSON.stringify({ jsonrpc: '2.0', id, result: value }), { headers: { 'content-type': 'application/json' } });
@@ -16,7 +16,8 @@ async function setup(t, more = {}) {
 }
 for (const url of ['http://example.org/mcp', 'https://user:password@example.org/mcp', 'https://example.org/mcp?secret=x', 'https://example.org/mcp#fragment', 'file:///x', 'not-a-url']) test('rejects unsafe endpoint ' + url, () => assert.throws(() => new RemoteConnection({ url, tokenFile: '/fixture' })));
 test('loopback requires explicit consent and literal address', () => { assert.throws(() => new RemoteConnection({ url: 'http://127.0.0.1:8080/mcp', tokenFile: '/fixture' })); new RemoteConnection({ url: 'http://127.0.0.1:8080/mcp', tokenFile: '/fixture', allowLoopbackTest: true }); assert.throws(() => new RemoteConnection({ url: 'http://localhost:8080/mcp', tokenFile: '/fixture', allowLoopbackTest: true })); });
-test('missing credential file configuration fails closed', () => assert.throws(() => new RemoteConnection({ url: 'https://example.org/mcp' })));
+test('token-free public mode: no credential required and no authorization header sent', async t => { const saved = process.env.SMART_THINKING_MCP_TOKEN_FILE; delete process.env.SMART_THINKING_MCP_TOKEN_FILE; try { const calls = []; const c = new RemoteConnection({ url: 'https://example.org/mcp', fetcher: async (url, options) => { calls.push(options); return result(1); } }); await c.send(rpc()); assert.equal(calls[0].headers.authorization, undefined); } finally { if (saved !== undefined) process.env.SMART_THINKING_MCP_TOKEN_FILE = saved; } });
+test('the public hosted endpoint is the default when nothing is configured', () => { const saved = process.env.SMART_THINKING_MCP_URL; delete process.env.SMART_THINKING_MCP_URL; try { assert.equal(new RemoteConnection({}).url.href, DEFAULT_ENDPOINT); } finally { if (saved !== undefined) process.env.SMART_THINKING_MCP_URL = saved; } });
 test('headers separate application token and IAM token', async t => { const e = await setup(t); const file = path.join(e.dir, 'iam'); await writeFile(file, 'abc.def.ghi'); e.connection.idTokenFile = file; await e.connection.send(rpc()); assert.equal(e.calls[0].headers.authorization, 'Bearer ' + 's'.repeat(64)); assert.equal(e.calls[0].headers['X-Serverless-Authorization'], 'Bearer abc.def.ghi'); assert.equal(e.calls[0].redirect, 'error'); });
 test('credentials are reloaded for rotation', async t => { const e = await setup(t); await e.connection.send(rpc()); await writeFile(e.tokenFile, 'r'.repeat(64)); await e.connection.send(rpc('ping', 2)); assert.equal(e.calls[1].headers.authorization, 'Bearer ' + 'r'.repeat(64)); });
 test('invalid credential is rejected without network or secret echo', async t => { const e = await setup(t); await writeFile(e.tokenFile, 'bad credential'); await assert.rejects(e.connection.send(rpc()), /access-token/i); assert.equal(e.calls.length, 0); });

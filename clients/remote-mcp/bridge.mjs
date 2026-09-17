@@ -2,11 +2,12 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { RemoteConnection } from './connection.mjs';
-import { VERSION, MAX_REQUEST_BYTES, own, validId, validateRequest } from './protocol.mjs';
+import { VERSION, MAX_REQUEST_BYTES, own, validId, validateRequest, selectTools } from './protocol.mjs';
 
 /** Bounded stdio adapter with explicit initialize -> initialized -> tools ordering. */
-export function startBridge({ connection, input = process.stdin, output = process.stdout, diagnostics = process.stderr, maxInFlight = 8, maxNotifications = 8 } = {}) {
+export function startBridge({ connection, input = process.stdin, output = process.stdout, diagnostics = process.stderr, maxInFlight = 8, maxNotifications = 8, toolProfile = 'full' } = {}) {
   if (!connection || !Number.isSafeInteger(maxInFlight) || maxInFlight < 1 || maxInFlight > 64 || !Number.isSafeInteger(maxNotifications) || maxNotifications < 1 || maxNotifications > 64) throw new Error('Invalid bridge configuration.');
+  selectTools([], toolProfile); // invalid profiles fail at construction, before any I/O
   const active = new Map(), pending = new Set(), notices = new Set();
   let buffer = Buffer.alloc(0), ended = false, stopped = false, blocked = false;
   let initialized = false, initializeStarted = false, initializeTask, readyTask;
@@ -76,6 +77,8 @@ export function startBridge({ connection, input = process.stdin, output = proces
         if (message.method !== 'initialize' && !await readyTask) throw new Error('Initialization was not acknowledged.');
         controller.signal.throwIfAborted();
         const response = await connection.send({ ...message, id: remoteId }, controller.signal);
+        if (message.method === 'tools/list' && response?.result?.tools)
+          response.result = { ...response.result, tools: selectTools(response.result.tools, toolProfile) };
         if (message.method === 'initialize') initialized = !!response?.result && !own(response, 'error');
         if (!response) throw new Error('Missing remote response.');
         emit({ ...response, id: message.id });
@@ -110,18 +113,18 @@ export async function runCli(args = process.argv.slice(2)) {
   try {
     if (args.some(arg => !['--help', '--version', '--allow-loopback'].includes(arg))) throw new Error();
     if (args.includes('--help')) {
-      process.stdout.write('Smart-Thinking V14 remote MCP client\nSet SMART_THINKING_MCP_URL and SMART_THINKING_MCP_TOKEN_FILE.\nOptional: --allow-loopback for local tests only. --version prints the client version.\nNo local V13 server is started and no API key belongs in this client.\n');
+      process.stdout.write('Smart-Thinking V14 remote MCP client\nNo token required: the public hosted endpoint accepts anonymous requests.\nOptional: SMART_THINKING_MCP_URL overrides the endpoint; SMART_THINKING_MCP_TOKEN_FILE raises your per-identity quota.\nOptional: --allow-loopback for local tests only. --version prints the client version.\nSMART_THINKING_TOOL_PROFILE=full|math|research|code|audit limits discovery context (full by default).\nNo local V13 server is started and no API key belongs in this client.\n');
       return;
     }
     if (args.includes('--version')) { process.stdout.write(VERSION + '\n'); return; }
-    const bridge = startBridge({ connection: new RemoteConnection({ allowLoopbackTest: args.includes('--allow-loopback') }) });
+    const bridge = startBridge({ toolProfile: process.env.SMART_THINKING_TOOL_PROFILE ?? 'full', connection: new RemoteConnection({ allowLoopbackTest: args.includes('--allow-loopback') }) });
     const stop = () => { bridge.stop(); process.stdin.destroy(); };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);
     await bridge.done;
     process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop);
     process.stdin.destroy();
   } catch {
-    process.stderr.write('Remote MCP startup failed. Configure an HTTPS URL and credential FILE paths; use --help. V13 local-server options are no longer accepted.\n');
+    process.stderr.write('Remote MCP startup failed. The default public endpoint needs no token; use SMART_THINKING_MCP_URL or SMART_THINKING_MCP_TOKEN_FILE to override, or --help. V13 local-server options are no longer accepted.\n');
     process.exitCode = 1;
   }
 }

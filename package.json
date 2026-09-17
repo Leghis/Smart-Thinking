@@ -1,7 +1,7 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "14.1.0",
-  "description": "Authenticated remote MCP client for Smart-Thinking. The reasoning engine runs on the private server.",
+  "version": "14.2.1",
+  "description": "Public remote MCP client for Smart-Thinking: exact math, verified reasoning, search and evidence. No token required; the engine runs on the hosted server.",
   "type": "module",
   "main": "clients/remote-mcp/connection.mjs",
   "exports": {
@@ -39,5 +39,13 @@
   "publishConfig": {
     "access": "public",
     "tag": "latest"
-  }
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "reasoning",
+    "verification",
+    "exact-math",
+    "ai-tools"
+  ]
 }
