@@ -1,6 +1,6 @@
 # Smart-Thinking — client MCP distant
 
-**Version `14.2.1`.** Raisonnement exact et vérifiable en MCP : arithmétique et
+**Version `14.2.2`.** Raisonnement exact et vérifiable en MCP : arithmétique et
 algèbre exactes, résolution de systèmes, calcul borné, recherche web sourcée,
 dossiers de preuve. **Aucun jeton requis** : le point d'accès public accepte les
 requêtes anonymes. Le moteur tourne sur le serveur hébergé ; ce paquet est le
@@ -12,7 +12,7 @@ client qui connecte n'importe quel hôte MCP.
 ## Démarrage rapide — zéro configuration
 
 ```bash
-npx -y smart-thinking-mcp --version   # 14.2.1
+npx -y smart-thinking-mcp --version   # 14.2.2
 npx -y smart-thinking-mcp --help
 ```
 
@@ -101,6 +101,15 @@ finite_compute  Fibonacci réc. mod 1e4 → 6765 (a₂₀)
   conservez le `runId` retourné par vos appels. **N'importe qui peut utiliser le
   service : ne soumettez pas de contenu sensible.**
 - Aucun secret fournisseur ne réside dans ce client ; les clés restent côté serveur.
+
+## Vos données — ce qui sort du serveur
+
+Chaque dossier porte `dataClass` (`public` · `internal` · `restricted`) et
+`externalAllowed`. Tout chemin externe (Jev, `web_search`/`fetch`/`research`) exige
+les deux — sinon `FORBIDDEN`, et le calcul exact reste disponible. Depuis 14.2.2,
+`run_create` affiche ces disponibilités immédiatement (`availability`). Matrice
+complète : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
+[docs/SECURITY.md](docs/SECURITY.md).
 
 ## Contrat et limites
 

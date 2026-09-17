@@ -1,4 +1,4 @@
-export const VERSION = '14.2.1';
+export const VERSION = '14.2.2';
 export const API_PROFILE = 'smart-thinking-mcp/14.0';
 export const PROTOCOLS = Object.freeze(['2025-03-26', '2025-06-18', '2025-11-25']);
 export const MAX_REQUEST_BYTES = 256000;
