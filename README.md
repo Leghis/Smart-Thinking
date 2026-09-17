@@ -1,130 +1,126 @@
-# Smart-Thinking V14 — client MCP distant
+# Smart-Thinking — client MCP distant
 
-**Version `14.1.0`.** Ce dépôt contient le **client public**
-de Smart-Thinking. Le serveur V14, les décisions Jev, les preuves, les politiques
-et l'infrastructure GCP sont maintenus séparément dans le dépôt privé autorisé.
+**Version `14.2.1`.** Raisonnement exact et vérifiable en MCP : arithmétique et
+algèbre exactes, résolution de systèmes, calcul borné, recherche web sourcée,
+dossiers de preuve. **Aucun jeton requis** : le point d'accès public accepte les
+requêtes anonymes. Le moteur tourne sur le serveur hébergé ; ce paquet est le
+client qui connecte n'importe quel hôte MCP.
 
-> Migration majeure : le point d'entrée `smart-thinking-mcp` ne démarre plus le
-> serveur V13 local. Un endpoint V14 déployé et un jeton applicatif sont requis.
-> Endpoint de production : `https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp`.
-> Un jeton individuel délivré par l’opérateur reste obligatoire ; aucun secret fournisseur ne va dans le client.
+> Endpoint public : `https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp`
+> (valeur par défaut du client — rien à configurer).
 
-## Démarrer
-
-Node.js **22.16.0 ou plus récent**. Aucun module fournisseur ni Python n'est
-nécessaire chez l'utilisateur. Pour installer le client publié :
+## Démarrage rapide — zéro configuration
 
 ```bash
-npm install -g smart-thinking-mcp@14.1.0
+npx -y smart-thinking-mcp --version   # 14.2.1
+npx -y smart-thinking-mcp --help
 ```
 
-Pour développer depuis les sources :
+Le client parle MCP sur stdin/stdout (silence après démarrage = normal, il attend
+l'hôte) ou s'importe en JavaScript :
 
+```js
+import { RemoteConnection } from 'smart-thinking-mcp/clients/remote-mcp/connection.mjs';
+const c = new RemoteConnection();               // endpoint public, sans jeton
+await c.initialize();
+const out = await c.call('calculate', { expression: '2^10', expected: '1024' });
+// { status: 'exact_computed', value: '1024', matchesExpected: true, ... }
+```
+
+## Connecter votre outil
+
+**Claude Code**
 ```bash
-npm ci
-npm run check
-node bin/smart-thinking.mjs --help
+claude mcp add smart-thinking -- npx -y smart-thinking-mcp
 ```
 
-Configurer une URL fournie par l'opérateur et un **fichier** contenant votre jeton
-MCP, hors du dépôt. Ce jeton n'est jamais la clé TypeSafe/Jev.
+**ChatGPT (web, plans Plus/Pro/Business)** — Developer Mode requis :
+1. Settings → Connectors → Advanced settings → activer **Developer mode**
+2. **Create** un connecteur : nom `Smart-Thinking`, URL
+   `https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp`,
+   authentification **No authentication**
+3. Dans une conversation : `+` → Developer mode → sélectionner Smart-Thinking
 
+**Codex CLI** (`~/.codex/config.toml`)
+```toml
+[mcp_servers.smart-thinking]
+command = "npx"
+args = ["-y", "smart-thinking-mcp"]
+startup_timeout_sec = 120
+```
+
+**Hermes**
 ```bash
-export SMART_THINKING_MCP_URL="https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp"
-export SMART_THINKING_MCP_TOKEN_FILE="$HOME/.config/smart-thinking/token"
-# Créer le fichier avec l'outil sécurisé de l'opérateur, puis :
-chmod 600 "$SMART_THINKING_MCP_TOKEN_FILE"
-node bin/smart-thinking.mjs
+hermes mcp add smart-thinking --command npx --args -y smart-thinking-mcp
 ```
 
-Le processus utilise stdin/stdout pour MCP. Le silence après démarrage est normal :
-il attend les messages de l'hôte. Pour un contrôle explicite de connectivité :
-
-```bash
-npm run doctor
-```
-
-Le doctor vérifie protocole, catalogue et profil API, **pas** une inférence Jev.
-
-## Connecter un hôte MCP
-
+**Claude Desktop** (`claude_desktop_config.json`)
 ```json
-{
-  "mcpServers": {
-    "smart-thinking": {
-      "command": "node",
-      "args": ["/CHEMIN/Smart-Thinking/bin/smart-thinking.mjs"],
-      "env": {
-        "SMART_THINKING_MCP_URL": "https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp",
-        "SMART_THINKING_MCP_TOKEN_FILE": "/CHEMIN/PRIVE/token"
-      }
-    }
-  }
-}
+{ "mcpServers": { "smart-thinking": { "command": "npx", "args": ["-y", "smart-thinking-mcp"] } } }
 ```
 
-Le chemin historique `clients/remote-mcp/bridge.mjs` reste utilisable. L'export
-JavaScript du paquet expose `RemoteConnection`, pas l'ancien moteur local.
+**Cursor / VS Code / tout hôte stdio** — même bloc `mcpServers` que ci-dessus.
 
-## Rôle de chaque composant
-
-```mermaid
-flowchart LR
-  H[Hôte MCP : raisonnement et rédaction] --> C[Client public V14]
-  C -->|HTTPS et jeton applicatif| S[Serveur privé V14]
-  S --> J[Jev : jugement sémantique]
-  S --> V[Contrôles exacts et dossier de preuve]
-  S --> D[Stockage partagé et quotas]
+**Google Antigravity** (`~/.gemini/config/mcp_config.json`)
+```json
+{ "mcpServers": { "smart-thinking": { "serverUrl": "https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp" } } }
 ```
 
-Jev aide à interpréter, prioriser et évaluer des passages. Il ne génère pas à lui
-seul les preuves formelles. Les autorisations et budgets ne sont pas confiés au
-modèle. Les mesures réelles et leurs limites sont publiées dans [le bilan de version](docs/RELEASE_V14.md). Aucun multiplicateur de qualité n’est garanti.
+## Options
 
-## Accès Cloud Run privé
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SMART_THINKING_MCP_URL` | endpoint public | Surcharger l'endpoint (auto-hébergement). |
+| `SMART_THINKING_MCP_TOKEN_FILE` | *(aucun)* | **Facultatif** : chemin d'un fichier 600 contenant un jeton nominatif (quota dédié supérieur). Jamais la clé du fournisseur. |
+| `SMART_THINKING_TOOL_PROFILE` | `full` | `math`… `research`… `code`… `audit` : réduit les schémas transmis au modèle, sans changer les droits. |
 
-L'authentification applicative reste dans `Authorization`. L'identité IAM Google
-peut être ajoutée séparément dans `X-Serverless-Authorization`. Choisir l'une des
-sources suivantes, jamais les deux :
+## Ce que le serveur expose (33 outils)
 
-| Configuration | Valeur attendue |
-|---|---|
-| `SMART_THINKING_ID_TOKEN_FILE` | Fichier de jeton d'identité Google renouvelé par l'opérateur. |
-| `SMART_THINKING_IAM_SERVICE_ACCOUNT` + `SMART_THINKING_IAM_AUDIENCE` | Compte **client** dédié à impersonner et URL IAM du service récepteur, sans `/mcp`. Requiert `gcloud` et les autorisations appropriées. |
+- **Calcul exact (sans dossier)** : `calculate`, `calculate_batch`, `solve_math`,
+  `solve_logic`, `finite_compute`, `check`, `cas` — jamais d'erreur de flottant.
+- **Recherche** : `web_search`, `fetch` (SSRF-protégé), `research` (jusqu'à 3 pages).
+- **Dossier de preuve** : `run_create`, `claim`, `requirement_add`, `verify`, `audit`,
+  `run_finalize`… avec budgets et reçus durables.
+- **Jev (jugement sémantique)** : `analyze`, `plan`, `critique`, `semantic_*` — aide à
+  interpréter, **jamais** une preuve à lui seul.
 
-Le compte client doit pouvoir invoquer le service. Ne pas distribuer le compte
-runtime ni un fichier de clé de compte de service. L'accès public authentifié
-supprime éventuellement le contrôle IAM d'invocation, jamais le jeton applicatif.
+Exemples vérifiés contre le serveur public :
+
+```text
+calculate  2^10                        → 1024 (exact_computed)
+calculate  factorial(6)                → 720
+solve_math 17x+23y=191 ; 31x−7y=299    → x = 4107/416, y = 419/416
+finite_compute  Fibonacci réc. mod 1e4 → 6765 (a₂₀)
+```
+
+## Mode public — à savoir
+
+- Les requêtes anonymes partagent une identité publique soumise aux **plafonds
+  opérateur** (quotas journaliers partagés) ; fournir un jeton donne un quota dédié.
+- En anonyme, la liste des dossiers est désactivée (les utilisateurs restent séparés) ;
+  conservez le `runId` retourné par vos appels. **N'importe qui peut utiliser le
+  service : ne soumettez pas de contenu sensible.**
+- Aucun secret fournisseur ne réside dans ce client ; les clés restent côté serveur.
 
 ## Contrat et limites
 
-Profil `smart-thinking-mcp/14.0`, Streamable HTTP **stateless avec réponses JSON**.
-Les versions négociées sont `2025-03-26`, `2025-06-18` et `2025-11-25`. Les sessions
-stateful et les flux SSE sont rejetés explicitement, non simulés. Ce client ne
-réalise pas de connexion OAuth interactive et ne renouvelle pas de refresh token.
+Profil `smart-thinking-mcp/14.0`, Streamable HTTP **stateless avec réponses JSON** ;
+protocoles `2025-03-26`, `2025-06-18`, `2025-11-25`. Sessions stateful et SSE rejetés
+explicitement. Requêtes ≤ 256 000 octets, réponses ≤ 1 600 000 octets, 115 s de délai,
+8 requêtes simultanées. Une mutation n'est jamais réessayée automatiquement : après un
+timeout, consultez `operation_get` avant de répéter. Les mesures réelles et leurs limites
+sont publiées dans [le rapport de version](docs/RELEASE_V14.md).
 
-Les requêtes sont limitées à 256 000 octets, les réponses à 1 600 000 octets, avec
-huit requêtes simultanées et un délai de 115 secondes. Une mutation n'est jamais
-réessayée automatiquement. Après un timeout, consulter son reçu `operation_get`
-avant de répéter. `run_cancel` est l'annulation durable ; l'annulation locale ne
-garantit pas l'arrêt d'un appel déjà reçu par une autre instance serveur.
+## Développement
 
-## Migration, sécurité et publication
+Node.js ≥ 22.16. Seuls des fichiers publics vivent ici :
 
-[Migration V13 → V14](docs/MIGRATION.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[Sécurité](docs/SECURITY.md) · [Contrat machine](contracts/v14.json) ·
-[Tests et validation](docs/TESTS.md).
+```bash
+npm ci
+npm run check     # tests + frontière public/privé + paquet hors-ligne
+```
 
-Le client est publié sur npm sous `smart-thinking-mcp@14.1.0`. La publication
-exécute les tests et le contrôle de séparation public/privé. Le serveur reste privé.
-Aucune clé, donnée de session ou archive privée ne doit être ajoutée à ce dépôt public.
-
-La V13 reste disponible dans l'historique au commit
-`a2dd4e6d926e50f8244b061f6ec97c90e5db62bb`. La supprimer de l'arbre courant ne retire
-pas son ancien code de l'historique, des forks ni des versions npm déjà publiées.
-> **Candidat 14.2.0 :** la publication par défaut vise `next`, pas `latest`.
-> Nouveaux profils de catalogue : `SMART_THINKING_TOOL_PROFILE=math|research|code|audit|full`.
-> `full` reste le défaut. Ce filtre de découverte réduit les schémas transmis au modèle,
-> sans modifier les droits. Le serveur correspondant est sur la branche V14.2 du dépôt core.
-> Aucun gain d'exactitude ni déploiement de 14.2 n'est déduit de la réussite des tests du client.
-
+La V13 reste dans l'historique au commit `a2dd4e6d926e50f8244b061f6ec97c90e5db62bb`.
+Migration, architecture et sécurité : [docs/MIGRATION.md](docs/MIGRATION.md) ·
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/SECURITY.md](docs/SECURITY.md) ·
+[contrat machine](contracts/v14.json) · [tests](docs/TESTS.md).

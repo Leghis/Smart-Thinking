@@ -113,7 +113,7 @@ export async function runCli(args = process.argv.slice(2)) {
   try {
     if (args.some(arg => !['--help', '--version', '--allow-loopback'].includes(arg))) throw new Error();
     if (args.includes('--help')) {
-      process.stdout.write('Smart-Thinking V14 remote MCP client\nSet SMART_THINKING_MCP_URL and SMART_THINKING_MCP_TOKEN_FILE.\nOptional: --allow-loopback for local tests only. --version prints the client version.\nSMART_THINKING_TOOL_PROFILE=full|math|research|code|audit limits discovery context (full by default).\nNo local V13 server is started and no API key belongs in this client.\n');
+      process.stdout.write('Smart-Thinking V14 remote MCP client\nNo token required: the public hosted endpoint accepts anonymous requests.\nOptional: SMART_THINKING_MCP_URL overrides the endpoint; SMART_THINKING_MCP_TOKEN_FILE raises your per-identity quota.\nOptional: --allow-loopback for local tests only. --version prints the client version.\nSMART_THINKING_TOOL_PROFILE=full|math|research|code|audit limits discovery context (full by default).\nNo local V13 server is started and no API key belongs in this client.\n');
       return;
     }
     if (args.includes('--version')) { process.stdout.write(VERSION + '\n'); return; }
@@ -124,7 +124,7 @@ export async function runCli(args = process.argv.slice(2)) {
     process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop);
     process.stdin.destroy();
   } catch {
-    process.stderr.write('Remote MCP startup failed. Configure an HTTPS URL and credential FILE paths; use --help. V13 local-server options are no longer accepted.\n');
+    process.stderr.write('Remote MCP startup failed. The default public endpoint needs no token; use SMART_THINKING_MCP_URL or SMART_THINKING_MCP_TOKEN_FILE to override, or --help. V13 local-server options are no longer accepted.\n');
     process.exitCode = 1;
   }
 }

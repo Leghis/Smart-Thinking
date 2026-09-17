@@ -4,6 +4,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse, selectTools } from './protocol.mjs';
 const exec = promisify(execFile);
+/** Public hosted endpoint (v14.2.1): token-free anonymous access. Override with SMART_THINKING_MCP_URL. */
+export const DEFAULT_ENDPOINT = 'https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp';
 const ERROR_CODES = new Set(['VALIDATION', 'NOT_FOUND', 'FORBIDDEN', 'CONFLICT', 'BUDGET_EXHAUSTED', 'UNAVAILABLE', 'CANCELLED', 'LIMIT_EXCEEDED', 'PROVIDER_ERROR', 'INTEGRITY_ERROR', 'STATE_ERROR', 'INTERNAL_ERROR']);
 /** Actionable summary from an allowed shape only: allowlisted code, bounded strings. Anything else stays suppressed. */
 function toolErrorSummary(result) {
@@ -29,15 +31,15 @@ function tokenFromFile(file, iam = false) {
 /** Specialized client for the V14 stateless JSON profile, not a universal SSE client. */
 export class RemoteConnection {
   constructor(options = {}) {
-    try { this.url = new URL(options.url ?? process.env.SMART_THINKING_MCP_URL ?? ''); }
+    try { this.url = new URL(options.url ?? process.env.SMART_THINKING_MCP_URL ?? DEFAULT_ENDPOINT); }
     catch { throw new Error('Configure an HTTPS MCP endpoint.'); }
     const loopback = this.url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(this.url.hostname) && options.allowLoopbackTest === true;
     if (this.url.protocol !== 'https:' && !loopback || this.url.username || this.url.password || this.url.hash || this.url.search) throw new Error('Use HTTPS without credentials, query or fragment in the endpoint.');
     this.tokenFile = options.tokenFile ?? process.env.SMART_THINKING_MCP_TOKEN_FILE;
+    if (!this.tokenFile) this.tokenFile = undefined; // Public mode: no token required; a token file raises this identity's quota.
     this.idTokenFile = options.idTokenFile ?? process.env.SMART_THINKING_ID_TOKEN_FILE;
     this.impersonate = options.impersonate ?? process.env.SMART_THINKING_IAM_SERVICE_ACCOUNT;
     this.audience = options.audience ?? process.env.SMART_THINKING_IAM_AUDIENCE;
-    if (!this.tokenFile) throw new Error('SMART_THINKING_MCP_TOKEN_FILE is required.');
     if (this.idTokenFile && this.impersonate) throw new Error('Choose one IAM credential source.');
     if (this.impersonate && (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(this.impersonate) || !/^https:\/\/[a-z0-9][a-z0-9.-]*\.run\.app$/.test(this.audience ?? ''))) throw new Error('Configure a dedicated IAM client account and receiving-service audience.');
     this.timeoutMs = options.timeoutMs ?? 115000;
@@ -48,7 +50,8 @@ export class RemoteConnection {
   }
   async headers(signal) {
     signal?.throwIfAborted();
-    const headers = { authorization: 'Bearer ' + tokenFromFile(this.tokenFile), accept: 'application/json, text/event-stream', 'content-type': 'application/json', 'mcp-protocol-version': this.protocol };
+    const headers = { accept: 'application/json, text/event-stream', 'content-type': 'application/json', 'mcp-protocol-version': this.protocol };
+    if (this.tokenFile) headers.authorization = 'Bearer ' + tokenFromFile(this.tokenFile);
     let token = this.idTokenFile ? tokenFromFile(this.idTokenFile, true) : undefined;
     if (!token && this.impersonate) {
       if (!this.iamCache || Date.now() >= this.iamCache.until) {

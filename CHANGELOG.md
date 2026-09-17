@@ -1,5 +1,16 @@
 # Changelog
 
+## 14.2.1 — accès public sans jeton
+
+- Aucun jeton requis : le point d'accès hébergé accepte les requêtes anonymes ;
+  `SMART_THINKING_MCP_TOKEN_FILE` devient facultatif (quota nominatif supérieur si fourni).
+- L'endpoint public est la valeur par défaut ; `SMART_THINKING_MCP_URL` reste une surcharge.
+- ChatGPT (Developer Mode → connecteur sans authentification), Claude Code, Codex, Hermes,
+  Cursor et Antigravity se connectent sans configuration de secret.
+- Doctor et `--help` reflètent le mode public ; le serveur garde les plafonds opérateur et
+  isole les dossiers anonymes (liste de dossiers désactivée en anonyme).
+- Contrats machine `contracts/v14.json` : clientVersion 14.2.1, authentification « none required ».
+
 ## 14.0.0-dev.4 — migration réelle vers le client distant
 
 Rupture : `smart-thinking-mcp` lance le client distant, plus le serveur V13 local.

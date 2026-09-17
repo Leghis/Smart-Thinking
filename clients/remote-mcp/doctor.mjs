@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { statSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { RemoteConnection } from './connection.mjs';
+import { RemoteConnection, DEFAULT_ENDPOINT } from '../connection.mjs';
 import { API_PROFILE, selectTools } from './protocol.mjs';
 const args = process.argv.slice(2);
-const usage = 'Usage: node doctor.mjs --allow-network [--allow-loopback]\nAuthenticated connectivity only; no Jev inference or deployment.\n';
+const usage = 'Usage: node doctor.mjs --allow-network [--allow-loopback]\nToken-free connectivity check by default; no Jev inference or deployment.\n';
 if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--allow-loopback'].includes(x))) {
   process.stderr.write(usage);
   process.exitCode = 2;
@@ -15,12 +15,12 @@ if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--
   try {
     // 1 — configuration: URL, credential FILE, profile name. Never prints values.
     try {
-      const url = new URL(process.env.SMART_THINKING_MCP_URL ?? '');
+      const url = new URL(process.env.SMART_THINKING_MCP_URL ?? DEFAULT_ENDPOINT);
       if (url.protocol !== 'https:' ) throw new Error();
       const tokenFile = process.env.SMART_THINKING_MCP_TOKEN_FILE;
-      if (!tokenFile || !statSync(tokenFile).isFile()) throw new Error();
+      if (tokenFile && !statSync(tokenFile).isFile()) throw new Error();
       selectTools([], profile);
-    } catch { fail(2, 'Set SMART_THINKING_MCP_URL (https), SMART_THINKING_MCP_TOKEN_FILE and SMART_THINKING_TOOL_PROFILE (full, math, research, code, audit).'); throw new Error('stop'); }
+    } catch { fail(2, 'SMART_THINKING_MCP_URL must be https when set (default: the public hosted endpoint); SMART_THINKING_MCP_TOKEN_FILE is optional; SMART_THINKING_TOOL_PROFILE: full, math, research, code, audit.'); throw new Error('stop'); }
     // 2 — transport and authentication.
     stage = 'transport';
     const connection = new RemoteConnection({ allowLoopbackTest: args.includes('--allow-loopback') });
