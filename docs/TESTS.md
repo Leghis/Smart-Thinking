@@ -20,6 +20,8 @@ contre le véritable serveur HTTP V14 avec stockage mémoire et fournisseur simu
 C'est un test d'intégration de code, pas une validation de Firestore/IAM en cloud.
 Le workflow privé épingle une révision publique pour cette recette.
 
-Pour la cible réelle, configurer URL et fichier de jeton puis `npm run doctor`.
+Pour la cible réelle, configurer l'URL (`SMART_THINKING_MCP_URL`, facultatif : endpoint public par
+défaut) et, si vous disposez d'un quota nominatif, `SMART_THINKING_MCP_TOKEN_FILE` ; puis
+`npm run doctor`.
 La réussite ne prouve pas la qualité Jev, le cloisonnement complet ou la tenue en
 charge. Ceux-ci ont des recettes et autorisations spécifiques dans le dépôt privé.

@@ -1,5 +1,21 @@
 # Changelog
 
+## 14.2.2 — correctifs issus d'un usage réel
+
+- Comparaisons booléennes unifiées : `check` et `claim → verify` acceptent `62 >= 70`
+  avec `expected: "true"|"false"` (même noyau exact que `calculate`).
+- `plan`/`reason` : le déterministe d'abord — une décision Jev `clarify` (non calibrée)
+  ne bloque plus les claims exactes ; clarification **scopée** ; `frontier` expose
+  `category`/`selected`/`reason` pour chaque claim.
+- `semantic_segment` : `granularity: coarse | sentence | atomic` (offsets littéraux,
+  type, confiance, lien parent).
+- `run_create` : `availability` (inférence sémantique / recherche externe + raison) et
+  avertissement non bloquant si l'objectif semble nécessiter une interprétation.
+- `budget_status` : `baseRunBudget` / `profileMultiplier` / `effectiveRunBudget` /
+  `consumed` / `held` (alias `limits`/`budgetLimit` conservés).
+- Docs : architecture et flux de données (`dataClass` × `externalAllowed`), sécurité,
+  bilan de version, migration et benchmarks mis à jour.
+
 ## 14.2.1 — accès public sans jeton
 
 - Aucun jeton requis : le point d'accès hébergé accepte les requêtes anonymes ;

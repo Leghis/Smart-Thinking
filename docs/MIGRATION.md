@@ -7,7 +7,7 @@ La V14 est une migration majeure, pas une extension parallèle de la V13.
 | `package.json` V13, `build/cli.js` | Paquet V14 sans dépendance runtime ; bin `bin/smart-thinking.mjs`. |
 | `src/` serveur local et heuristiques | Retirés de la distribution publique active. La V14 serveur a son dépôt privé ; l'historique V13 est conservé. |
 | Python/CAS lancé chez le client | Non distribué. Le serveur privé exécute ses opérations typées. |
-| `.env` fournisseur chez le client | Remplacé par URL + chemin de jeton MCP. Aucune clé Jev ici. |
+| `.env` fournisseur chez le client | Remplacé par l'URL du service. **Aucun jeton requis depuis 14.2.1** (un jeton nominatif facultatif donne un quota dédié). Aucune clé Jev ici. |
 | Scripts V13 de benchmarks/GCP/proofs | Retirés de ce client ; résultats historiques consultables au commit V13, non attribués à V14. |
 | Dockerfile serveur | Remplacé par image **cliente stdio** non-root ; le Cloud Run serveur appartient au dépôt privé. |
 | Jest, TypeScript et compilation serveur | Remplacés côté public par tests Node natifs et vérification syntaxique. |
@@ -20,7 +20,7 @@ La V14 est une migration majeure, pas une extension parallèle de la V13.
 2. Exécuter les tests du noyau, du worker et du véritable client distant.
 3. Valider authentification, isolation des utilisateurs et parcours fournisseurs en production.
 4. Exécuter et publier les mesures comparatives avec leurs limites.
-5. Publier le client stable, puis fournir un jeton individuel et l’endpoint aux utilisateurs.
+5. Publier le client stable, puis **connecter votre outil à l'endpoint public** (aucun jeton requis depuis 14.2.1 ; jeton nominatif facultatif).
 
 La livraison du 16 septembre 2026 se fait directement en production, conformément
 à la demande de l’opérateur. Voir [le bilan de version](RELEASE_V14.md).
