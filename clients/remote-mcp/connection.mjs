@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse } from './protocol.mjs';
+import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse, selectTools } from './protocol.mjs';
 const exec = promisify(execFile);
 const ERROR_CODES = new Set(['VALIDATION', 'NOT_FOUND', 'FORBIDDEN', 'CONFLICT', 'BUDGET_EXHAUSTED', 'UNAVAILABLE', 'CANCELLED', 'LIMIT_EXCEEDED', 'PROVIDER_ERROR', 'INTEGRITY_ERROR', 'STATE_ERROR', 'INTERNAL_ERROR']);
 /** Actionable summary from an allowed shape only: allowlisted code, bounded strings. Anything else stays suppressed. */
@@ -65,6 +65,14 @@ export class RemoteConnection {
     }
     signal?.throwIfAborted();
     return headers;
+    }
+    async tools(profile = 'full', signal) {
+        // Discovery filters context only; server-side authentication and authorization never change.
+        selectTools([], profile);
+        const response = await this.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/list', params: {} }, signal);
+        if (response.error)
+            throw new Error('Tool discovery rejected.');
+        return selectTools(response.result.tools, profile);
   }
   async send(message, signal) {
     const isRequest = validateRequest(message), body = JSON.stringify(message);

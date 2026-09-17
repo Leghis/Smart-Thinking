@@ -122,3 +122,9 @@ Aucune clé, donnée de session ou archive privée ne doit être ajoutée à ce 
 La V13 reste disponible dans l'historique au commit
 `a2dd4e6d926e50f8244b061f6ec97c90e5db62bb`. La supprimer de l'arbre courant ne retire
 pas son ancien code de l'historique, des forks ni des versions npm déjà publiées.
+> **Candidat 14.2.0 :** la publication par défaut vise `next`, pas `latest`.
+> Nouveaux profils de catalogue : `SMART_THINKING_TOOL_PROFILE=math|research|code|audit|full`.
+> `full` reste le défaut. Ce filtre de découverte réduit les schémas transmis au modèle,
+> sans modifier les droits. Le serveur correspondant est sur la branche V14.2 du dépôt core.
+> Aucun gain d'exactitude ni déploiement de 14.2 n'est déduit de la réussite des tests du client.
+

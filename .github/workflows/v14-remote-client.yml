@@ -1,8 +1,7 @@
 name: V14 remote client
 on:
   pull_request:
-  push:
-    branches: ['main', 'v14/**']
+    branches: ['main', 'v14/**', 'v14.2/**']
 permissions:
   contents: read
 concurrency:

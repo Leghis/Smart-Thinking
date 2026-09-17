@@ -1,6 +1,6 @@
 {
   "profile": "smart-thinking-mcp/14.0",
-  "clientVersion": "14.1.0",
+  "clientVersion": "14.2.0",
   "protocolVersions": [
     "2025-03-26",
     "2025-06-18",
@@ -31,5 +31,11 @@
     "automatic mutation retries",
     "browser OAuth login",
     "local V13 server"
+  ],
+  "optionalToolsV142": [
+    "calculate_batch",
+    "finite_compute",
+    "cas",
+    "check"
   ]
 }
