@@ -20,7 +20,7 @@ Le client parle MCP sur stdin/stdout (silence après démarrage = normal, il att
 l'hôte) ou s'importe en JavaScript :
 
 ```js
-import { RemoteConnection } from 'smart-thinking-mcp/clients/remote-mcp/connection.mjs';
+import { RemoteConnection } from 'smart-thinking-mcp';   // ou 'smart-thinking-mcp/clients/remote-mcp/connection.mjs'
 const c = new RemoteConnection();               // endpoint public, sans jeton
 await c.initialize();
 const out = await c.call('calculate', { expression: '2^10', expected: '1024' });

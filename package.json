@@ -6,7 +6,8 @@
   "main": "clients/remote-mcp/connection.mjs",
   "exports": {
     ".": "./clients/remote-mcp/connection.mjs",
-    "./protocol": "./clients/remote-mcp/protocol.mjs"
+    "./protocol": "./clients/remote-mcp/protocol.mjs",
+    "./clients/remote-mcp/*.mjs": "./clients/remote-mcp/*.mjs"
   },
   "bin": {
     "smart-thinking-mcp": "bin/smart-thinking.mjs"
