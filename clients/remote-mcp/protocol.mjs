@@ -1,5 +1,5 @@
-export const VERSION = '14.2.2';
-export const API_PROFILE = 'smart-thinking-mcp/14.0';
+export const VERSION = '15.0.0';
+export const API_PROFILE = 'smart-thinking-mcp/15.0';
 export const PROTOCOLS = Object.freeze(['2025-03-26', '2025-06-18', '2025-11-25']);
 export const MAX_REQUEST_BYTES = 256000;
 export const MAX_RESPONSE_BYTES = 1600000;
@@ -23,9 +23,9 @@ export function validateResponse(message, response) {
 /** Explicit user-selected discovery profiles, not an authorization or semantic classifier. */
 export const TOOL_PROFILES = Object.freeze({
     math: Object.freeze(['capabilities', 'calculate', 'calculate_batch', 'finite_compute', 'solve_math', 'solve_logic', 'cas', 'check', 'artifact_get']),
-    research: Object.freeze(['capabilities', 'web_search', 'fetch', 'research', 'check', 'claim', 'verify', 'run_create', 'run_get', 'artifact_get', 'artifact_import', 'budget_status', 'operation_get']),
+    research: Object.freeze(['capabilities', 'web_search', 'fetch', 'research', 'check', 'claim', 'verify', 'run_create', 'run_get', 'run_export', 'artifact_get', 'artifact_import', 'budget_status', 'operation_get']),
     code: Object.freeze(['capabilities', 'calculate', 'calculate_batch', 'finite_compute', 'solve_logic', 'solve_math', 'check']),
-    audit: Object.freeze(['capabilities', 'run_create', 'run_get', 'run_list', 'claim', 'claim_revise', 'requirement_add', 'artifact_get', 'artifact_import', 'check', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get']),
+    audit: Object.freeze(['capabilities', 'run_create', 'run_get', 'run_list', 'run_export', 'claim', 'claim_revise', 'requirement_add', 'artifact_get', 'artifact_import', 'check', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get']),
 });
 export function selectTools(tools, profile = 'full') {
     if (profile !== 'full' && !Object.hasOwn(TOOL_PROFILES, profile))

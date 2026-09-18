@@ -7,15 +7,32 @@ const exec = promisify(execFile);
 /** Public hosted endpoint (v14.2.1): token-free anonymous access. Override with SMART_THINKING_MCP_URL. */
 export const DEFAULT_ENDPOINT = 'https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp';
 const ERROR_CODES = new Set(['VALIDATION', 'NOT_FOUND', 'FORBIDDEN', 'CONFLICT', 'BUDGET_EXHAUSTED', 'UNAVAILABLE', 'CANCELLED', 'LIMIT_EXCEEDED', 'PROVIDER_ERROR', 'INTEGRITY_ERROR', 'STATE_ERROR', 'INTERNAL_ERROR']);
-/** Actionable summary from an allowed shape only: allowlisted code, bounded strings. Anything else stays suppressed. */
-function toolErrorSummary(result) {
+/** Actionable, machine-readable refusal from an allowed shape only: allowlisted code,
+ *  bounded strings, plus the optional reasonCode and quota so callers can decide
+ *  without parsing a free-form message. Anything else stays suppressed. */
+function toolError(result) {
   try {
     const text = result.content?.find(item => item.type === 'text')?.text;
-    if (typeof text !== 'string' || text.length > 1200) return undefined;
+    if (typeof text !== 'string' || text.length > 1600) return undefined;
     const error = JSON.parse(text)?.error;
     if (!error || typeof error !== 'object' || typeof error.code !== 'string' || !ERROR_CODES.has(error.code) || typeof error.message !== 'string' || error.message.length < 1 || error.message.length > 400) return undefined;
-    const hint = typeof error.hint === 'string' && error.hint.length > 0 && error.hint.length <= 300 ? ' Hint: ' + error.hint : '';
-    return 'MCP tool error ' + error.code + ': ' + error.message + hint;
+    const boundHint = typeof error.hint === 'string' && error.hint.length > 0 && error.hint.length <= 300 ? error.hint : undefined;
+    const refusal = new Error('MCP tool error ' + error.code + ': ' + error.message + (boundHint ? ' Hint: ' + boundHint : ''));
+    refusal.code = error.code;
+    if (boundHint) refusal.hint = boundHint;
+    if (typeof error.reasonCode === 'string' && /^[A-Z][A-Z0-9_]{2,60}$/.test(error.reasonCode)) refusal.reasonCode = error.reasonCode;
+    const quota = error.quota;
+    if (quota && typeof quota === 'object' && !Array.isArray(quota) && typeof quota.dimension === 'string' && quota.dimension.length <= 80 && typeof quota.recovery === 'string' && quota.recovery.length <= 300) {
+      refusal.quota = Object.freeze({
+        dimension: quota.dimension,
+        ...(typeof quota.scope === 'string' && quota.scope.length <= 120 ? { scope: quota.scope } : {}),
+        ...(typeof quota.requested === 'number' && Number.isFinite(quota.requested) ? { requested: quota.requested } : {}),
+        ...(typeof quota.remaining === 'number' && Number.isFinite(quota.remaining) ? { remaining: quota.remaining } : {}),
+        ...(typeof quota.allowed === 'number' && Number.isFinite(quota.allowed) ? { allowed: quota.allowed } : {}),
+        recovery: quota.recovery,
+      });
+    }
+    return refusal;
   } catch { return undefined; }
 }
 function tokenFromFile(file, iam = false) {
@@ -124,7 +141,7 @@ export class RemoteConnection {
   async call(name, args = {}, signal) {
     const answer = await this.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/call', params: { name, arguments: args } }, signal);
     if (answer.error) throw new Error('Remote JSON-RPC error ' + answer.error.code + '; details suppressed.');
-    if (answer.result.isError) throw new Error(toolErrorSummary(answer.result) ?? 'Remote tool rejected the operation; inspect its receipt before retrying.');
+    if (answer.result.isError) throw toolError(answer.result) ?? new Error('Remote tool rejected the operation; inspect its receipt before retrying.');
     const result = answer.result;
     if (own(result, 'structuredContent')) return result.structuredContent;
     const text = result.content?.find(item => item.type === 'text')?.text;

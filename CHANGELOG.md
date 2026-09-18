@@ -1,5 +1,20 @@
 # Changelog
 
+## 15.0.0 — client aligné sur l'audit V15 (serveur 15.0.0)
+
+- Erreurs structurées : les refus d'outil exposent `code`, `reasonCode` (ex.
+  `EGRESS_NON_PUBLIC`, `DATA_POLICY_EXTERNAL_DISABLED`, `SCOPE_MISSING`,
+  `CAPABILITY_REQUIRED`) et `quota {dimension, requested, allowed, remaining, recovery}`
+  validés — les hôtes décident sans analyser le message.
+- Profil wire `smart-thinking-mcp/15.0` ; contrat `contracts/v14.json` clientVersion 15.0.0
+  (+ `run_export` dans les profils discovery research/audit).
+- Capacités de dossier : pour un accès anonyme, l'identifiant retourné par `run_create`
+  embarque la capacité du dossier — reusez-le EXACTEMENT tel que retourné, il n'est
+  jamais ré-émis.
+- Serveur 15.0.0 : 34 outils, vérificateur d'ordre v2 (unicité), domaines symboliques
+  appliqués, plan sans appel fournisseur pour les dossiers restreints, `run_export`,
+  métadonnées de build. Détails : docs/RELEASE_V15.md.
+
 ## 14.2.2 — correctifs issus d'un usage réel
 
 - Comparaisons booléennes unifiées : `check` et `claim → verify` acceptent `62 >= 70`
