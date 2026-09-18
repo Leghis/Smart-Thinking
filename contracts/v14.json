@@ -1,6 +1,6 @@
 {
-  "profile": "smart-thinking-mcp/14.0",
-  "clientVersion": "14.2.2",
+  "profile": "smart-thinking-mcp/15.0",
+  "clientVersion": "15.0.0",
   "protocolVersions": [
     "2025-03-26",
     "2025-06-18",
@@ -37,5 +37,8 @@
     "finite_compute",
     "cas",
     "check"
+  ],
+  "optionalToolsV15": [
+    "run_export"
   ]
 }

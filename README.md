@@ -1,6 +1,6 @@
 # Smart-Thinking — client MCP distant
 
-**Version `14.2.2`.** Raisonnement exact et vérifiable en MCP : arithmétique et
+**Version `15.0.0`.** Raisonnement exact et vérifiable en MCP : arithmétique et
 algèbre exactes, résolution de systèmes, calcul borné, recherche web sourcée,
 dossiers de preuve. **Aucun jeton requis** : le point d'accès public accepte les
 requêtes anonymes. Le moteur tourne sur le serveur hébergé ; ce paquet est le
@@ -12,7 +12,7 @@ client qui connecte n'importe quel hôte MCP.
 ## Démarrage rapide — zéro configuration
 
 ```bash
-npx -y smart-thinking-mcp --version   # 14.2.2
+npx -y smart-thinking-mcp --version   # 15.0.0
 npx -y smart-thinking-mcp --help
 ```
 
@@ -113,7 +113,7 @@ complète : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 
 ## Contrat et limites
 
-Profil `smart-thinking-mcp/14.0`, Streamable HTTP **stateless avec réponses JSON** ;
+Profil `smart-thinking-mcp/15.0`, Streamable HTTP **stateless avec réponses JSON** ;
 protocoles `2025-03-26`, `2025-06-18`, `2025-11-25`. Sessions stateful et SSE rejetés
 explicitement. Requêtes ≤ 256 000 octets, réponses ≤ 1 600 000 octets, 115 s de délai,
 8 requêtes simultanées. Une mutation n'est jamais réessayée automatiquement : après un
