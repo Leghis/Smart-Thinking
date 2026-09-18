@@ -1,5 +1,9 @@
 # Changelog
 
+## 15.0.1 — découverte du catalogue : pagination complète (fiche équipe T01)
+
+`RemoteConnection.tools()` suit désormais `nextCursor` sur toutes les pages et retourne l'union filtrée par profil. Toute anomalie — page mal formée, doublon d'outil, curseur répété ou surdimensionné, erreur en cours de pagination, dépassement de 32 pages — refuse la découverte ENTIÈRE, jamais un catalogue partiel silencieux. Serveur inchangé (15.0.1). Tests : `catalog-pagination.test.mjs` (8 cas, catalogue simulé à deux pages avec `run_export` en page 2).
+
 ## 15.0.0 — client aligné sur l'audit V15 (serveur 15.0.0)
 
 - Erreurs structurées : les refus d'outil exposent `code`, `reasonCode` (ex.

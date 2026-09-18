@@ -86,13 +86,40 @@ export class RemoteConnection {
     signal?.throwIfAborted();
     return headers;
     }
-    async tools(profile = 'full', signal) {
-        // Discovery filters context only; server-side authentication and authorization never change.
-        selectTools([], profile);
-        const response = await this.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/list', params: {} }, signal);
-        if (response.error)
-            throw new Error('Tool discovery rejected.');
-        return selectTools(response.result.tools, profile);
+  async tools(profile = 'full', signal) {
+    // Discovery filters context only; server-side authentication and authorization never change.
+    selectTools([], profile);
+    // T01 (dossier équipe 15.0.1) : suivre la pagination complète du catalogue.
+    // Une page mal formée, un doublon, un curseur répété ou un dépassement de pages
+    // refusent la découverte ENTIÈRE — jamais un catalogue partiel silencieux.
+    const collected = [];
+    const seen = new Set();
+    const cursors = new Set();
+    let cursor;
+    for (let page = 0; page < 32; page += 1) {
+      const response = await this.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/list', params: cursor === undefined ? {} : { cursor } }, signal);
+      if (response.error)
+        throw new Error('Tool discovery rejected.');
+      const result = response.result;
+      if (!result || !Array.isArray(result.tools) || result.tools.some(tool => !tool || typeof tool.name !== 'string' || tool.name.length === 0))
+        throw new Error('Tool discovery refused: malformed catalogue page.');
+      for (const tool of result.tools) {
+        if (seen.has(tool.name))
+          throw new Error('Tool discovery refused: duplicate tool across pages.');
+        seen.add(tool.name);
+        collected.push(tool);
+      }
+      const next = result.nextCursor;
+      if (next === undefined || next === null)
+        return selectTools(collected, profile);
+      if (typeof next !== 'string' || next.length === 0 || next.length > 4096)
+        throw new Error('Tool discovery refused: malformed cursor.');
+      if (cursors.has(next))
+        throw new Error('Tool discovery refused: repeated cursor.');
+      cursors.add(next);
+      cursor = next;
+    }
+    throw new Error('Tool discovery refused: page limit exceeded without a final page.');
   }
   async send(message, signal) {
     const isRequest = validateRequest(message), body = JSON.stringify(message);
