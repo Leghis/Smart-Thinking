@@ -30,3 +30,7 @@ Client : **15.0.0** — publié en même temps que le serveur (attestation de ve
 - Client : `npm run check` (74 tests + validations) vert.
 - Serveur : suite complète + acceptance production + banc d'audit `regressions_v15.py`
   (16 cas) — résultats archivés dans le dépôt privé.
+
+## 15.0.1 (client) — pagination du catalogue (T01)
+
+Fiche équipe T01 : la découverte suivait un seul `tools/list`. Avec un catalogue à deux pages, l'ancien code retournait la première seulement. Correctif : la boucle suit `nextCursor` jusqu'à la page finale (garde-fous : doublons, curseurs répétés/malformés, pages malformées, erreur en cours, plafond de 32 pages) — toute anomalie refuse la découverte entière. Aucune autorisation, aucun filtre de profil, aucune politique de retry modifiés. Le serveur ne pagine pas aujourd'hui (34 outils, une page) ; ce correctif est une défense en profondeur conforme au protocole et un prérequis pour toute pagination future.
