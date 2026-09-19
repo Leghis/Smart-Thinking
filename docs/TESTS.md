@@ -1,27 +1,16 @@
-# Tests du client V14
+# Client validation
 
 ```bash
 npm ci
 npm run check
 ```
 
-La suite exécute les tests de transport/stdio, de rotation de fichiers de jetons,
-de négociation, d'initialisation, d'annulation, de limites, de refus d'enveloppes
-malformées, de compatibilité du point d'entrée, ainsi que le scanner public.
-Le contrôle de packaging crée le tarball, impose une liste exacte de neuf fichiers,
-l'installe hors ligne dans un consommateur vierge et exécute son bin/export.
+The suite covers stdio and HTTP envelopes, protocol negotiation, cancellation, credential-file rotation, paginated discovery, typed refusals, profiles, resource bounds and the CLI/JavaScript entry points. Configuration fixtures check the assistant-specific JSON roots.
 
-Les fichiers de tests référencés sont versionnés dans cette PR. La CI n'appelle
-ni Jev ni GCP, ne demande aucun secret et ne publie pas de paquet. Les fixtures
-contiennent uniquement des jetons synthétiques.
+The package test creates the exact allowed tarball, installs it offline into a temporary consumer, and executes its binary and public export. Tests remove their temporary directories. `test:boundary` checks that no engine implementation or private state enters this public repository.
 
-Dans le dépôt privé, `scripts/test-cross-repo.mjs` exécute ce véritable client
-contre le véritable serveur HTTP V14 avec stockage mémoire et fournisseur simulé.
-C'est un test d'intégration de code, pas une validation de Firestore/IAM en cloud.
-Le workflow privé épingle une révision publique pour cette recette.
+The core's `npm run test:cross-repo` runs this actual client against the real server handlers with synthetic credentials and in-memory storage. It validates integration, not deployed Firestore/IAM behavior. Separate staging and post-deployment checks exercise those services.
 
-Pour la cible réelle, configurer l'URL (`SMART_THINKING_MCP_URL`, facultatif : endpoint public par
-défaut) et, si vous disposez d'un quota nominatif, `SMART_THINKING_MCP_TOKEN_FILE` ; puis
-`npm run doctor`.
-La réussite ne prouve pas la qualité Jev, le cloisonnement complet ou la tenue en
-charge. Ceux-ci ont des recettes et autorisations spécifiques dans le dépôt privé.
+`npm run doctor` performs network discovery without Jev inference. A successful doctor means connectivity and catalogue compatibility, not provider quality or successful sandbox execution.
+
+Release history is retained in the dated `RELEASE_V*.md` files. Those documents describe their original versions and are not current deployment evidence.

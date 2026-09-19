@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "smart-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "smart-thinking-mcp@16.1.0"
+      ]
+    }
+  }
+}

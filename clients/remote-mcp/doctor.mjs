@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { statSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import { RemoteConnection, DEFAULT_ENDPOINT } from '../connection.mjs';
-import { API_PROFILE, selectTools, verifyCatalogue } from './protocol.mjs';
-const args = process.argv.slice(2);
-const usage = 'Usage: node doctor.mjs --allow-network [--allow-loopback]\nToken-free connectivity check by default; no Jev inference or deployment.\n';
+import { pathToFileURL } from 'node:url';
+import { RemoteConnection, DEFAULT_ENDPOINT } from './connection.mjs';
+import { API_PROFILE, selectTools } from './protocol.mjs';
+export async function runDoctor(args = process.argv.slice(2)) {
+const usage = 'Usage: smart-thinking-mcp --doctor --allow-network [--allow-loopback]\nToken-free connectivity check by default; no Jev inference or deployment.\n';
 if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--allow-loopback'].includes(x))) {
   process.stderr.write(usage);
   process.exitCode = 2;
@@ -16,7 +16,8 @@ if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--
     // 1 — configuration: URL, credential FILE, profile name. Never prints values.
     try {
       const url = new URL(process.env.SMART_THINKING_MCP_URL ?? DEFAULT_ENDPOINT);
-      if (url.protocol !== 'https:' ) throw new Error();
+      const loopback = args.includes('--allow-loopback') && url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(url.hostname);
+      if (url.protocol !== 'https:' && !loopback) throw new Error();
       const tokenFile = process.env.SMART_THINKING_MCP_TOKEN_FILE;
       if (tokenFile && !statSync(tokenFile).isFile()) throw new Error();
       selectTools([], profile);
@@ -26,20 +27,17 @@ if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--
     const connection = new RemoteConnection({ allowLoopbackTest: args.includes('--allow-loopback') });
     const init = await connection.initialize();
     // 3 — API profile and capabilities advertised by the server.
-    stage = 'api-profile';
-    const capabilities = await connection.call('capabilities');
-    if (capabilities?.apiProfile !== API_PROFILE || capabilities?.semanticDefault !== 'typesafe/jev' || capabilities.configured !== true) throw new Error();
-    // 4 — discovery under the requested profile.
     stage = 'discovery';
-    const response = await connection.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/list', params: {} });
-    const names = response.result?.tools?.map(tool => tool.name) ?? [];
+    const { tools, capabilities, catalogue } = await connection.discover();
+    stage = 'api-profile';
+    if (capabilities?.apiProfile !== API_PROFILE) throw new Error();
+    stage = 'discovery';
+    const names = tools.map(tool => tool.name);
     const visible = selectTools(names.map(name => ({ name })), profile).map(tool => tool.name);
     const required = ['run_create', 'claim', 'verify', 'audit', 'run_finalize', 'analyze', 'reason', 'next_step',
       'code_bind', 'code_context', 'code_review', 'code_check_start', 'code_job_get', 'code_job_cancel', 'code_checkpoint', 'code_gate'];
-    if (response.error || !required.every(name => names.includes(name)) || visible.length === 0) throw new Error();
-    // V16 — la découverte complète est prouvée par l'empreinte publiée par le serveur.
-    const catalogue = capabilities.catalog === undefined ? undefined : verifyCatalogue(capabilities.catalog, names.map(name => ({ name })));
-    process.stdout.write(JSON.stringify({ ok: true, protocol: init.protocolVersion, serverVersion: init.serverInfo.version, apiProfile: capabilities.apiProfile, toolCount: names.length, visibleTools: visible.length, profile, semanticDefault: capabilities.semanticDefault, ...(catalogue ? { catalogue } : {}), note: 'Connectivity only; quality, IAM/tenant isolation and live provider validation are separate gates.' }, null, 2) + '\n');
+    if (!required.every(name => names.includes(name)) || visible.length === 0) throw new Error();
+    process.stdout.write(JSON.stringify({ ok: true, protocol: init.protocolVersion, serverVersion: init.serverInfo.version, apiProfile: capabilities.apiProfile, toolCount: names.length, visibleTools: visible.length, profile, semanticDefault: capabilities.semanticDefault, semanticConfigured: capabilities.configured === true, catalogue, note: 'Connectivity verified. Provider availability and execution are reported separately by capabilities.' }, null, 2) + '\n');
   } catch (error) {
     if (String(error?.message) !== 'stop') {
       if (stage === 'transport') fail(2, 'Transport, endpoint, credential or IAM failure; bodies and secrets suppressed.');
@@ -49,3 +47,5 @@ if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--
     }
   }
 }
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await runDoctor();

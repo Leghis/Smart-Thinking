@@ -1,7 +1,7 @@
 {
   "profile": "smart-thinking-mcp/16.0",
-  "clientVersion": "16.0.2",
-  "serverVersion": "16.0.1",
+  "clientVersion": "16.1.0",
+  "serverVersion": "16.1.0",
   "protocolVersions": [
     "2025-03-26",
     "2025-06-18",
@@ -36,7 +36,8 @@
     "code_job_get",
     "code_job_cancel",
     "code_checkpoint",
-    "code_gate"
+    "code_gate",
+    "code_index"
   ],
   "notSupported": [
     "SSE resumable streams",
@@ -55,7 +56,7 @@
     "run_export"
   ],
   "catalogue": {
-    "fingerprint": "sha256 over the sorted tool names, published by capabilities.catalog.fingerprint",
-    "verification": "clients/remote-mcp/protocol.mjs verifyCatalogue(announced, tools)"
+    "count": 43,
+    "fingerprint": "14f99665cfaf4f6aa1c67d1c7468e676373b096f13ed33b9b0c670aa2385366b"
   }
 }

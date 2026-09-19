@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-export const VERSION = '16.0.2';
+export const VERSION = '16.1.0';
 export const API_PROFILE = 'smart-thinking-mcp/16.0';
 export const PROTOCOLS = Object.freeze(['2025-03-26', '2025-06-18', '2025-11-25']);
 export const MAX_REQUEST_BYTES = 256000;
@@ -32,7 +32,7 @@ export const TOOL_PROFILES = Object.freeze({
         'calculate', 'calculate_batch', 'finite_compute', 'solve_logic', 'solve_math', 'check',
         'run_create', 'run_get', 'run_export', 'artifact_import', 'artifact_get', 'claim', 'claim_revise', 'requirement_add', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get',
         'analyze', 'plan', 'critique', 'next_step',
-        'code_bind', 'code_context', 'code_review', 'code_check_start', 'code_job_get', 'code_job_cancel', 'code_checkpoint', 'code_gate']),
+        'code_bind', 'code_index', 'code_context', 'code_review', 'code_check_start', 'code_job_get', 'code_job_cancel', 'code_checkpoint', 'code_gate']),
     audit: Object.freeze(['capabilities', 'run_create', 'run_get', 'run_list', 'run_export', 'claim', 'claim_revise', 'requirement_add', 'artifact_get', 'artifact_import', 'check', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get']),
 });
 export function selectTools(tools, profile = 'full') {

@@ -14,6 +14,7 @@ function setup(t, handler) {
   output.on('data', b => { text += b; let i; while ((i = text.indexOf('\n')) >= 0) { responses.push(JSON.parse(text.slice(0, i))); text = text.slice(i + 1); } });
   diagnostics.on('data', b => { errors += b; });
   const connection = { send: async (m, signal) => { calls.push(m); if (handler) return handler(m, signal); if (!Object.hasOwn(m, 'id')) return; return { jsonrpc: '2.0', id: m.id, result: m.method === 'initialize' ? { protocolVersion: '2025-11-25' } : {} }; } };
+  connection.tools = async (_profile, signal) => (await connection.send({jsonrpc:'2.0',id:'catalog-test',method:'tools/list',params:{}}, signal)).result?.tools ?? [];
   const bridge = startBridge({ connection, input, output, diagnostics });
   t.after(() => { bridge.stop(); input.destroy(); output.destroy(); diagnostics.destroy(); });
   const send = m => input.write(JSON.stringify(m) + '\n');

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse, selectTools } from './protocol.mjs';
+import { VERSION, PROTOCOLS, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, own, validateRequest, validateResponse, selectTools, verifyCatalogue } from './protocol.mjs';
 const exec = promisify(execFile);
 /** Public hosted endpoint (v14.2.1): token-free anonymous access. Override with SMART_THINKING_MCP_URL. */
 export const DEFAULT_ENDPOINT = 'https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp';
@@ -87,8 +87,11 @@ export class RemoteConnection {
     return headers;
     }
   async tools(profile = 'full', signal) {
-    // Discovery filters context only; server-side authentication and authorization never change.
     selectTools([], profile);
+    const { tools } = await this.discover(signal);
+    return selectTools(tools, profile);
+  }
+  async discover(signal) {
     // T01 (dossier équipe 15.0.1) : suivre la pagination complète du catalogue.
     // Une page mal formée, un doublon, un curseur répété ou un dépassement de pages
     // refusent la découverte ENTIÈRE — jamais un catalogue partiel silencieux.
@@ -110,8 +113,11 @@ export class RemoteConnection {
         collected.push(tool);
       }
       const next = result.nextCursor;
-      if (next === undefined || next === null)
-        return selectTools(collected, profile);
+      if (next === undefined || next === null) {
+        const capabilities = await this.call('capabilities', {}, signal);
+        const catalogue = verifyCatalogue(capabilities.catalog, collected);
+        return { tools: collected, capabilities, catalogue };
+      }
       if (typeof next !== 'string' || next.length === 0 || next.length > 4096)
         throw new Error('Tool discovery refused: malformed cursor.');
       if (cursors.has(next))

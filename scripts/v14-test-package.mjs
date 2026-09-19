@@ -13,7 +13,7 @@ function cmd(exe, args, cwd) {
 }
 try {
   const packed = JSON.parse(cmd('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temp], root))[0];
-  const expected = ['LICENSE', 'README.md', 'bin/smart-thinking.mjs', 'clients/remote-mcp/bridge.mjs', 'clients/remote-mcp/connection.mjs', 'clients/remote-mcp/doctor.mjs', 'clients/remote-mcp/protocol.mjs', 'contracts/v14.json', 'contracts/v16.json', 'package.json'].sort();
+  const expected = ['LICENSE', 'README.md', 'bin/smart-thinking.mjs', 'clients/remote-mcp/bridge.mjs', 'clients/remote-mcp/connection.mjs', 'clients/remote-mcp/doctor.mjs', 'clients/remote-mcp/protocol.mjs', 'contracts/v14.json', 'contracts/v16.json', 'contracts/release.json', 'contracts/tools.json', 'package.json'].sort();
   assert.deepEqual(packed.files.map(f => f.path).sort(), expected);
   const consumer = path.join(temp, 'consumer'); await mkdir(consumer);
   cmd('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temp, packed.filename)], consumer);

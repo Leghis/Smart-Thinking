@@ -18,7 +18,7 @@ export function startBridge({ connection, input = process.stdin, output = proces
     if (output.destroyed || stopped) return;
     if (!output.write(JSON.stringify(value) + '\n')) { blocked = true; input.pause(); }
   };
-  const error = (id, code, message) => emit({ jsonrpc: '2.0', id, error: { code, message } });
+  const error = (id, code, message, data) => emit({ jsonrpc: '2.0', id, error: { code, message, ...(data ? { data } : {}) } });
   const track = task => {
     pending.add(task);
     void task.catch(() => diagnostics.write('MCP bridge operation failed; details suppressed.\n')).finally(() => { pending.delete(task); finish(); });
@@ -76,13 +76,20 @@ export function startBridge({ connection, input = process.stdin, output = proces
       try {
         if (message.method !== 'initialize' && !await readyTask) throw new Error('Initialization was not acknowledged.');
         controller.signal.throwIfAborted();
-        const response = await connection.send({ ...message, id: remoteId }, controller.signal);
-        if (message.method === 'tools/list' && response?.result?.tools)
-          response.result = { ...response.result, tools: selectTools(response.result.tools, toolProfile) };
+        if (message.method === 'tools/list' && message.params?.cursor !== undefined) {
+          error(message.id, -32602, 'The bridge returns the complete verified catalogue in one page; no cursor is accepted.');
+          return;
+        }
+        const response = message.method === 'tools/list'
+          ? { jsonrpc: '2.0', id: remoteId, result: { tools: await connection.tools(toolProfile, controller.signal) } }
+          : await connection.send({ ...message, id: remoteId }, controller.signal);
         if (message.method === 'initialize') initialized = !!response?.result && !own(response, 'error');
         if (!response) throw new Error('Missing remote response.');
         emit({ ...response, id: message.id });
-      } catch { error(message.id, -32000, 'Remote call failed, was cancelled or timed out. Inspect the operation receipt before retrying a mutation.'); }
+      } catch (failure) {
+        const typed = typeof failure?.code === 'string' && /^[A-Z][A-Z0-9_]{2,60}$/.test(failure.code);
+        error(message.id, -32000, typed && failure.catalogueIncomplete ? failure.message : 'Remote call failed, was cancelled or timed out. Inspect the operation receipt before retrying a mutation.', typed ? { code: failure.code } : undefined);
+      }
       finally { active.delete(key); }
     })();
     if (message.method === 'initialize') initializeTask = task;
@@ -111,12 +118,14 @@ export function startBridge({ connection, input = process.stdin, output = proces
 
 export async function runCli(args = process.argv.slice(2)) {
   try {
-    if (args.some(arg => !['--help', '--version', '--allow-loopback'].includes(arg))) throw new Error();
+    if (args.some(arg => !['--help', '--version', '--allow-loopback', '--doctor', '--allow-network'].includes(arg))) throw new Error();
     if (args.includes('--help')) {
-      process.stdout.write('Smart-Thinking V14 remote MCP client\nNo token required: the public hosted endpoint accepts anonymous requests.\nOptional: SMART_THINKING_MCP_URL overrides the endpoint; SMART_THINKING_MCP_TOKEN_FILE raises your per-identity quota.\nOptional: --allow-loopback for local tests only. --version prints the client version.\nSMART_THINKING_TOOL_PROFILE=full|math|research|code|audit limits discovery context (full by default).\nNo local V13 server is started and no API key belongs in this client.\n');
+      process.stdout.write(`Smart-Thinking ${VERSION} remote MCP client\nConnect your assistant to exact calculations, sources and code checks.\nThe hosted endpoint needs no token.\nSMART_THINKING_MCP_URL overrides the endpoint.\nSMART_THINKING_MCP_TOKEN_FILE optionally selects an authenticated quota.\nSMART_THINKING_TOOL_PROFILE=full|math|research|code|audit selects visible tools.\n--allow-loopback enables HTTP loopback for local testing.\n--version prints the installed version.\n--doctor --allow-network checks connectivity and the full catalogue.\n`);
       return;
     }
     if (args.includes('--version')) { process.stdout.write(VERSION + '\n'); return; }
+    if (args.includes('--doctor')) { const { runDoctor } = await import('./doctor.mjs'); await runDoctor(args.filter(x => x !== '--doctor')); return; }
+    if (args.includes('--allow-network')) throw new Error();
     const bridge = startBridge({ toolProfile: process.env.SMART_THINKING_TOOL_PROFILE ?? 'full', connection: new RemoteConnection({ allowLoopbackTest: args.includes('--allow-loopback') }) });
     const stop = () => { bridge.stop(); process.stdin.destroy(); };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);

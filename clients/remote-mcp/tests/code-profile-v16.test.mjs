@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // V16 — profil `code` (superviseur logiciel) et empreinte du catalogue.
 // V16-01 : le profil de code expose Jev et ses dépendances de dossier.
 // Le test de régression fourni par le kit de référence est ici étendu : la façade
@@ -35,7 +36,7 @@ test('code profile is closed over the dossier tools it exposes', () => {
 });
 test('wire identity is the V16 profile', () => {
   assert.equal(API_PROFILE, 'smart-thinking-mcp/16.0');
-  assert.equal(VERSION, '16.0.2');
+  assert.equal(VERSION, JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')).version);
 });
 
 // L'empreinte du catalogue est la même des deux côtés : vecteur de test partagé avec
