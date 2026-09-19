@@ -1,6 +1,6 @@
-# Smart-Thinking 16.0.0 — notes client
+# Smart-Thinking 16.0.2 — notes client
 
-Serveur : **16.0.0** (dépôt privé `Smart-Thinking-core`). Client : **16.0.0**,
+Serveur : **16.0.1** (dépôt privé `Smart-Thinking-core`). Client : **16.0.2**,
 publié en même temps que le serveur. Profil wire : **`smart-thinking-mcp/16.0`**.
 
 ## Correctif immédiat (lot L0 — visibilité)
@@ -38,7 +38,7 @@ cache du connecteur).
 
 ## Compatibilité
 
-- Le client 16.0.0 exige un serveur 16.0 ; la plage annoncée côté serveur est
+- Le client 16.0.2 exige un serveur 16.0 ; la plage annoncée côté serveur est
   `>=14.0.0 <17.0.0` et les clients 14.x/15.x restent fonctionnels contre les
   serveurs de leur ligne.
 - Les dossiers V15 restent lisibles avec leur portée historique ; les objets

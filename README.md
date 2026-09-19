@@ -1,6 +1,6 @@
 # Smart-Thinking — client MCP distant
 
-**Version `16.0.1` — superviseur logiciel.** Raisonnement exact et vérifiable en
+**Version `16.0.2` — superviseur logiciel.** Raisonnement exact et vérifiable en
 MCP : arithmétique et algèbre exactes, résolution de systèmes, calcul borné,
 recherche web sourcée, dossiers de preuve, et depuis la V16 une couche de
 **supervision du développement logiciel** (contrat d'exigences, plan versionné,
@@ -15,7 +15,7 @@ n'importe quel hôte MCP.
 ## Démarrage rapide — zéro configuration
 
 ```bash
-npx -y smart-thinking-mcp --version   # 16.0.1
+npx -y smart-thinking-mcp --version   # 16.0.2
 npx -y smart-thinking-mcp --help
 ```
 

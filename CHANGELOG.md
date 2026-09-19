@@ -1,3 +1,11 @@
+## 16.0.2 — alignement de version avec le serveur 16.0.1
+
+- Métadonnées uniquement : `contracts/v16.json` déclare `serverVersion 16.0.1` et
+  `clientVersion 16.0.2` ; le serveur publie désormais `capabilities.version = 16.0.1`
+  (même correction du côté serveur : plus d'ambiguïté « serveur 16.0.0 / client 16.0.1 »).
+- Aucun changement de comportement : la plage de compatibilité et la surface d'outils
+  (42 au catalogue, profil `code` complet) sont inchangées.
+
 # Changelog
 
 ## 16.0.1 — garde-fou de catalogue (serveur 16.0)

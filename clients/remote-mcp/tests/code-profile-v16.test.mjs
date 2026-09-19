@@ -35,7 +35,7 @@ test('code profile is closed over the dossier tools it exposes', () => {
 });
 test('wire identity is the V16 profile', () => {
   assert.equal(API_PROFILE, 'smart-thinking-mcp/16.0');
-  assert.equal(VERSION, '16.0.1');
+  assert.equal(VERSION, '16.0.2');
 });
 
 // L'empreinte du catalogue est la même des deux côtés : vecteur de test partagé avec
