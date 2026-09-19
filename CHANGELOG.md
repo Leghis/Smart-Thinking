@@ -1,3 +1,8 @@
+## 16.3.0 — qualified semantic-review contract
+
+- Align the manifest and catalogue with engine 16.3.0 and website 2.2.0; the existing MCP interface and client behavior remain compatible.
+- Explain the scoped internal review qualification, its limits and current installation commands in the short English README.
+
 ## 16.2.1
 
 - Correct the public README to describe eighteen scenarios and the current advisory calibration status. Client behavior and MCP compatibility are unchanged.

@@ -1,7 +1,7 @@
 {
   "profile": "smart-thinking-mcp/16.0",
-  "clientVersion": "16.2.1",
-  "serverVersion": "16.2.0",
+  "clientVersion": "16.3.0",
+  "serverVersion": "16.3.0",
   "protocolVersions": [
     "2025-03-26",
     "2025-06-18",

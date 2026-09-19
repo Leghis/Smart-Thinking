@@ -5,7 +5,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "smart-thinking-mcp@16.2.1"
+        "smart-thinking-mcp@16.3.0"
       ]
     }
   }

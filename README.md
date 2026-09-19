@@ -21,7 +21,7 @@ You need **Node.js 22.16 or newer** and Internet access. For an assistant that a
   "mcpServers": {
     "smart-thinking": {
       "command": "npx",
-      "args": ["-y", "smart-thinking-mcp@16.2.1"]
+      "args": ["-y", "smart-thinking-mcp@16.3.0"]
     }
   }
 }
@@ -32,7 +32,7 @@ Save the configuration and reload the MCP connection in your assistant. **VS Cod
 To diagnose a connection from your terminal:
 
 ```bash
-npx -y smart-thinking-mcp@16.2.1 --doctor --allow-network
+npx -y smart-thinking-mcp@16.3.0 --doctor --allow-network
 ```
 
 The diagnostic checks connectivity and tool discovery. Provider availability is reported separately.
@@ -49,7 +49,7 @@ See [eighteen explained examples](https://smart-thinking-site-923774092927.north
 
 Requests go to the hosted service. Search and semantic checks can use external providers; submitted code files run in a separate sandbox. The client does not scan your disk. Dossiers and results are stored server-side. Keep anonymous dossier identifiers private: they include access capabilities.
 
-Public access has shared quotas. An exact calculation checks the supplied expression; passing tests cover the executed suite. Model reviews remain fallible. The production code-review policy stays advisory because calibration has not met every acceptance criterion.
+Public access has shared quotas. An exact calculation checks the supplied expression; passing tests cover the executed suite. Model reviews remain fallible. Code review has an internal qualification for bounded, explicit requirements. It can cover the declared semantic review when its evidence and qualification remain valid. This is not external accreditation or a correctness guarantee.
 
 Read the [data and trust guide](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/trust/), [documentation](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/docs/) and [evaluations](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/benchmarks/). The website is available in French and English.
 
