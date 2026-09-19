@@ -1,5 +1,13 @@
 # Changelog
 
+## 16.0.1 — garde-fou de catalogue (serveur 16.0)
+
+- `verifyCatalogue` échoue avec des **codes machine-lisibles** : `CATALOGUE_INCOMPLETE`
+  (ex. `expected 42, discovered 33`), `CATALOGUE_FINGERPRINT_MISMATCH`,
+  `CATALOGUE_NOT_ANNOUNCED` — et marque l'erreur `catalogueIncomplete: true`. Un catalogue
+  partiel n'est jamais accepté silencieusement : l'hôte (ou `doctor`) sait qu'il doit
+  rafraîchir sa découverte au lieu de conclure à une panne serveur.
+
 ## 16.0.0 — client du superviseur logiciel V16 (serveur 16.0)
 
 - **Correctif L0** : le profil `code` expose la façade `code_*`, les outils Jev
