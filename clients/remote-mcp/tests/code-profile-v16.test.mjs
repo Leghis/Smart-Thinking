@@ -48,8 +48,17 @@ test('verifyCatalogue accepts the announced catalogue and refuses any drift', ()
   const tools = [{ name: 'capabilities' }, { name: 'calculate' }];
   const announced = { count: 2, fingerprint: catalogueFingerprint(tools) };
   assert.deepEqual(verifyCatalogue(announced, tools), announced);
-  assert.throws(() => verifyCatalogue({ ...announced, count: 3 }, tools), /announced 3/);
-  assert.throws(() => verifyCatalogue({ ...announced, fingerprint: 'f'.repeat(64) }, tools), /fingerprint mismatch/);
-  assert.throws(() => verifyCatalogue({ count: 2 }, tools), /did not publish/);
+  assert.throws(() => verifyCatalogue({ ...announced, count: 3 }, tools), error => error.code === 'CATALOGUE_INCOMPLETE' && /expected 3, discovered 2/.test(error.message));
+  assert.throws(() => verifyCatalogue({ ...announced, fingerprint: 'f'.repeat(64) }, tools), error => error.code === 'CATALOGUE_FINGERPRINT_MISMATCH');
+  assert.throws(() => verifyCatalogue({ count: 2 }, tools), error => error.code === 'CATALOGUE_NOT_ANNOUNCED');
   assert.throws(() => catalogueFingerprint([{ name: 'a' }, { name: 'a' }]), /Duplicate/);
+});
+
+test('V16 L0: a partial catalogue is a blocking, typed error (never silent)', () => {
+    const tools = [{ name: 'capabilities' }, { name: 'run_create' }];
+    const announced = { count: 42, fingerprint: catalogueFingerprint(tools) };
+    assert.throws(() => verifyCatalogue(announced, tools), error => error.code === 'CATALOGUE_INCOMPLETE' && /expected 42, discovered 2/.test(error.message));
+    assert.throws(() => verifyCatalogue({ ...announced, count: 2, fingerprint: 'f'.repeat(64) }, tools), error => error.code === 'CATALOGUE_FINGERPRINT_MISMATCH');
+    assert.throws(() => verifyCatalogue({}, tools), error => error.code === 'CATALOGUE_NOT_ANNOUNCED');
+    assert.deepEqual(verifyCatalogue({ count: 2, fingerprint: catalogueFingerprint(tools) }, tools).count, 2);
 });

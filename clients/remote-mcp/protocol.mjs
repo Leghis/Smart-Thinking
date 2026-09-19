@@ -55,13 +55,19 @@ export function catalogueFingerprint(tools) {
     names.sort();
     return createHash('sha256').update(JSON.stringify(names)).digest('hex');
 }
+/** Garde-fou BLOQUANT : un catalogue partiel n'est jamais accepté silencieusement —
+ *  l'erreur porte un code machine-lisible pour que l'hôte (ou l'opérateur) distingue
+ *  un catalogue incomplet d'une panne serveur et rafraîchisse sa découverte. */
+function catalogueError(code, message) {
+    return Object.assign(new Error(`${code}: ${message}`), { code, catalogueIncomplete: true });
+}
 export function verifyCatalogue(announced, tools) {
     if (!object(announced) || typeof announced.fingerprint !== 'string' || !Number.isSafeInteger(announced.count))
-        throw new Error('The server did not publish a catalogue fingerprint.');
+        throw catalogueError('CATALOGUE_NOT_ANNOUNCED', 'the server did not publish count+fingerprint in capabilities.catalog');
     if (!Array.isArray(tools) || tools.length !== announced.count)
-        throw new Error(`Catalogue discovery returned ${Array.isArray(tools) ? tools.length : 'no'} tools, but the server announced ${announced.count}.`);
+        throw catalogueError('CATALOGUE_INCOMPLETE', `expected ${announced.count}, discovered ${Array.isArray(tools) ? tools.length : 0} — refresh the connector or re-run discovery; never treat a partial catalogue as a server outage`);
     const fingerprint = catalogueFingerprint(tools);
     if (fingerprint !== announced.fingerprint)
-        throw new Error('Catalogue fingerprint mismatch: the received catalogue is not the announced one.');
+        throw catalogueError('CATALOGUE_FINGERPRINT_MISMATCH', 'this catalogue is not the announced one');
     return { count: tools.length, fingerprint };
 }
