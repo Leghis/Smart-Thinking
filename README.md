@@ -21,7 +21,7 @@ You need **Node.js 22.16 or newer** and Internet access. For an assistant that a
   "mcpServers": {
     "smart-thinking": {
       "command": "npx",
-      "args": ["-y", "smart-thinking-mcp@16.2.0"]
+      "args": ["-y", "smart-thinking-mcp@16.2.1"]
     }
   }
 }
@@ -32,7 +32,7 @@ Save the configuration and reload the MCP connection in your assistant. **VS Cod
 To diagnose a connection from your terminal:
 
 ```bash
-npx -y smart-thinking-mcp@16.2.0 --doctor --allow-network
+npx -y smart-thinking-mcp@16.2.1 --doctor --allow-network
 ```
 
 The diagnostic checks connectivity and tool discovery. Provider availability is reported separately.
@@ -43,13 +43,13 @@ The diagnostic checks connectivity and tool discovery. Provider availability is 
 2. “Use Smart-Thinking to scale 250 g of flour for four people to ten people.” Expected quantity: **625 g**.
 3. “Use Smart-Thinking to order these steps: draft before review, review before publish.” Expected order: **draft → review → publish**.
 
-See [eight explained examples](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/use-cases/) for sources and code, too.
+See [eighteen explained examples](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/use-cases/) for sources and code, too.
 
 ## Data and limits
 
 Requests go to the hosted service. Search and semantic checks can use external providers; submitted code files run in a separate sandbox. The client does not scan your disk. Dossiers and results are stored server-side. Keep anonymous dossier identifiers private: they include access capabilities.
 
-Public access has shared quotas. An exact calculation checks the supplied expression; passing tests cover the executed suite. Model reviews remain fallible, and the 16.1 code-review calibration did not meet production criteria.
+Public access has shared quotas. An exact calculation checks the supplied expression; passing tests cover the executed suite. Model reviews remain fallible. The production code-review policy stays advisory because calibration has not met every acceptance criterion.
 
 Read the [data and trust guide](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/trust/), [documentation](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/docs/) and [evaluations](https://smart-thinking-site-923774092927.northamerica-northeast1.run.app/en/benchmarks/). The website is available in French and English.
 

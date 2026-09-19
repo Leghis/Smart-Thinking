@@ -1,3 +1,7 @@
+## 16.2.1
+
+- Correct the public README to describe eighteen scenarios and the current advisory calibration status. Client behavior and MCP compatibility are unchanged.
+
 ## 16.2.0 — focused reviews and clearer guides
 
 - Update the published contracts and release manifest for engine 16.2.0 and website 2.1.0. The existing 43-tool interface remains compatible.

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "releaseVersion": "16.2.0",
-  "clientVersion": "16.2.0",
+  "clientVersion": "16.2.1",
   "coreVersion": "16.2.0",
   "siteVersion": "2.1.0",
   "apiProfile": "smart-thinking-mcp/16.0",
@@ -10,7 +10,7 @@
   "endpoint": "https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp",
   "siteOrigin": "https://smart-thinking-site-923774092927.northamerica-northeast1.run.app",
   "repository": "https://github.com/Leghis/Smart-Thinking",
-  "installCommand": "npx -y smart-thinking-mcp@16.2.0",
+  "installCommand": "npx -y smart-thinking-mcp@16.2.1",
   "catalogue": {
     "count": 43,
     "fingerprint": "14f99665cfaf4f6aa1c67d1c7468e676373b096f13ed33b9b0c670aa2385366b"
