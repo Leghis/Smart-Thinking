@@ -1,5 +1,17 @@
 # Changelog
 
+## 16.0.0 — client du superviseur logiciel V16 (serveur 16.0)
+
+- **Correctif L0** : le profil `code` expose la façade `code_*`, les outils Jev
+  (`analyze`, `plan`, `critique`, `next_step`) et toutes leurs dépendances de
+  dossier/artefacts/budget — plus la conservation des capacités exactes. Test de
+  régression dédié (`code-profile-v16.test.mjs`).
+- **Empreinte du catalogue** : `capabilities.catalog {count, fingerprint}`,
+  `catalogueFingerprint()` / `verifyCatalogue()` côté client, vérification dans
+  `doctor` (échoue sur catalogue partiel ou divergent).
+- Profil wire `smart-thinking-mcp/16.0` ; contrat `contracts/v16.json` ;
+  `contracts/v14.json` conservé comme référence historique.
+
 ## 15.0.1 — découverte du catalogue : pagination complète (fiche équipe T01)
 
 `RemoteConnection.tools()` suit désormais `nextCursor` sur toutes les pages et retourne l'union filtrée par profil. Toute anomalie — page mal formée, doublon d'outil, curseur répété ou surdimensionné, erreur en cours de pagination, dépassement de 32 pages — refuse la découverte ENTIÈRE, jamais un catalogue partiel silencieux. Serveur inchangé (15.0.1). Tests : `catalog-pagination.test.mjs` (8 cas, catalogue simulé à deux pages avec `run_export` en page 2).
