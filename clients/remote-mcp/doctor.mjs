@@ -2,7 +2,7 @@
 import { statSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { RemoteConnection, DEFAULT_ENDPOINT } from '../connection.mjs';
-import { API_PROFILE, selectTools } from './protocol.mjs';
+import { API_PROFILE, selectTools, verifyCatalogue } from './protocol.mjs';
 const args = process.argv.slice(2);
 const usage = 'Usage: node doctor.mjs --allow-network [--allow-loopback]\nToken-free connectivity check by default; no Jev inference or deployment.\n';
 if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--allow-loopback'].includes(x))) {
@@ -34,9 +34,12 @@ if (!args.includes('--allow-network') || args.some(x => !['--allow-network', '--
     const response = await connection.send({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/list', params: {} });
     const names = response.result?.tools?.map(tool => tool.name) ?? [];
     const visible = selectTools(names.map(name => ({ name })), profile).map(tool => tool.name);
-    const required = ['run_create', 'claim', 'verify', 'audit', 'run_finalize', 'analyze', 'reason', 'next_step'];
+    const required = ['run_create', 'claim', 'verify', 'audit', 'run_finalize', 'analyze', 'reason', 'next_step',
+      'code_bind', 'code_context', 'code_review', 'code_check_start', 'code_job_get', 'code_job_cancel', 'code_checkpoint', 'code_gate'];
     if (response.error || !required.every(name => names.includes(name)) || visible.length === 0) throw new Error();
-    process.stdout.write(JSON.stringify({ ok: true, protocol: init.protocolVersion, serverVersion: init.serverInfo.version, apiProfile: capabilities.apiProfile, toolCount: names.length, visibleTools: visible.length, profile, semanticDefault: capabilities.semanticDefault, note: 'Connectivity only; quality, IAM/tenant isolation and live provider validation are separate gates.' }, null, 2) + '\n');
+    // V16 — la découverte complète est prouvée par l'empreinte publiée par le serveur.
+    const catalogue = capabilities.catalog === undefined ? undefined : verifyCatalogue(capabilities.catalog, names.map(name => ({ name })));
+    process.stdout.write(JSON.stringify({ ok: true, protocol: init.protocolVersion, serverVersion: init.serverInfo.version, apiProfile: capabilities.apiProfile, toolCount: names.length, visibleTools: visible.length, profile, semanticDefault: capabilities.semanticDefault, ...(catalogue ? { catalogue } : {}), note: 'Connectivity only; quality, IAM/tenant isolation and live provider validation are separate gates.' }, null, 2) + '\n');
   } catch (error) {
     if (String(error?.message) !== 'stop') {
       if (stage === 'transport') fail(2, 'Transport, endpoint, credential or IAM failure; bodies and secrets suppressed.');

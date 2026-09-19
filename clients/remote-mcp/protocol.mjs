@@ -1,5 +1,6 @@
-export const VERSION = '15.0.1';
-export const API_PROFILE = 'smart-thinking-mcp/15.0';
+import { createHash } from 'node:crypto';
+export const VERSION = '16.0.0';
+export const API_PROFILE = 'smart-thinking-mcp/16.0';
 export const PROTOCOLS = Object.freeze(['2025-03-26', '2025-06-18', '2025-11-25']);
 export const MAX_REQUEST_BYTES = 256000;
 export const MAX_RESPONSE_BYTES = 1600000;
@@ -20,11 +21,18 @@ export function validateResponse(message, response) {
   return response;
 }
 
-/** Explicit user-selected discovery profiles, not an authorization or semantic classifier. */
+/** Explicit user-selected discovery profiles, not an authorization or semantic classifier.
+ *  - `code` is the V16 software-supervision profile: it exposes the code_* façade, Jev
+ *    judgment tools and every dossier/exact dependency those tools require. Discovery
+ *    only filters the model's context; the server still authorizes every call. */
 export const TOOL_PROFILES = Object.freeze({
     math: Object.freeze(['capabilities', 'calculate', 'calculate_batch', 'finite_compute', 'solve_math', 'solve_logic', 'cas', 'check', 'artifact_get']),
     research: Object.freeze(['capabilities', 'web_search', 'fetch', 'research', 'check', 'claim', 'verify', 'run_create', 'run_get', 'run_export', 'artifact_get', 'artifact_import', 'budget_status', 'operation_get']),
-    code: Object.freeze(['capabilities', 'calculate', 'calculate_batch', 'finite_compute', 'solve_logic', 'solve_math', 'check']),
+    code: Object.freeze(['capabilities',
+        'calculate', 'calculate_batch', 'finite_compute', 'solve_logic', 'solve_math', 'check',
+        'run_create', 'run_get', 'run_export', 'artifact_import', 'artifact_get', 'claim', 'claim_revise', 'requirement_add', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get',
+        'analyze', 'plan', 'critique', 'next_step',
+        'code_bind', 'code_context', 'code_review', 'code_check_start', 'code_job_get', 'code_job_cancel', 'code_checkpoint', 'code_gate']),
     audit: Object.freeze(['capabilities', 'run_create', 'run_get', 'run_list', 'run_export', 'claim', 'claim_revise', 'requirement_add', 'artifact_get', 'artifact_import', 'check', 'verify', 'audit', 'run_finalize', 'run_cancel', 'events', 'budget_status', 'operation_get']),
 });
 export function selectTools(tools, profile = 'full') {
@@ -33,4 +41,27 @@ export function selectTools(tools, profile = 'full') {
     if (!Array.isArray(tools) || tools.length > 256 || tools.some(t => !t || typeof t.name !== 'string'))
         throw new Error('Invalid tool catalogue.');
     return profile === 'full' ? tools : tools.filter(t => TOOL_PROFILES[profile].includes(t.name));
+}
+
+/** Canonical catalogue fingerprint (V16): sha256 over the sorted tool names, identical on
+ *  server and client. `capabilities.catalog.fingerprint` uses exactly this computation, so a
+ *  host can prove that the catalogue it received was the complete one. */
+export function catalogueFingerprint(tools) {
+    if (!Array.isArray(tools) || tools.some(t => !t || typeof t.name !== 'string'))
+        throw new Error('Invalid tool catalogue.');
+    const names = tools.map(t => t.name);
+    if (new Set(names).size !== names.length)
+        throw new Error('Duplicate tool name in catalogue.');
+    names.sort();
+    return createHash('sha256').update(JSON.stringify(names)).digest('hex');
+}
+export function verifyCatalogue(announced, tools) {
+    if (!object(announced) || typeof announced.fingerprint !== 'string' || !Number.isSafeInteger(announced.count))
+        throw new Error('The server did not publish a catalogue fingerprint.');
+    if (!Array.isArray(tools) || tools.length !== announced.count)
+        throw new Error(`Catalogue discovery returned ${Array.isArray(tools) ? tools.length : 'no'} tools, but the server announced ${announced.count}.`);
+    const fingerprint = catalogueFingerprint(tools);
+    if (fingerprint !== announced.fingerprint)
+        throw new Error('Catalogue fingerprint mismatch: the received catalogue is not the announced one.');
+    return { count: tools.length, fingerprint };
 }

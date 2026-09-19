@@ -1,10 +1,13 @@
 # Smart-Thinking — client MCP distant
 
-**Version `15.0.0`.** Raisonnement exact et vérifiable en MCP : arithmétique et
-algèbre exactes, résolution de systèmes, calcul borné, recherche web sourcée,
-dossiers de preuve. **Aucun jeton requis** : le point d'accès public accepte les
-requêtes anonymes. Le moteur tourne sur le serveur hébergé ; ce paquet est le
-client qui connecte n'importe quel hôte MCP.
+**Version `16.0.0` — superviseur logiciel.** Raisonnement exact et vérifiable en
+MCP : arithmétique et algèbre exactes, résolution de systèmes, calcul borné,
+recherche web sourcée, dossiers de preuve, et depuis la V16 une couche de
+**supervision du développement logiciel** (contrat d'exigences, plan versionné,
+snapshots, revues Jev ciblées, preuves d'exécution, clôture liée à une version).
+**Aucun jeton requis** : le point d'accès public accepte les requêtes anonymes.
+Le moteur tourne sur le serveur hébergé ; ce paquet est le client qui connecte
+n'importe quel hôte MCP.
 
 > Endpoint public : `https://smart-thinking-v14-923774092927.northamerica-northeast1.run.app/mcp`
 > (valeur par défaut du client — rien à configurer).
@@ -12,7 +15,7 @@ client qui connecte n'importe quel hôte MCP.
 ## Démarrage rapide — zéro configuration
 
 ```bash
-npx -y smart-thinking-mcp --version   # 15.0.0
+npx -y smart-thinking-mcp --version   # 16.0.0
 npx -y smart-thinking-mcp --help
 ```
 
@@ -74,15 +77,37 @@ hermes mcp add smart-thinking --command npx --args -y smart-thinking-mcp
 | `SMART_THINKING_MCP_TOKEN_FILE` | *(aucun)* | **Facultatif** : chemin d'un fichier 600 contenant un jeton nominatif (quota dédié supérieur). Jamais la clé du fournisseur. |
 | `SMART_THINKING_TOOL_PROFILE` | `full` | `math`… `research`… `code`… `audit` : réduit les schémas transmis au modèle, sans changer les droits. |
 
-## Ce que le serveur expose (33 outils)
+## Superviseur logiciel (V16) — profil `code`
+
+`SMART_THINKING_TOOL_PROFILE=code` expose la façade de supervision et **toutes ses
+dépendances** (dossier, artefacts, budget, reçus) ainsi que les outils exacts :
+
+| Outil | Rôle |
+|---|---|
+| `code_bind` | Lie contrat d'exigences, plan et snapshot au dossier ; aucune exécution. |
+| `code_context` | Construit le paquet de revue (extraits de lignes bornés, omissions explicites). |
+| `code_review` | Revues Jev ciblées par phase (`requirements`, `plan`, `patch`, `tests`, `repair`, `report`). |
+| `code_check_start` | Crée les tentatives durables et dispatche les contrôles préautorisés. |
+| `code_job_get` / `code_job_cancel` | État, reçus, annulation durable. |
+| `code_checkpoint` | Nouveau snapshot/plan, invalidation des preuves devenues obsolètes. |
+| `code_gate` | Couverture bornée, blocages, limites et affirmations permises — jamais `canAuthorizeDeployment`. |
+
+Un jugement Jev n'est jamais une preuve d'exécution : seul un reçu signé, lié au
+snapshot et au contrat courants, couvre un contrôle. Le détail du contrat est
+dans [contracts/v16.json](contracts/v16.json) et
+[docs/RELEASE_V16.md](docs/RELEASE_V16.md).
+
+## Ce que le serveur expose (42 outils)
 
 - **Calcul exact (sans dossier)** : `calculate`, `calculate_batch`, `solve_math`,
   `solve_logic`, `finite_compute`, `check`, `cas` — jamais d'erreur de flottant.
-- **Recherche** : `web_search`, `fetch` (SSRF-protégé), `research` (jusqu'à 3 pages).
+- **Recherche** : `web_search`, `fetch` (SSRF-protégé), `research` (jusqu'à 30 pages).
 - **Dossier de preuve** : `run_create`, `claim`, `requirement_add`, `verify`, `audit`,
   `run_finalize`… avec budgets et reçus durables.
 - **Jev (jugement sémantique)** : `analyze`, `plan`, `critique`, `semantic_*` — aide à
   interpréter, **jamais** une preuve à lui seul.
+- **Supervision logicielle (V16)** : `code_bind`, `code_context`, `code_review`,
+  `code_check_start`, `code_job_get`, `code_job_cancel`, `code_checkpoint`, `code_gate`.
 
 Exemples vérifiés contre le serveur public :
 
@@ -113,12 +138,14 @@ complète : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 
 ## Contrat et limites
 
-Profil `smart-thinking-mcp/15.0`, Streamable HTTP **stateless avec réponses JSON** ;
+Profil `smart-thinking-mcp/16.0`, Streamable HTTP **stateless avec réponses JSON** ;
 protocoles `2025-03-26`, `2025-06-18`, `2025-11-25`. Sessions stateful et SSE rejetés
 explicitement. Requêtes ≤ 256 000 octets, réponses ≤ 1 600 000 octets, 115 s de délai,
 8 requêtes simultanées. Une mutation n'est jamais réessayée automatiquement : après un
-timeout, consultez `operation_get` avant de répéter. Les mesures réelles et leurs limites
-sont publiées dans [le rapport de version](docs/RELEASE_V14.md).
+timeout, consultez `operation_get` avant de répéter. `capabilities.catalog` publie le
+nombre d'outils et l'empreinte SHA-256 du catalogue ; `verifyCatalogue()` (client)
+prouve que la découverte est complète. Les mesures réelles et leurs limites sont
+publiées dans [le rapport de version](docs/RELEASE_V16.md).
 
 ## Développement
 
@@ -132,4 +159,4 @@ npm run check     # tests + frontière public/privé + paquet hors-ligne
 La V13 reste dans l'historique au commit `a2dd4e6d926e50f8244b061f6ec97c90e5db62bb`.
 Migration, architecture et sécurité : [docs/MIGRATION.md](docs/MIGRATION.md) ·
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/SECURITY.md](docs/SECURITY.md) ·
-[contrat machine](contracts/v14.json) · [tests](docs/TESTS.md).
+[contrat machine](contracts/v16.json) · [tests](docs/TESTS.md).

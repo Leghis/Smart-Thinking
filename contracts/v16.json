@@ -1,0 +1,61 @@
+{
+  "profile": "smart-thinking-mcp/16.0",
+  "clientVersion": "16.0.0",
+  "serverVersion": "16.0.0",
+  "protocolVersions": [
+    "2025-03-26",
+    "2025-06-18",
+    "2025-11-25"
+  ],
+  "transport": "stateless-streamable-http-json",
+  "endpoint": "/mcp",
+  "authentication": "none required: anonymous public access by default; optional application bearer raises per-identity quotas",
+  "requestMaxBytes": 256000,
+  "responseMaxBytes": 1600000,
+  "clientCompatibilityRange": ">=14.0.0 <17.0.0",
+  "requiredTools": [
+    "capabilities",
+    "run_create",
+    "run_get",
+    "claim",
+    "requirement_add",
+    "verify",
+    "audit",
+    "run_finalize",
+    "operation_get",
+    "run_cancel",
+    "analyze",
+    "reason",
+    "next_step"
+  ],
+  "codeSupervisionToolsV16": [
+    "code_bind",
+    "code_context",
+    "code_review",
+    "code_check_start",
+    "code_job_get",
+    "code_job_cancel",
+    "code_checkpoint",
+    "code_gate"
+  ],
+  "notSupported": [
+    "SSE resumable streams",
+    "automatic mutation retries",
+    "browser OAuth login",
+    "local V13 server",
+    "free-form host shell (Jev is a judge, not an executor)"
+  ],
+  "optionalToolsV142": [
+    "calculate_batch",
+    "finite_compute",
+    "cas",
+    "check"
+  ],
+  "optionalToolsV15": [
+    "run_export"
+  ],
+  "catalogue": {
+    "fingerprint": "sha256 over the sorted tool names, published by capabilities.catalog.fingerprint",
+    "verification": "clients/remote-mcp/protocol.mjs verifyCatalogue(announced, tools)"
+  }
+}
