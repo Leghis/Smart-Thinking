@@ -7,3 +7,7 @@ The code profile includes `code_index`. A shared release manifest and generated 
 Existing tools and the MCP 16.0 profile remain supported. The hosted engine adds durable native-sandbox execution and stronger evidence provenance. Its new semantic-review calibration did not meet production criteria; the site reports the measured limitations explicitly.
 
 Publication and deployed revision evidence are recorded in the delivery report; this change description alone does not prove a deployment.
+
+## 16.1.1 — npm README publication
+
+Republished from the tested package contents as a directory so npm receives the prepared README metadata. Runtime behavior is unchanged from 16.1.0. The engine remains 16.1.0. Registry archive integrity and the public README are checked after publication.
