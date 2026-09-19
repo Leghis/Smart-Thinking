@@ -14,8 +14,8 @@ Use the [application-specific guides](https://smart-thinking-site-923774092927.n
 Choose one IAM credential source. Keep secrets in private files, never URLs, examples or committed configuration. Public access needs no token; a present but invalid token remains an authentication error.
 
 ```bash
-npx -y smart-thinking-mcp@16.1.1 --version
-npx -y smart-thinking-mcp@16.1.1 --doctor --allow-network
+npx -y smart-thinking-mcp@16.2.0 --version
+npx -y smart-thinking-mcp@16.2.0 --doctor --allow-network
 ```
 
 `--allow-loopback` permits HTTP on `127.0.0.1` or `::1` for explicit local tests. It does not allow arbitrary insecure endpoints. Starting the command with no arguments opens the stdio MCP bridge; it is not an interactive chat program.

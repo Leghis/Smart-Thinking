@@ -1,3 +1,8 @@
+## 16.2.0 — focused reviews and clearer guides
+
+- Update the published contracts and release manifest for engine 16.2.0 and website 2.1.0. The existing 43-tool interface remains compatible.
+- Keep the short English npm guide, with current installation commands and links to the bilingual examples and benchmark documentation.
+
 ## 16.0.2 — alignement de version avec le serveur 16.0.1
 
 - Métadonnées uniquement : `contracts/v16.json` déclare `serverVersion 16.0.1` et

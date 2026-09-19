@@ -1,6 +1,6 @@
 {
   "name": "smart-thinking-mcp",
-  "version": "16.1.1",
+  "version": "16.2.0",
   "description": "Public remote MCP client for Smart-Thinking: exact math, verified reasoning, search and evidence. No token required; the engine runs on the hosted server.",
   "type": "module",
   "main": "clients/remote-mcp/connection.mjs",
