@@ -10,4 +10,4 @@ Publication and deployed revision evidence are recorded in the delivery report; 
 
 ## 16.1.1 — npm README publication
 
-Republished from the tested package contents as a directory so npm receives the prepared README metadata. Runtime behavior is unchanged from 16.1.0. The engine remains 16.1.0. Registry archive integrity and the public README are checked after publication.
+Published from the tested package contents as a directory with prepared README metadata. The npm page was checked directly; the registry root readme field can remain empty even when the page renders correctly. Runtime behavior is unchanged from 16.1.0. The engine remains 16.1.0. Registry archive integrity and the public README are checked after publication.
