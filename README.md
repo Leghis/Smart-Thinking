@@ -21,7 +21,7 @@ You need **Node.js 22.16 or newer** and Internet access. For an assistant that a
   "mcpServers": {
     "smart-thinking": {
       "command": "npx",
-      "args": ["-y", "smart-thinking-mcp@16.3.0"]
+      "args": ["-y", "smart-thinking-mcp@16.3.1"]
     }
   }
 }
@@ -32,7 +32,7 @@ Save the configuration and reload the MCP connection in your assistant. **VS Cod
 To diagnose a connection from your terminal:
 
 ```bash
-npx -y smart-thinking-mcp@16.3.0 --doctor --allow-network
+npx -y smart-thinking-mcp@16.3.1 --doctor --allow-network
 ```
 
 The diagnostic checks connectivity and tool discovery. Provider availability is reported separately.

@@ -1,5 +1,5 @@
 [mcp_servers.smart-thinking]
 command = "npx"
-args = ["-y", "smart-thinking-mcp@16.3.0"]
+args = ["-y", "smart-thinking-mcp@16.3.1"]
 startup_timeout_sec = 120
 tool_timeout_sec = 120

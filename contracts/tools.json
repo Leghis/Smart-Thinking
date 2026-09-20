@@ -1,5 +1,5 @@
 {
-  "version": "16.3.0",
+  "version": "16.3.1",
   "apiProfile": "smart-thinking-mcp/16.0",
   "count": 43,
   "fingerprint": "14f99665cfaf4f6aa1c67d1c7468e676373b096f13ed33b9b0c670aa2385366b",
@@ -3747,7 +3747,7 @@
     {
       "name": "web_search",
       "title": "Web search (Tavily)",
-      "description": "Search with configured Tavily; Jev is not itself a search engine. runId is optional: without it the server uses a principal-bound spot context (returned in the reply).",
+      "description": "Search Tavily with optional depth, domain and date filters. Domain restrictions are enforced on returned URLs. Jev is not itself a search engine. runId is optional: without it the server uses a principal-bound spot context (returned in the reply).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3770,6 +3770,77 @@
               "detailed"
             ],
             "description": "concise (default) projects large receipts for the model; detailed returns the raw unprojected payload."
+          },
+          "searchDepth": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "advanced"
+            ],
+            "description": "basic (default, one credit) or advanced (two credits)."
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Maximum search candidates, default 6."
+          },
+          "includeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Only these public domains and their subdomains. Bare hostnames, e.g. docs.tavily.com."
+          },
+          "excludeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Exclude these domains and their subdomains."
+          },
+          "preferredDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Prefer these domains when selecting pages; a preference is not evidence of truth."
+          },
+          "timeRange": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Provider freshness window. Cannot be combined with explicit dates."
+          },
+          "startDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Start date inclusive, YYYY-MM-DD; provider date filter."
+          },
+          "endDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "End date inclusive, YYYY-MM-DD; provider date filter."
           },
           "query": {
             "type": "string",
@@ -3941,7 +4012,7 @@
     {
       "name": "research",
       "title": "Research (multi-page, sourced)",
-      "description": "Search, prioritize candidate sources with Jev, fetch multiple pages (bounded by the operator policy). If prioritization abstains, fall back to web_search + fetch. runId is optional: without it the server uses a principal-bound spot context (returned in the reply). Usage counts every fetch attempt (succeeded/failed), real network dispatches and cache hits separately.",
+      "description": "Search Tavily with depth/domain/date filters, rank sources with Jev-specific relevance and first-party criteria, and fetch pages. On abstention, use preferredDomains and topical documentation hints; replace failed pages within the candidate and time limits. This selects evidence candidates, not verified facts. runId is optional: without it the server uses a principal-bound spot context (returned in the reply). Usage counts every fetch attempt (succeeded/failed), real network dispatches and cache hits separately.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3964,6 +4035,77 @@
               "detailed"
             ],
             "description": "concise (default) projects large receipts for the model; detailed returns the raw unprojected payload."
+          },
+          "searchDepth": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "advanced"
+            ],
+            "description": "basic (default, one credit) or advanced (two credits)."
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Maximum search candidates, default 6."
+          },
+          "includeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Only these public domains and their subdomains. Bare hostnames, e.g. docs.tavily.com."
+          },
+          "excludeDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Exclude these domains and their subdomains."
+          },
+          "preferredDomains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "maxItems": 10,
+            "minItems": 0,
+            "description": "Prefer these domains when selecting pages; a preference is not evidence of truth."
+          },
+          "timeRange": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Provider freshness window. Cannot be combined with explicit dates."
+          },
+          "startDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Start date inclusive, YYYY-MM-DD; provider date filter."
+          },
+          "endDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "End date inclusive, YYYY-MM-DD; provider date filter."
           },
           "query": {
             "type": "string",
@@ -4002,7 +4144,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 40,
-            "description": "ok | partial | no_results."
+            "description": "ok | partial | no_results | semantic_abstention | provider_unavailable."
           },
           "hits": {
             "type": "array",
@@ -4026,7 +4168,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 40,
-            "description": "semantic_ranking | provider_order_fallback."
+            "description": "semantic_ranking | semantic_with_fallback | source_heuristic_fallback."
           },
           "ranking": {
             "type": "array",

@@ -1,3 +1,8 @@
+## 16.3.1 — filtered search and source selection
+
+- Publish the updated 43-tool contract with Tavily domain/date/depth options and source-specific Jev ranking.
+- Refresh installation commands and shared metadata for core 16.3.1 and site 2.2.1.
+
 ## 16.3.0 — qualified semantic-review contract
 
 - Align the manifest and catalogue with engine 16.3.0 and website 2.2.0; the existing MCP interface and client behavior remain compatible.
